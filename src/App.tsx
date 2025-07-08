@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { MessageCircle } from 'lucide-react'
 import { Header } from './components/Header'
 import { Footer } from './components/Footer'
@@ -55,6 +55,18 @@ interface LiveRoom {
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+
+  // JWT 토큰에서 사용자 ID 추출하는 함수
+  const extractUserIdFromToken = (token: string): string | null => {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      return payload.userId || payload.sub || payload.id || null
+    } catch (error) {
+      console.error('JWT 토큰 파싱 오류:', error)
+      return null
+    }
+  } 
   const [currentPage, setCurrentPage] = useState('home')
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<number | null>(null)
   const [selectedContentDetail, setSelectedContentDetail] = useState<ContentItem | null>(null)
@@ -81,8 +93,45 @@ export default function App() {
   // Create Room Modal State
   const [showCreateRoomModal, setShowCreateRoomModal] = useState(false)
 
-  const handleLogin = () => {
+  // 초기 로드 시 로그인 상태 확인
+  useEffect(() => {
+    const accessToken = localStorage.getItem('accessToken')
+    if (accessToken) {
+      const userId = extractUserIdFromToken(accessToken)
+      if (userId) {
+        setUserId(userId)
+        setIsLoggedIn(true)
+      } else {
+        localStorage.removeItem('accessToken')
+      }
+    }
+  }, [])
+
+  const handleLogin = (accessToken: string, isTempPassword: boolean) => {
+    // 로그인 성공 시 accessToken 저장
+    localStorage.setItem('accessToken', accessToken)
+    
+    // JWT 토큰에서 사용자 ID 추출
+    const userId = extractUserIdFromToken(accessToken)
+    if (userId) {
+      setUserId(userId)
+    } else {
+      // 토큰 파싱 실패 시 기본값 설정
+      setUserId('1')
+    }
+    
     setIsLoggedIn(true)
+  }
+
+  const handleLogout = () => {
+    // 로컬 스토리지에서 토큰 제거
+    localStorage.removeItem('accessToken')
+    // 사용자 ID 초기화
+    setUserId(null)
+    // 로그인 상태 변경
+    setIsLoggedIn(false)
+    // 페이지를 홈으로 리셋
+    setCurrentPage('home')
   }
 
   const toggleAuthMode = () => {
@@ -417,6 +466,7 @@ export default function App() {
         onPageChange={handlePageChange}
         onProfileClick={handleProfileClick}
         onCloseDM={handleCloseDM}
+        onLogout={handleLogout} // 로그아웃 핸들러 전달
       />
       
       {/* Main content with click handler to close DM */}
@@ -429,6 +479,7 @@ export default function App() {
       <ProfileModal 
         isOpen={showProfileModal}
         onClose={handleCloseProfile}
+        userId={userId} // 사용자 ID 전달
       />
 
       <DMList 

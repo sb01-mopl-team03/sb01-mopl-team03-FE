@@ -8,6 +8,7 @@ interface HeaderProps {
   onPageChange: (page: string) => void
   onProfileClick: () => void
   onCloseDM?: () => void
+  onLogout: () => void  // 로그아웃 함수 추가
 }
 
 // ========== TEMPORARY MOCK DATA - START ==========
@@ -74,7 +75,7 @@ const mockUser = {
 }
 // ========== TEMPORARY MOCK DATA - END ==========
 
-export function Header({ currentPage, onPageChange, onProfileClick, onCloseDM }: HeaderProps) {
+export function Header({ currentPage, onPageChange, onProfileClick, onCloseDM, onLogout }: HeaderProps) {
   // ========== TEMPORARY STATE MANAGEMENT - START ==========
   const [notifications, setNotifications] = useState(mockNotifications)
   // ========== TEMPORARY STATE MANAGEMENT - END ==========
@@ -93,6 +94,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onCloseDM }:
   ]
 
   const unreadCount = notifications.filter(n => !n.isRead).length
+  
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -174,6 +176,34 @@ export function Header({ currentPage, onPageChange, onProfileClick, onCloseDM }:
     }
     setShowNotifications(!showNotifications)
     setShowProfile(false)
+  }
+
+  const handleLogout = async () => {
+    try {
+      // 로그아웃 API 호출
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}` 
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error('로그아웃에 실패했습니다.')
+      }
+
+      // 로그아웃 성공 시 드롭다운 닫기
+      setShowProfile(false)
+      
+      // 부모 컴포넌트에 로그아웃 이벤트 전달
+      onLogout()
+    } catch (error) {
+      console.error('로그아웃 오류:', error)
+      // API 호출 실패 시에도 로그아웃 처리
+      setShowProfile(false)
+      onLogout()
+    }
   }
 
   return (
@@ -353,10 +383,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onCloseDM }:
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    // Handle logout
-                    console.log('Logout clicked')
-                  }}
+                  onClick={handleLogout}  // 기존 콘솔 로그 대신 handleLogout 함수 연결
                   className="w-full justify-start space-x-2 p-3 hover:bg-white/10 text-red-400 hover:text-red-300"
                 >
                   <LogOut className="w-4 h-4" />
