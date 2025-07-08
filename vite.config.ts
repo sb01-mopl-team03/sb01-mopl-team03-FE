@@ -14,9 +14,8 @@ export default defineConfig({
       "@/styles": path.resolve(__dirname, "styles"),
     },
   },
-  // ========== SPRING BOOT PROXY DISABLED FOR FRONTEND-ONLY TESTING ==========
-  // Uncomment the server configuration below when you want to connect to Spring Boot backend
-  /*
+  
+  // 주석 해제: Spring Boot 백엔드 연결
   server: {
     proxy: {
       '/api': {
@@ -31,7 +30,7 @@ export default defineConfig({
       }
     }
   },
-  */
+  
   optimizeDeps: {
     include: ["react", "react-dom"],
   },

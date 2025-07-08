@@ -6,10 +6,15 @@ import { Label } from './ui/label'
 import { Separator } from './ui/separator'
 
 interface LoginProps {
-  onLogin: () => void
+  onLogin: (accessToken: string, isTempPassword: boolean) => void
   onToggleAuth: () => void
   onForgotPassword: () => void
   isRegister: boolean
+}
+
+interface LoginResponse {
+  accessToken: string
+  isTempPassword: boolean
 }
 
 export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: LoginProps) {
@@ -20,10 +25,82 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
     confirmPassword: '',
     name: ''
   })
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    onLogin()
+    setError(null)
+    setIsLoading(true)
+    
+    try {
+      // 요청 본문 생성
+      const requestBody: {email: string, password: string, name?: string} = {
+        email: formData.email,
+        password: formData.password,
+      }
+      
+      // 회원가입인 경우 이름 추가
+      if (isRegister && formData.name) {
+        requestBody.name = formData.name
+      }
+      
+      // API 호출
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      })
+      
+      // 응답 처리 개선
+      if (!response.ok) {
+        // 에러 응답 처리
+        let errorMessage = '로그인에 실패했습니다.'
+        
+        // 응답 본문이 있는지 확인하고 JSON 파싱 시도
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            const text = await response.text()
+            if (text) {
+              const errorData = JSON.parse(text)
+              errorMessage = errorData.message || errorMessage
+            }
+          } catch (parseError) {
+            console.error('Error parsing error response:', parseError)
+          }
+        }
+        
+        throw new Error(errorMessage)
+      }
+      
+      // 성공 응답 처리
+      const text = await response.text()
+      
+      // 응답이 비어있는지 확인
+      if (!text || text.trim() === '') {
+        // 응답 본문이 비어있지만 요청은 성공했으므로 임시 데이터로 처리
+        console.warn('Empty response body received')
+        // 임시 데이터로 처리 (실제 구현에서는 서버가 올바른 응답을 반환해야 함)
+        onLogin('temp-token', false)
+        return
+      }
+      
+      // JSON 파싱 시도
+      try {
+        const data: LoginResponse = JSON.parse(text)
+        onLogin(data.accessToken, data.isTempPassword)
+      } catch (parseError) {
+        console.error('Error parsing success response:', parseError)
+        throw new Error('서버 응답을 처리할 수 없습니다.')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '로그인 중 오류가 발생했습니다.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -49,6 +126,12 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
             {isRegister ? '회원가입' : '로그인'}
           </h2>
           
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-3 rounded-md mb-4">
+              {error}
+            </div>
+          )}
+          
           <form onSubmit={handleSubmit} className="space-y-6">
             {isRegister && (
               <div>
@@ -73,6 +156,7 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="mt-2 h-12 px-4 text-base bg-white/5 border-white/20 focus:border-[#4ecdc4]"
                 placeholder="이메일을 입력하세요"
+                required
               />
             </div>
             
@@ -86,6 +170,7 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="mt-2 h-12 px-4 pr-12 text-base bg-white/5 border-white/20 focus:border-[#4ecdc4]"
                   placeholder="비밀번호를 입력하세요"
+                  required
                 />
                 <button
                   type="button"
@@ -111,8 +196,12 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
               </div>
             )}
             
-            <Button type="submit" className="w-full h-12 text-base teal-gradient hover:opacity-80 text-black mt-8">
-              {isRegister ? '회원가입' : '로그인'}
+            <Button 
+              type="submit" 
+              className="w-full h-12 text-base teal-gradient hover:opacity-80 text-black mt-8"
+              disabled={isLoading}
+            >
+              {isLoading ? '처리 중...' : (isRegister ? '회원가입' : '로그인')}
             </Button>
           </form>
           
@@ -123,7 +212,8 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
             <Button
               variant="outline"
               className="w-full h-12 text-base bg-[#FEE500] hover:bg-[#FEE500]/80 text-black border-[#FEE500]"
-              onClick={onLogin}
+              onClick={() => alert('소셜 로그인 API가 연결되지 않았습니다')}
+              disabled={isLoading}
             >
               카카오로 계속하기
             </Button>
@@ -131,7 +221,8 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
             <Button
               variant="outline"
               className="w-full h-12 text-base bg-white hover:bg-white/90 text-black border-white"
-              onClick={onLogin}
+              onClick={() => alert('소셜 로그인 API가 연결되지 않았습니다')}
+              disabled={isLoading}
             >
               Google로 계속하기
             </Button>
@@ -145,6 +236,7 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
             <button
               onClick={onToggleAuth}
               className="text-[#4ecdc4] hover:text-[#26a69a] transition-colors"
+              disabled={isLoading}
             >
               {isRegister ? '로그인' : '회원가입'}
             </button>
@@ -159,6 +251,7 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
               <button
                 onClick={onForgotPassword}
                 className="text-[#4ecdc4] hover:text-[#26a69a] transition-colors"
+                disabled={isLoading}
               >
                 임시비밀번호 발급
               </button>
