@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Search, X, Play, Eye, Star, MessageSquare } from 'lucide-react'
+import { useState } from 'react'
+import { Search, Play, Star } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Input } from './ui/input'
 import { Button } from './ui/button'

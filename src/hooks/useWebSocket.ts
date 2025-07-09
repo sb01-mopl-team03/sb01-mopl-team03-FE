@@ -1,11 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 
 // STOMP over WebSocket types
-interface StompFrame {
-  command: string
-  headers: { [key: string]: string }
-  body: string
-}
 
 interface ChatMessage {
   id: number
@@ -50,12 +45,10 @@ export function useWebSocket({
   userAvatar,
   onMessage,
   onParticipantsUpdate,
-  onVideoSync,
   onViewerCountUpdate
 }: UseWebSocketProps) {
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [mockMessages, setMockMessages] = useState<ChatMessage[]>([])
   const intervalRef = useRef<NodeJS.Timeout>()
   const messageCounterRef = useRef(1000)
 

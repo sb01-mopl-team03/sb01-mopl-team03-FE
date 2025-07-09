@@ -1,4 +1,3 @@
-import React from 'react'
 import { Plus, TrendingUp, Clock, Star, ChevronRight } from 'lucide-react'
 import { Button } from './ui/button'
 import { ContentCard } from './ContentCard'
@@ -25,7 +24,7 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
       rating: 8.7,
       genre: '스릴러',
       duration: '시즌 1',
-      type: 'series' as const,
+      type: 'drama' as const,
       imageUrl: 'https://images.unsplash.com/photo-1594909122845-11baa439b7bf?w=400&h=225&fit=crop'
     },
     {
@@ -153,8 +152,14 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
             {featuredContent.map((content, index) => (
               <ContentCard 
                 key={index} 
-                thumbnail={content.imageUrl} 
-                {...content} 
+                title={content.title}
+                thumbnail={content.imageUrl}
+                rating={content.rating}
+                genre={[content.genre]}
+                duration={content.duration}
+                type={content.type}
+                viewers={content.viewers}
+                isLive={content.isLive}
                 onClick={() => onContentPlay && onContentPlay({
                   id: index + 1,
                   title: content.title,

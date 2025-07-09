@@ -28,76 +28,141 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
+  // 카카오 OAuth 로그인
+  const handleKakaoLogin = () => {
+    // 백엔드에서 소셜 로그인 성공 후, 프론트엔드의 /oauth/callback 으로 access_token을 쿼리로 리다이렉트해야 함
+    window.location.href = '/api/oauth2/login/kakao'
+  }
+
+  // 구글 OAuth 로그인
+  const handleGoogleLogin = () => {
+    // 백엔드에서 소셜 로그인 성공 후, 프론트엔드의 /oauth/callback 으로 access_token을 쿼리로 리다이렉트해야 함
+    window.location.href = '/api/oauth2/login/google'
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setIsLoading(true)
     
     try {
-      // 요청 본문 생성
-      const requestBody: {email: string, password: string, name?: string} = {
-        email: formData.email,
-        password: formData.password,
-      }
-      
-      // 회원가입인 경우 이름 추가
-      if (isRegister && formData.name) {
-        requestBody.name = formData.name
-      }
-      
-      // API 호출
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      })
-      
-      // 응답 처리 개선
-      if (!response.ok) {
-        // 에러 응답 처리
-        let errorMessage = '로그인에 실패했습니다.'
-        
-        // 응답 본문이 있는지 확인하고 JSON 파싱 시도
-        const contentType = response.headers.get('content-type')
-        if (contentType && contentType.includes('application/json')) {
-          try {
-            const text = await response.text()
-            if (text) {
-              const errorData = JSON.parse(text)
-              errorMessage = errorData.message || errorMessage
-            }
-          } catch (parseError) {
-            console.error('Error parsing error response:', parseError)
-          }
+      if (isRegister) {
+        // 회원가입 폼 검증
+        if (!formData.name.trim()) {
+          setError('이름을 입력해주세요.')
+          return
         }
         
-        throw new Error(errorMessage)
-      }
-      
-      // 성공 응답 처리
-      const text = await response.text()
-      
-      // 응답이 비어있는지 확인
-      if (!text || text.trim() === '') {
-        // 응답 본문이 비어있지만 요청은 성공했으므로 임시 데이터로 처리
-        console.warn('Empty response body received')
-        // 임시 데이터로 처리 (실제 구현에서는 서버가 올바른 응답을 반환해야 함)
-        onLogin('temp-token', false)
-        return
-      }
-      
-      // JSON 파싱 시도
-      try {
-        const data: LoginResponse = JSON.parse(text)
-        onLogin(data.accessToken, data.isTempPassword)
-      } catch (parseError) {
-        console.error('Error parsing success response:', parseError)
-        throw new Error('서버 응답을 처리할 수 없습니다.')
+        if (formData.name.length < 3 || formData.name.length > 50) {
+          setError('이름은 3자 이상 50자 이하로 입력해주세요.')
+          return
+        }
+        
+        if (!formData.email.trim()) {
+          setError('이메일을 입력해주세요.')
+          return
+        }
+        
+        if (!formData.password.trim()) {
+          setError('비밀번호를 입력해주세요.')
+          return
+        }
+        
+        if (formData.password !== formData.confirmPassword) {
+          setError('비밀번호가 일치하지 않습니다.')
+          return
+        }
+        
+        // 회원가입 API 호출
+        const requestBody = {
+          email: formData.email,
+          name: formData.name,
+          password: formData.password,
+          profileImage: '' // 기본값으로 빈 문자열 설정
+        }
+        
+        const response = await fetch('/api/users', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        })
+        
+        if (!response.ok) {
+          let errorMessage = '회원가입에 실패했습니다.'
+          
+          const contentType = response.headers.get('content-type')
+          if (contentType && contentType.includes('application/json')) {
+            try {
+              const text = await response.text()
+              if (text) {
+                const errorData = JSON.parse(text)
+                errorMessage = errorData.message || errorMessage
+              }
+            } catch (parseError) {
+              console.error('Error parsing error response:', parseError)
+            }
+          }
+          
+          throw new Error(errorMessage)
+        }
+        
+        // 회원가입 성공 시 로그인 화면으로 전환
+        alert('회원가입이 완료되었습니다. 로그인해주세요.')
+        onToggleAuth()
+      } else {
+        // 로그인 API 호출
+        const requestBody = {
+          email: formData.email,
+          password: formData.password,
+        }
+        
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        })
+        
+        if (!response.ok) {
+          let errorMessage = '로그인에 실패했습니다.'
+          
+          const contentType = response.headers.get('content-type')
+          if (contentType && contentType.includes('application/json')) {
+            try {
+              const text = await response.text()
+              if (text) {
+                const errorData = JSON.parse(text)
+                errorMessage = errorData.message || errorMessage
+              }
+            } catch (parseError) {
+              console.error('Error parsing error response:', parseError)
+            }
+          }
+          
+          throw new Error(errorMessage)
+        }
+        
+        const text = await response.text()
+        
+        if (!text || text.trim() === '') {
+          console.warn('Empty response body received')
+          onLogin('temp-token', false)
+          return
+        }
+        
+        try {
+          const data: LoginResponse = JSON.parse(text)
+          onLogin(data.accessToken, data.isTempPassword)
+        } catch (parseError) {
+          console.error('Error parsing success response:', parseError)
+          throw new Error('서버 응답을 처리할 수 없습니다.')
+        }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '로그인 중 오류가 발생했습니다.')
+      setError(err instanceof Error ? err.message : '처리 중 오류가 발생했습니다.')
     } finally {
       setIsLoading(false)
     }
@@ -142,7 +207,8 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="mt-2 h-12 px-4 text-base bg-white/5 border-white/20 focus:border-[#4ecdc4]"
-                  placeholder="이름을 입력하세요"
+                  placeholder="이름을 입력하세요 (3-50자)"
+                  required
                 />
               </div>
             )}
@@ -192,6 +258,7 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                   className="mt-2 h-12 px-4 text-base bg-white/5 border-white/20 focus:border-[#4ecdc4]"
                   placeholder="비밀번호를 다시 입력하세요"
+                  required
                 />
               </div>
             )}
@@ -212,19 +279,19 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
             <Button
               variant="outline"
               className="w-full h-12 text-base bg-[#FEE500] hover:bg-[#FEE500]/80 text-black border-[#FEE500]"
-              onClick={() => alert('소셜 로그인 API가 연결되지 않았습니다')}
+              onClick={handleKakaoLogin}
               disabled={isLoading}
             >
-              카카오로 계속하기
+              카카오로 {isRegister ? '가입하기' : '로그인'}
             </Button>
             
             <Button
               variant="outline"
               className="w-full h-12 text-base bg-white hover:bg-white/90 text-black border-white"
-              onClick={() => alert('소셜 로그인 API가 연결되지 않았습니다')}
+              onClick={handleGoogleLogin}
               disabled={isLoading}
             >
-              Google로 계속하기
+              Google로 {isRegister ? '가입하기' : '로그인'}
             </Button>
           </div>
           

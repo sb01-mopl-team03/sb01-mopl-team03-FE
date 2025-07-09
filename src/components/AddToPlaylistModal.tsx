@@ -1,18 +1,17 @@
-import React, { useState } from 'react'
-import { X, Plus, Search, Check, Lock, Globe } from 'lucide-react'
+import { useState } from 'react'
+import { Plus, Search, Check, Lock, Globe } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
-import { Badge } from './ui/badge'
 
 interface ContentItem {
   id: number
   title: string
   thumbnail: string
   type: 'movie' | 'drama' | 'sports'
-  year: number
-  rating: number
+  year?: number
+  rating?: number
 }
 
 interface Playlist {

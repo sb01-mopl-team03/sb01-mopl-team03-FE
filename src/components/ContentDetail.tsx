@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { ArrowLeft, Play, Star, Send, ThumbsUp, ThumbsDown } from 'lucide-react'
 import { Button } from './ui/button'
 import { Textarea } from './ui/textarea'
