@@ -2,6 +2,12 @@
 
 React + TypeScript + Vite로 개발된 스트리밍 플랫폼 프론트엔드입니다.
 
+실행 방법은 3가지 입니다.
+1. 일반 실행
+2. Docker - 간단한 방법(권장)
+3. Docker - nignx
+
+
 ## 일반 실행 방법
 
 ### `npm run dev`
