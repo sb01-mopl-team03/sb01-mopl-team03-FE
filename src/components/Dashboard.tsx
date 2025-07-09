@@ -5,78 +5,16 @@ import { LiveRoomCard } from './LiveRoomCard'
 
 interface DashboardProps {
   onPageChange?: (page: string) => void
-  onPlaylistOpen?: (playlistId: number) => void
-  onContentPlay?: (content: { id: number; title: string; thumbnail: string; type: 'movie' | 'drama' | 'sports'; duration: string; description: string }) => void
+  onPlaylistOpen?: (playlistId: string) => void
+  onContentPlay?: (content: { id: string; title: string; thumbnail: string; type: 'movie' | 'tv' | 'sports'; duration: string; description: string }) => void
 }
 
 export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: DashboardProps) {
-  const featuredContent = [
-    {
-      title: '듄: 파트 투',
-      rating: 8.9,
-      genre: 'SF',
-      duration: '2시간 46분',
-      type: 'movie' as const,
-      imageUrl: 'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=400&h=225&fit=crop'
-    },
-    {
-      title: '오징어 게임',
-      rating: 8.7,
-      genre: '스릴러',
-      duration: '시즌 1',
-      type: 'drama' as const,
-      imageUrl: 'https://images.unsplash.com/photo-1594909122845-11baa439b7bf?w=400&h=225&fit=crop'
-    },
-    {
-      title: 'EPL 베스트 골',
-      rating: 9.2,
-      genre: '축구',
-      viewers: 1543,
-      type: 'sports' as const,
-      imageUrl: 'https://broken-url-to-test-fallback.jpg', // This will trigger the fallback
-      isLive: true
-    }
-  ]
+  const featuredContent: any[] = []
 
-  const liveRooms = [
-    {
-      roomName: '금요일 밤 영화관',
-      contentTitle: '탑건: 매버릭',
-      hostName: '김모플',
-      hostAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face',
-      viewers: 89,
-      messages: 234,
-      thumbnail: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=225&fit=crop',
-      category: '액션'
-    },
-    {
-      roomName: '드라마 마라톤',
-      contentTitle: '사랑의 불시착',
-      hostName: '이모플',
-      hostAvatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b3be?w=100&h=100&fit=crop&crop=face',
-      viewers: 127,
-      messages: 456,
-      thumbnail: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&h=225&fit=crop',
-      category: '로맨스'
-    },
-    {
-      roomName: '축구 하이라이트',
-      contentTitle: '월드컵 2026 예선',
-      hostName: '박모플',
-      hostAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
-      viewers: 342,
-      messages: 789,
-      thumbnail: 'https://another-broken-url.jpg', // This will also trigger the fallback
-      category: '스포츠'
-    }
-  ]
+  const liveRooms: any[] = []
 
-  const myPlaylists = [
-    { id: 1, name: '좋아하는 액션 영화', count: 12, color: 'from-red-500 to-orange-500' },
-    { id: 2, name: '한국 드라마 모음', count: 8, color: 'from-purple-500 to-pink-500' },
-    { id: 3, name: '스포츠 하이라이트', count: 15, color: 'from-blue-500 to-cyan-500' },
-    { id: 4, name: '가족과 함께', count: 6, color: 'from-green-500 to-teal-500' }
-  ]
+  const myPlaylists: any[] = []
 
   const handlePlaylistNavigation = () => {
     if (onPageChange) {
@@ -84,7 +22,7 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
     }
   }
 
-  const handlePlaylistClick = (playlistId: number) => {
+  const handlePlaylistClick = (playlistId: string) => {
     if (onPlaylistOpen) {
       onPlaylistOpen(playlistId)
     }
@@ -101,7 +39,7 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
             <span className="text-white">실시간으로 즐기세요</span>
           </h1>
           <p className="text-xl text-white/80 mb-8 max-w-2xl mx-auto">
-            영화, 드라마, 스포츠를 친구들과 실시간으로 시청하며 채팅으로 소통하세요
+            영화, TV/드라마, 스포츠를 친구들과 실시간으로 시청하며 채팅으로 소통하세요
           </p>
           <Button 
             size="lg" 
@@ -161,7 +99,7 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
                 viewers={content.viewers}
                 isLive={content.isLive}
                 onClick={() => onContentPlay && onContentPlay({
-                  id: index + 1,
+                  id: `dashboard-${index + 1}`,
                   title: content.title,
                   thumbnail: content.imageUrl,
                   type: content.type,

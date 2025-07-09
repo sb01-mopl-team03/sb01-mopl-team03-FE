@@ -7,7 +7,7 @@ import { OverlappingThumbnails } from './OverlappingThumbnails'
 import { PlaylistCreationModal } from './PlaylistCreationModal'
 
 interface PlaylistItem {
-  id: number
+  id: string
   title: string
   description: string
   thumbnail: string | null
@@ -16,88 +16,25 @@ interface PlaylistItem {
   createdAt: string
   isPublic: boolean
   contents: Array<{
-    id: number
+    id: string
     title: string
     thumbnail: string
-    type: 'movie' | 'drama' | 'sports'
+    type: 'movie' | 'tv' | 'sports'
   }>
 }
 
 interface PlaylistProps {
-  onPlaylistOpen?: (playlistId: number) => void
+  onPlaylistOpen?: (playlistId: string) => void
 }
 
-// ========== TEMPORARY MOCK DATA - START ==========
-const mockPlaylists: PlaylistItem[] = [
-  {
-    id: 1,
-    title: '최고의 액션 영화 모음',
-    description: '스릴 넘치는 액션 영화들을 모아봤어요',
-    thumbnail: 'https://images.unsplash.com/photo-1489599856621-6c0e9b89c2e4?w=400',
-    contentCount: 8,
-    totalDuration: '18시간 32분',
-    createdAt: '2024-01-15',
-    isPublic: true,
-    contents: [
-      { id: 1, title: '듄: 파트 투', thumbnail: 'https://images.unsplash.com/photo-1489599856621-6c0e9b89c2e4?w=200', type: 'movie' },
-      { id: 2, title: '탑건: 매버릭', thumbnail: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=200', type: 'movie' },
-      { id: 3, title: '어벤져스: 엔드게임', thumbnail: 'https://images.unsplash.com/photo-1509347528160-9a9e33742cdb?w=200', type: 'movie' },
-      { id: 4, title: '존 윅 4', thumbnail: 'https://images.unsplash.com/photo-1518676590629-3dcbd9c5a5c9?w=200', type: 'movie' }
-    ]
-  },
-  {
-    id: 2,
-    title: 'K-드라마 명작선',
-    description: '한국 드라마의 진수를 느껴보세요',
-    thumbnail: 'https://images.unsplash.com/photo-1605728515502-13b52fd77e03?w=400',
-    contentCount: 12,
-    totalDuration: '142시간 18분',
-    createdAt: '2024-01-20',
-    isPublic: false,
-    contents: [
-      { id: 5, title: '오징어 게임', thumbnail: 'https://images.unsplash.com/photo-1605728515502-13b52fd77e03?w=200', type: 'drama' },
-      { id: 6, title: '사랑의 불시착', thumbnail: 'https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=200', type: 'drama' },
-      { id: 7, title: '킹덤', thumbnail: 'https://images.unsplash.com/photo-1551268281-86aa4aba8edd?w=200', type: 'drama' },
-      { id: 8, title: '스카이캐슬', thumbnail: 'https://images.unsplash.com/photo-1595854341625-f33ee10dbf94?w=200', type: 'drama' }
-    ]
-  },
-  {
-    id: 3,
-    title: '스포츠 하이라이트',
-    description: '잊을 수 없는 스포츠 명장면들',
-    thumbnail: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=400',
-    contentCount: 6,
-    totalDuration: '8시간 45분',
-    createdAt: '2024-01-25',
-    isPublic: true,
-    contents: [
-      { id: 9, title: '2022 월드컵 결승', thumbnail: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=200', type: 'sports' },
-      { id: 10, title: 'NBA 파이널 2023', thumbnail: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=200', type: 'sports' },
-      { id: 11, title: '올림픽 하이라이트', thumbnail: 'https://images.unsplash.com/photo-1461896788775-0c422d9d5751?w=200', type: 'sports' }
-    ]
-  },
-  {
-    id: 4,
-    title: '가족과 함께 보기 좋은',
-    description: '온 가족이 함께 즐길 수 있는 컨텐츠',
-    thumbnail: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400',
-    contentCount: 15,
-    totalDuration: '28시간 12분',
-    createdAt: '2024-02-01',
-    isPublic: true,
-    contents: [
-      { id: 12, title: '토이 스토리', thumbnail: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=200', type: 'movie' },
-      { id: 13, title: '미니언즈', thumbnail: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=200', type: 'movie' },
-      { id: 14, title: '겨울왕국', thumbnail: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=200', type: 'movie' },
-      { id: 15, title: '라이온 킹', thumbnail: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=200', type: 'movie' }
-    ]
-  }
-]
-// ========== TEMPORARY MOCK DATA - END ==========
+// ========== API INTEGRATION POINT - START ==========
+// TODO: Replace with actual API call to fetch user playlists
+// Example: const fetchUserPlaylists = async () => { ... }
+// ========== API INTEGRATION POINT - END ==========
 
 export function Playlist({ onPlaylistOpen }: PlaylistProps) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [playlists, setPlaylists] = useState(mockPlaylists)
+  const [playlists, setPlaylists] = useState<PlaylistItem[]>([])
   const [showCreationModal, setShowCreationModal] = useState(false)
 
   const filteredPlaylists = playlists.filter(playlist =>
@@ -105,7 +42,7 @@ export function Playlist({ onPlaylistOpen }: PlaylistProps) {
     playlist.description.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const handlePlayPlaylist = (playlistId: number) => {
+  const handlePlayPlaylist = (playlistId: string) => {
     // ========== API INTEGRATION POINT - START ==========
     // TODO: Replace with actual API call to start playlist
     // Example: await startPlaylist(playlistId)
@@ -117,7 +54,7 @@ export function Playlist({ onPlaylistOpen }: PlaylistProps) {
     setShowCreationModal(true)
   }
 
-  const handlePlaylistClick = (playlistId: number) => {
+  const handlePlaylistClick = (playlistId: string) => {
     if (onPlaylistOpen) {
       onPlaylistOpen(playlistId)
     }
@@ -132,7 +69,7 @@ export function Playlist({ onPlaylistOpen }: PlaylistProps) {
     // ========== TEMPORARY PLAYLIST CREATION - START ==========
     // In a real app, this would be handled by the API
     const newPlaylist: PlaylistItem = {
-      id: playlists.length + 1,
+      id: `playlist-${playlists.length + 1}`,
       title: playlistData.title,
       description: playlistData.description,
       thumbnail: playlistData.coverImage,

@@ -1,36 +1,32 @@
-import { useState } from 'react'
-import { ArrowLeft, Play, Star, Send, ThumbsUp, ThumbsDown } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ArrowLeft, Play, Star, Send, Edit2, Trash2 } from 'lucide-react'
 import { Button } from './ui/button'
 import { Textarea } from './ui/textarea'
 import { Badge } from './ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
+import { ReviewDto, ReviewCreateRequest, ReviewUpdateRequest } from '../types/content'
+
+interface ContentItem {
+  id: string
+  title: string
+  thumbnail: string
+  type: 'movie' | 'tv' | 'sports'
+  duration: string
+  description: string
+  year?: number
+  rating?: number
+}
+import { reviewService } from '../services/reviewService'
 
 interface ContentDetailProps {
   content: ContentItem
   onBack: () => void
   onPlay: (content: ContentItem) => void
-}
-
-interface ContentItem {
-  id: number
-  title: string
-  thumbnail: string
-  type: 'movie' | 'drama' | 'sports'
-  duration: string
-  description: string
-}
-
-interface Review {
-  id: number
-  user: {
+  currentUser?: {
+    id: string
     name: string
-    avatar: string
+    avatar?: string
   }
-  rating: number
-  content: string
-  createdAt: string
-  likes: number
-  dislikes: number
 }
 
 const StarRating = ({ 
@@ -71,78 +67,182 @@ const StarRating = ({
   )
 }
 
-// Mock reviews data
-const mockReviews: Review[] = [
-  {
-    id: 1,
-    user: {
-      name: '김영화',
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face'
-    },
-    rating: 5,
-    content: '정말 훌륭한 작품이었습니다. 스토리텔링이 완벽하고 연기도 최고였어요. 강력 추천합니다!',
-    createdAt: '2024-06-29',
-    likes: 24,
-    dislikes: 2
-  },
-  {
-    id: 2,
-    user: {
-      name: '박드라마',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face'
-    },
-    rating: 4,
-    content: '전체적으로 만족스러운 작품입니다. 다만 중간에 조금 지루한 구간이 있었어요.',
-    createdAt: '2024-06-28',
-    likes: 18,
-    dislikes: 5
-  },
-  {
-    id: 3,
-    user: {
-      name: '이스포츠',
-      avatar: 'https://images.unsplash.com/photo-1494790108755-2616c6288a59?w=100&h=100&fit=crop&crop=face'
-    },
-    rating: 5,
-    content: '완전 대박! 감동적이고 재미있고 모든 게 완벽해요. 다시 보고 싶어요.',
-    createdAt: '2024-06-27',
-    likes: 32,
-    dislikes: 1
-  }
-]
 
-export function ContentDetail({ content, onBack, onPlay }: ContentDetailProps) {
+// 썸네일 URL 생성 함수
+const generateThumbnailUrl = (contentType: string): string => {
+  const baseUrl = 'https://images.unsplash.com/photo-'
+  switch (contentType) {
+    case 'movie':
+      return `${baseUrl}1489599538883-17dd35352ad5?w=600&h=800&fit=crop&crop=face&auto=format&q=80`
+    case 'tv':
+      return `${baseUrl}1536440136628-849c177e76a1?w=600&h=800&fit=crop&crop=face&auto=format&q=80`
+    case 'sports':
+      return `${baseUrl}1578662996442-48f60103fc96?w=600&h=800&fit=crop&crop=face&auto=format&q=80`
+    default:
+      return `${baseUrl}1489599538883-17dd35352ad5?w=600&h=800&fit=crop&crop=face&auto=format&q=80`
+  }
+}
+
+export function ContentDetail({ content, onBack, onPlay, currentUser }: ContentDetailProps) {
   const [reviewText, setReviewText] = useState('')
   const [reviewRating, setReviewRating] = useState(0)
-  const [reviews, setReviews] = useState<Review[]>(mockReviews)
+  const [reviews, setReviews] = useState<ReviewDto[]>([])
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false)
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false)
+  
+  // 리뷰 수정 관련 state
+  const [editingReview, setEditingReview] = useState<ReviewDto | null>(null)
+  const [editText, setEditText] = useState('')
+  const [editRating, setEditRating] = useState(0)
+  const [isUpdatingReview, setIsUpdatingReview] = useState(false)
+  const [isDeletingReview, setIsDeletingReview] = useState<string | null>(null)
 
-  const averageRating = reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
-
-  const handleSubmitReview = () => {
-    if (reviewText.trim() && reviewRating > 0) {
-      const newReview: Review = {
-        id: reviews.length + 1,
+  // 리뷰 목록 불러오기
+  const loadReviews = async () => {
+    setIsLoadingReviews(true)
+    try {
+      // ========== API INTEGRATION POINT - START ==========
+      // 실제 API 호출로 콘텐츠의 리뷰 목록을 가져옴
+      const reviewsData = await reviewService.getReviewsByContentId(content.id)
+      
+      // API 응답을 ReviewDto 형태로 변환 (사용자 정보 유지)
+      const reviewsWithUserInfo: ReviewDto[] = reviewsData.map((review) => ({
+        ...review,
+        contentId: content.id,
+        createdAt: new Date().toISOString(),
         user: {
-          name: '현재 사용자',
-          avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face'
-        },
-        rating: reviewRating,
-        content: reviewText.trim(),
-        createdAt: new Date().toISOString().split('T')[0],
-        likes: 0,
-        dislikes: 0
+          id: review.authorId,
+          name: review.authorName,
+          avatar: review.authorId === currentUser?.id ? currentUser.avatar : undefined
+        }
+      }))
+      
+      setReviews(reviewsWithUserInfo)
+      // ========== API INTEGRATION POINT - END ==========
+    } catch (error) {
+      console.error('리뷰 불러오기 실패:', error)
+    } finally {
+      setIsLoadingReviews(false)
+    }
+  }
+
+  const averageRating = reviews.length > 0 ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : 0
+
+  const handleSubmitReview = async () => {
+    if (!reviewText.trim() || reviewRating === 0 || !currentUser) return
+    
+    setIsSubmittingReview(true)
+    try {
+      // ========== API INTEGRATION POINT - START ==========
+      // 실제 API 호출로 리뷰 생성
+      const reviewData: ReviewCreateRequest = {
+        userId: currentUser.id,
+        contentId: content.id,
+        title: reviewText.trim().substring(0, 100), // 제목은 리뷰 내용의 일부로 설정
+        comment: reviewText.trim(),
+        rating: reviewRating
+      }
+      
+      const newReviewResponse = await reviewService.createReview(reviewData)
+      
+      // 새로운 리뷰를 목록에 추가
+      const newReview: ReviewDto = {
+        ...newReviewResponse,
+        contentId: content.id,
+        createdAt: new Date().toISOString(),
+        user: {
+          id: currentUser.id,
+          name: currentUser.name,
+          avatar: currentUser.avatar
+        }
       }
       
       setReviews([newReview, ...reviews])
       setReviewText('')
       setReviewRating(0)
+      // ========== API INTEGRATION POINT - END ==========
+    } catch (error) {
+      console.error('리뷰 작성 실패:', error)
+    } finally {
+      setIsSubmittingReview(false)
     }
   }
+
+  // 리뷰 수정 시작
+  const startEditReview = (review: ReviewDto) => {
+    setEditingReview(review)
+    setEditText(review.comment)
+    setEditRating(review.rating)
+  }
+
+  // 리뷰 수정 취소
+  const cancelEditReview = () => {
+    setEditingReview(null)
+    setEditText('')
+    setEditRating(0)
+  }
+
+  // 리뷰 수정 완료
+  const handleUpdateReview = async () => {
+    if (!editingReview || !editText.trim() || editRating === 0) return
+    
+    setIsUpdatingReview(true)
+    try {
+      // ========== API INTEGRATION POINT - START ==========
+      // 실제 API 호출로 리뷰 수정
+      const updateData: ReviewUpdateRequest = {
+        title: editText.trim().substring(0, 100),
+        comment: editText.trim(),
+        rating: editRating
+      }
+      
+      const updatedReviewResponse = await reviewService.updateReview(editingReview.id, updateData)
+      
+      // 수정된 리뷰를 목록에서 업데이트
+      setReviews(reviews.map(review => 
+        review.id === editingReview.id 
+          ? { ...review, ...updatedReviewResponse }
+          : review
+      ))
+      
+      cancelEditReview()
+      // ========== API INTEGRATION POINT - END ==========
+    } catch (error) {
+      console.error('리뷰 수정 실패:', error)
+    } finally {
+      setIsUpdatingReview(false)
+    }
+  }
+
+  // 리뷰 삭제
+  const handleDeleteReview = async (reviewId: string) => {
+    setIsDeletingReview(reviewId)
+    try {
+      // ========== API INTEGRATION POINT - START ==========
+      // 실제 API 호출로 리뷰 삭제
+      await reviewService.deleteReview(reviewId)
+      
+      // 삭제된 리뷰를 목록에서 제거
+      setReviews(reviews.filter(review => review.id !== reviewId))
+      // ========== API INTEGRATION POINT - END ==========
+    } catch (error) {
+      console.error('리뷰 삭제 실패:', error)
+    } finally {
+      setIsDeletingReview(null)
+    }
+  }
+
+  // 컴포넌트 마운트 시 리뷰 불러오기
+  useEffect(() => {
+    if (content.id) {
+      loadReviews()
+    }
+  }, [content.id])
 
   const getTypeLabel = (type: string) => {
     switch (type) {
       case 'movie': return '영화'
-      case 'drama': return '드라마'
+      case 'tv': return '드라마'
       case 'sports': return '스포츠'
       default: return '콘텐츠'
     }
@@ -171,12 +271,12 @@ export function ContentDetail({ content, onBack, onPlay }: ContentDetailProps) {
           <div className="lg:col-span-1">
             <div className="aspect-[3/4] rounded-lg overflow-hidden bg-card border border-white/10">
               <img
-                src={content.thumbnail}
+                src={content.thumbnail || generateThumbnailUrl(content.type)}
                 alt={content.title}
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement
-                  target.src = `https://images.unsplash.com/photo-1489599538883-17dd35352ad5?w=600&h=800&fit=crop&crop=face&auto=format&q=80`
+                  target.src = generateThumbnailUrl(content.type)
                 }}
               />
             </div>
@@ -189,7 +289,7 @@ export function ContentDetail({ content, onBack, onPlay }: ContentDetailProps) {
                 <Badge variant="outline" className="border-[#4ecdc4]/30 text-[#4ecdc4]">
                   {getTypeLabel(content.type)}
                 </Badge>
-                <span className="text-white/60">{content.duration}</span>
+                <span className="text-white/60">{content.duration || '정보 없음'}</span>
               </div>
               
               <h1 className="text-4xl mb-4">{content.title}</h1>
@@ -227,8 +327,9 @@ export function ContentDetail({ content, onBack, onPlay }: ContentDetailProps) {
           <h2 className="text-2xl">리뷰 ({reviews.length})</h2>
 
           {/* Write Review Form */}
-          <div className="bg-card rounded-lg p-6 border border-white/10">
-            <h3 className="text-lg mb-4">리뷰 작성</h3>
+          {currentUser && (
+            <div className="bg-card rounded-lg p-6 border border-white/10">
+              <h3 className="text-lg mb-4">리뷰 작성</h3>
             
             <div className="space-y-4">
               {/* Rating Input */}
@@ -256,60 +357,131 @@ export function ContentDetail({ content, onBack, onPlay }: ContentDetailProps) {
               {/* Submit Button */}
               <Button
                 onClick={handleSubmitReview}
-                disabled={!reviewText.trim() || reviewRating === 0}
+                disabled={!reviewText.trim() || reviewRating === 0 || isSubmittingReview || !currentUser}
                 className="teal-gradient hover:opacity-80 text-black"
               >
                 <Send className="w-4 h-4 mr-2" />
-                리뷰 등록
+                {isSubmittingReview ? '등록 중...' : '리뷰 등록'}
               </Button>
             </div>
           </div>
+          )}
 
           {/* Reviews List */}
           <div className="space-y-4">
-            {reviews.map((review) => (
-              <div key={review.id} className="bg-card rounded-lg p-6 border border-white/10">
-                <div className="flex items-start gap-4">
-                  <Avatar>
-                    <AvatarImage src={review.user.avatar} />
-                    <AvatarFallback>{review.user.name[0]}</AvatarFallback>
-                  </Avatar>
-                  
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="font-medium">{review.user.name}</span>
-                      <StarRating rating={review.rating} size="sm" />
-                      <span className="text-white/60 text-sm">{review.createdAt}</span>
-                    </div>
-                    
-                    <p className="text-white/80 mb-4 leading-relaxed">{review.content}</p>
-                    
-                    <div className="flex items-center gap-4">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-white/60 hover:text-white hover:bg-white/5"
-                      >
-                        <ThumbsUp className="w-4 h-4 mr-1" />
-                        {review.likes}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-white/60 hover:text-white hover:bg-white/5"
-                      >
-                        <ThumbsDown className="w-4 h-4 mr-1" />
-                        {review.dislikes}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+            {isLoadingReviews ? (
+              <div className="text-center py-8">
+                <div className="text-white/60">리뷰를 불러오는 중...</div>
               </div>
-            ))}
+            ) : (
+              reviews.map((review) => (
+                <div key={review.id} className="bg-card rounded-lg p-6 border border-white/10">
+                  {editingReview?.id === review.id ? (
+                    // 수정 모드
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 mb-4">
+                        <Avatar>
+                          <AvatarImage src={review.user?.avatar} />
+                          <AvatarFallback>{review.authorName?.[0] || 'U'}</AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium">{review.authorName || '익명 사용자'}</span>
+                        <span className="text-white/60 text-sm">리뷰 수정 중</span>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm mb-2">평점</label>
+                        <StarRating 
+                          rating={editRating} 
+                          editable 
+                          size="lg"
+                          onChange={setEditRating}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm mb-2">리뷰 내용</label>
+                        <Textarea
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          placeholder="리뷰를 수정해주세요..."
+                          className="min-h-24 bg-white/5 border-white/20 focus:border-[#4ecdc4] resize-none"
+                        />
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <Button
+                          onClick={handleUpdateReview}
+                          disabled={!editText.trim() || editRating === 0 || isUpdatingReview}
+                          className="teal-gradient hover:opacity-80 text-black"
+                          size="sm"
+                        >
+                          {isUpdatingReview ? '수정 중...' : '수정 완료'}
+                        </Button>
+                        <Button
+                          onClick={cancelEditReview}
+                          variant="ghost"
+                          size="sm"
+                          className="text-white/60 hover:text-white hover:bg-white/5"
+                        >
+                          취소
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    // 일반 모드
+                    <div className="flex items-start gap-4">
+                      <Avatar>
+                        <AvatarImage src={review.user?.avatar} />
+                        <AvatarFallback>{review.authorName?.[0] || 'U'}</AvatarFallback>
+                      </Avatar>
+                      
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="font-medium">{review.authorName || '익명 사용자'}</span>
+                          <StarRating rating={review.rating} size="sm" />
+                          <span className="text-white/60 text-sm">
+                            {review.createdAt ? new Date(review.createdAt).toLocaleDateString() : '방금 전'}
+                          </span>
+                        </div>
+                        
+                        <p className="text-white/80 mb-4 leading-relaxed">{review.comment}</p>
+                        
+                        <div className="flex items-center justify-end gap-2">
+                          {/* 자신의 리뷰에만 수정/삭제 버튼 표시 */}
+                          {currentUser && review.authorId === currentUser.id && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => startEditReview(review)}
+                                className="text-white/60 hover:text-white hover:bg-white/5"
+                              >
+                                <Edit2 className="w-4 h-4 mr-1" />
+                                수정
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteReview(review.id)}
+                                disabled={isDeletingReview === review.id}
+                                className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                              >
+                                <Trash2 className="w-4 h-4 mr-1" />
+                                {isDeletingReview === review.id ? '삭제 중...' : '삭제'}
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
 
           {/* Empty State */}
-          {reviews.length === 0 && (
+          {!isLoadingReviews && reviews.length === 0 && (
             <div className="text-center py-12 text-white/60">
               <p>아직 리뷰가 없습니다. 첫 번째 리뷰를 작성해보세요!</p>
             </div>

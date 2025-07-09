@@ -6,10 +6,10 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { ImageWithFallback } from './figma/ImageWithFallback'
 
 interface PlaylistContent {
-  id: number
+  id: string
   title: string
   thumbnail: string
-  type: 'movie' | 'drama' | 'sports'
+  type: 'movie' | 'tv' | 'sports'
   genre: string[]
   duration: string
   year: number
@@ -19,118 +19,33 @@ interface PlaylistContent {
 }
 
 interface PlaylistDetailProps {
-  playlistId: number
+  playlistId: string
   onBack: () => void
-  onContentPlay?: (content: { id: number; title: string; thumbnail: string; type: 'movie' | 'drama' | 'sports'; duration: string; description: string }) => void
+  onContentPlay?: (content: { id: string; title: string; thumbnail: string; type: 'movie' | 'tv' | 'sports'; duration: string; description: string }) => void
 }
 
-// ========== TEMPORARY MOCK DATA - START ==========
-const mockPlaylistData = {
-  1: {
-    id: 1,
-    title: '좋아하는 액션 영화',
-    description: '스릴 넘치는 액션 영화들을 모아봤어요. 주말에 친구들과 함께 보기 좋은 영화들입니다.',
-    coverImage: 'https://images.unsplash.com/photo-1489599856621-6c0e9b89c2e4?w=400&h=400&fit=crop',
-    isPublic: true,
-    createdBy: '김모플',
-    createdByAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100',
-    createdDate: '2024-01-15',
-    totalDuration: '18시간 32분',
-    contents: [
-      {
-        id: 1,
-        title: '듄: 파트 투',
-        thumbnail: 'https://images.unsplash.com/photo-1489599856621-6c0e9b89c2e4?w=200',
-        type: 'movie' as const,
-        genre: ['SF', '액션', '드라마'],
-        duration: '166분',
-        year: 2024,
-        rating: 9.2,
-        addedDate: '2024-01-15',
-        description: '아트레이드 가문의 후계자 폴의 모험을 그린 SF 대작'
-      },
-      {
-        id: 2,
-        title: '탑건: 매버릭',
-        thumbnail: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=200',
-        type: 'movie' as const,
-        genre: ['액션', '드라마'],
-        duration: '130분',
-        year: 2022,
-        rating: 8.8,
-        addedDate: '2024-01-16',
-        description: '전설의 파일럿 매버릭의 귀환'
-      },
-      {
-        id: 3,
-        title: '어벤져스: 엔드게임',
-        thumbnail: 'https://images.unsplash.com/photo-1509347528160-9a9e33742cdb?w=200',
-        type: 'movie' as const,
-        genre: ['액션', 'SF', '어드벤처'],
-        duration: '181분',
-        year: 2019,
-        rating: 9.1,
-        addedDate: '2024-01-17',
-        description: '마블 시네마틱 유니버스의 대장정'
-      },
-      {
-        id: 4,
-        title: '존 윅 4',
-        thumbnail: 'https://images.unsplash.com/photo-1518676590629-3dcbd9c5a5c9?w=200',
-        type: 'movie' as const,
-        genre: ['액션', '스릴러'],
-        duration: '169분',
-        year: 2023,
-        rating: 8.5,
-        addedDate: '2024-01-18',
-        description: '복수를 위한 마지막 전쟁'
-      }
-    ] as PlaylistContent[]
-  },
-  2: {
-    id: 2,
-    title: '한국 드라마 모음',
-    description: '한국 드라마의 진수를 느껴보세요. 감동과 재미가 가득한 작품들입니다.',
-    coverImage: 'https://images.unsplash.com/photo-1605728515502-13b52fd77e03?w=400&h=400&fit=crop',
-    isPublic: false,
-    createdBy: '김모플',
-    createdByAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100',
-    createdDate: '2024-01-20',
-    totalDuration: '142시간 18분',
-    contents: [
-      {
-        id: 5,
-        title: '오징어 게임',
-        thumbnail: 'https://images.unsplash.com/photo-1605728515502-13b52fd77e03?w=200',
-        type: 'drama' as const,
-        genre: ['스릴러', '드라마'],
-        duration: '60분 x 9화',
-        year: 2021,
-        rating: 9.0,
-        addedDate: '2024-01-20',
-        description: '생존 게임을 소재로 한 넷플릭스 오리지널'
-      },
-      {
-        id: 6,
-        title: '사랑의 불시착',
-        thumbnail: 'https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=200',
-        type: 'drama' as const,
-        genre: ['로맨스', '코미디', '드라마'],
-        duration: '70분 x 16화',
-        year: 2019,
-        rating: 8.7,
-        addedDate: '2024-01-21',
-        description: '남북한을 배경으로 한 로맨스 드라마'
-      }
-    ] as PlaylistContent[]
-  }
-}
-// ========== TEMPORARY MOCK DATA - END ==========
+// ========== API INTEGRATION POINT - START ==========
+// TODO: Replace with actual API call to fetch playlist details
+// Example: const fetchPlaylistDetails = async (playlistId: string) => { ... }
+// ========== API INTEGRATION POINT - END ==========
 
 export function PlaylistDetail({ playlistId, onBack, onContentPlay }: PlaylistDetailProps) {
-  const playlist = mockPlaylistData[playlistId as keyof typeof mockPlaylistData]
-  const [contents, setContents] = useState<PlaylistContent[]>(playlist?.contents || [])
+  const [playlist] = useState<any>(null)
+  const [contents, setContents] = useState<PlaylistContent[]>([])
   const [isLiked, setIsLiked] = useState(false)
+  
+  // ========== API INTEGRATION POINT - START ==========
+  // TODO: Replace with actual API call to fetch playlist details
+  // Example: 
+  // useEffect(() => {
+  //   const fetchPlaylistDetails = async () => {
+  //     const data = await api.getPlaylistDetails(playlistId)
+  //     setPlaylist(data)
+  //     setContents(data.contents)
+  //   }
+  //   fetchPlaylistDetails()
+  // }, [playlistId])
+  // ========== API INTEGRATION POINT - END ==========
 
   if (!playlist) {
     return (
@@ -145,7 +60,7 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay }: PlaylistDe
     )
   }
 
-  const handleRemoveContent = (contentId: number) => {
+  const handleRemoveContent = (contentId: string) => {
     // ========== API INTEGRATION POINT - START ==========
     // TODO: Replace with actual API call to remove content from playlist
     // Example: await removeContentFromPlaylist(playlistId, contentId)
@@ -369,7 +284,7 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay }: PlaylistDe
                           {content.title}
                         </h4>
                         <p className="text-sm text-white/60 truncate">
-                          {content.year} • {content.type === 'movie' ? '영화' : content.type === 'drama' ? '드라마' : '스포츠'}
+                          {content.year} • {content.type === 'movie' ? '영화' : content.type === 'tv' ? '드라마' : '스포츠'}
                         </p>
                       </div>
                     </div>

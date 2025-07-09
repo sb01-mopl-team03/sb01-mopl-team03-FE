@@ -14,6 +14,9 @@ export default defineConfig({
       "@/styles": path.resolve(__dirname, "styles"),
     },
   },
+  define: {
+    global: 'globalThis',
+  },
   
   // 주석 해제: Spring Boot 백엔드 연결
   server: {

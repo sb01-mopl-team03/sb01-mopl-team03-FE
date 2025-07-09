@@ -14,7 +14,7 @@ interface ContentCardProps {
   viewers?: number
   reviewCount?: number
   description?: string
-  type?: 'movie' | 'drama' | 'sports'
+  type?: 'movie' | 'tv' | 'sports'
   isLive?: boolean
   onClick?: () => void
   onAddToPlaylist?: () => void
@@ -70,7 +70,7 @@ export function ContentCard({
         {/* Type Badge */}
         {type && (
           <Badge className="absolute top-2 right-2 bg-black/50 text-white">
-            {type === 'movie' ? '영화' : type === 'drama' ? '드라마' : '스포츠'}
+            {type === 'movie' ? '영화' : type === 'tv' ? 'TV' : '스포츠'}
           </Badge>
         )}
 

@@ -6,16 +6,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 
 interface ContentItem {
-  id: number
+  id: string
   title: string
   thumbnail: string
-  type: 'movie' | 'drama' | 'sports'
+  type: 'movie' | 'tv' | 'sports'
   year?: number
   rating?: number
 }
 
 interface Playlist {
-  id: number
+  id: string
   title: string
   thumbnail: string
   contentCount: number
@@ -29,57 +29,27 @@ interface AddToPlaylistModalProps {
   content: ContentItem | null
 }
 
-// ========== TEMPORARY MOCK DATA - START ==========
-const mockPlaylists: Playlist[] = [
-  {
-    id: 1,
-    title: '최고의 액션 영화 모음',
-    thumbnail: 'https://images.unsplash.com/photo-1489599856621-6c0e9b89c2e4?w=200',
-    contentCount: 8,
-    isPublic: true,
-    description: '스릴 넘치는 액션 영화들을 모아봤어요'
-  },
-  {
-    id: 2,
-    title: 'K-드라마 명작선',
-    thumbnail: 'https://images.unsplash.com/photo-1605728515502-13b52fd77e03?w=200',
-    contentCount: 12,
-    isPublic: false,
-    description: '한국 드라마의 진수를 느껴보세요'
-  },
-  {
-    id: 3,
-    title: '스포츠 하이라이트',
-    thumbnail: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=200',
-    contentCount: 6,
-    isPublic: true,
-    description: '잊을 수 없는 스포츠 명장면들'
-  },
-  {
-    id: 4,
-    title: '가족과 함께 보기 좋은',
-    thumbnail: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=200',
-    contentCount: 15,
-    isPublic: true,
-    description: '온 가족이 함께 즐길 수 있는 컨텐츠'
-  }
-]
-// ========== TEMPORARY MOCK DATA - END ==========
+// ========== API INTEGRATION POINT - START ==========
+// TODO: Replace with actual API call to fetch user playlists
+// Example: const fetchUserPlaylists = async () => { ... }
+// ========== API INTEGRATION POINT - END ==========
 
 export function AddToPlaylistModal({ isOpen, onClose, content }: AddToPlaylistModalProps) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedPlaylists, setSelectedPlaylists] = useState<number[]>([])
+  const [selectedPlaylists, setSelectedPlaylists] = useState<string[]>([])
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newPlaylistTitle, setNewPlaylistTitle] = useState('')
   const [newPlaylistDescription, setNewPlaylistDescription] = useState('')
   const [newPlaylistIsPublic, setNewPlaylistIsPublic] = useState(true)
 
-  const filteredPlaylists = mockPlaylists.filter(playlist =>
+  const [playlists] = useState<Playlist[]>([])
+  
+  const filteredPlaylists = playlists.filter(playlist =>
     playlist.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     playlist.description.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const handlePlaylistSelect = (playlistId: number) => {
+  const handlePlaylistSelect = (playlistId: string) => {
     setSelectedPlaylists(prev => 
       prev.includes(playlistId)
         ? prev.filter(id => id !== playlistId)
@@ -172,7 +142,7 @@ export function AddToPlaylistModal({ isOpen, onClose, content }: AddToPlaylistMo
             <div className="flex-1 min-w-0">
               <p className="font-medium truncate">{content.title}</p>
               <p className="text-sm text-white/60">
-                {content.type === 'movie' ? '영화' : content.type === 'drama' ? '드라마' : '스포츠'} • {content.year}
+                {content.type === 'movie' ? '영화' : content.type === 'tv' ? 'TV' : '스포츠'} • {content.year}
               </p>
             </div>
           </div>

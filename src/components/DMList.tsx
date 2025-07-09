@@ -5,7 +5,7 @@ import { Input } from './ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 
 interface Conversation {
-  id: number
+  id: string
   name: string
   avatar: string
   lastMessage: string
@@ -15,7 +15,7 @@ interface Conversation {
 }
 
 interface Friend {
-  id: number
+  id: string
   name: string
   avatar: string
   isOnline: boolean
@@ -25,122 +25,17 @@ interface Friend {
 interface DMListProps {
   isOpen: boolean
   onClose: () => void
-  onOpenChat: (user: { id: number; name: string; avatar: string; isOnline: boolean }) => void
+  onOpenChat: (user: { id: string; name: string; avatar: string; isOnline: boolean }) => void
 }
 
-// ========== TEMPORARY MOCK DATA - START ==========
-const mockConversations: Conversation[] = [
-  {
-    id: 1,
-    name: '김민수',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
-    lastMessage: '언제 영화 볼까요?',
-    timestamp: '2분 전',
-    unreadCount: 2,
-    isOnline: true
-  },
-  {
-    id: 2,
-    name: '박지영',
-    avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150',
-    lastMessage: '오징어 게임 시즌2 어때요?',
-    timestamp: '15분 전',
-    unreadCount: 0,
-    isOnline: true
-  },
-  {
-    id: 3,
-    name: '이준호',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-    lastMessage: '내일 스포츠 중계 같이 봐요',
-    timestamp: '1시간 전',
-    unreadCount: 1,
-    isOnline: false
-  },
-  {
-    id: 4,
-    name: '최유진',
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150',
-    lastMessage: '재미있는 드라마 추천해주세요!',
-    timestamp: '3시간 전',
-    unreadCount: 0,
-    isOnline: true
-  },
-  {
-    id: 5,
-    name: '강서준',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
-    lastMessage: '듄 파트2 진짜 좋더라',
-    timestamp: '어제',
-    unreadCount: 0,
-    isOnline: false
-  }
-]
-
-const mockFriends: Friend[] = [
-  {
-    id: 1,
-    name: '김민수',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
-    isOnline: true,
-    mutualFriends: 3
-  },
-  {
-    id: 2,
-    name: '박지영',
-    avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150',
-    isOnline: true,
-    mutualFriends: 7
-  },
-  {
-    id: 3,
-    name: '이준호',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-    isOnline: false,
-    mutualFriends: 2
-  },
-  {
-    id: 4,
-    name: '최유진',
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150',
-    isOnline: true,
-    mutualFriends: 5
-  },
-  {
-    id: 5,
-    name: '강서준',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
-    isOnline: false,
-    mutualFriends: 1
-  },
-  {
-    id: 6,
-    name: '정수현',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-    isOnline: true,
-    mutualFriends: 4
-  },
-  {
-    id: 7,
-    name: '한도영',
-    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150',
-    isOnline: false,
-    mutualFriends: 6
-  }
-]
-// ========== TEMPORARY MOCK DATA - END ==========
 
 export function DMList({ isOpen, onClose, onOpenChat }: DMListProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [showFriendSelection, setShowFriendSelection] = useState(false)
 
-  const filteredConversations = mockConversations.filter(conversation =>
-    conversation.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredConversations: Conversation[] = []
 
-  const filteredFriends = mockFriends.filter(friend =>
-    friend.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredFriends: Friend[] = []
 
   const handleConversationClick = (conversation: Conversation) => {
     // ========== API INTEGRATION POINT - START ==========

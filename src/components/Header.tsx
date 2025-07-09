@@ -34,10 +34,14 @@ interface UINotification {
   isRead: boolean
 }
 
-const mockUser = {
+// ========== API INTEGRATION POINT - START ==========
+// TODO: Replace with actual user data from authentication context
+// Example: const user = useUser() or const user = getCurrentUser()
+const defaultUser = {
   name: '사용자',
   avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150'
 }
+// ========== API INTEGRATION POINT - END ==========
 
 export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileClick, onCloseDM, onLogout, authenticatedFetch, userId }: HeaderProps) {
   const [notifications, setNotifications] = useState<UINotification[]>([])
@@ -112,7 +116,8 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
     if (!userId) return
 
     try {
-      const response = await authenticatedFetch(`/notifications/${userId}`)
+      // 백엔드에서 userId를 파라미터로 받지 않고 인증 principal로 처리하므로, URL에서 userId를 빼야 함
+      const response = await authenticatedFetch(`/notifications`)
       
       if (!response.ok) {
         throw new Error('알림 목록을 가져오는데 실패했습니다.')
@@ -138,19 +143,20 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
       eventSource.close()
     }
 
-    const token = localStorage.getItem('accessToken') // 또는 쿠키에서 가져와도 됨
+    const token = localStorage.getItem('accessToken')
     if (!token) {
       console.warn('accessToken이 없습니다. SSE 연결 생략')
       return
     }
 
+    // 백엔드에서 userId를 path param으로 받지 않고 인증 principal로 처리하므로, URL에서 userId를 빼야 함
     const newEventSource = new EventSourcePolyfill(
-      `/notifications/subscribe/${userId}`,
+      `/notifications/subscribe`,
       {
         headers: {
           Authorization: `Bearer ${token}`
         },
-        withCredentials: true // 필요 시 쿠키도 함께 보냄
+        withCredentials: true
       }
     )
 
@@ -199,7 +205,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
   const navItems = [
     { id: 'home', label: '홈' },
     { id: 'movies', label: '영화' },
-    { id: 'drama', label: '드라마' },
+    { id: 'tv', label: 'TV/드라마' },
     { id: 'sports', label: '스포츠' },
     { id: 'curation', label: '큐레이션' },
     { id: 'live', label: '라이브' },
@@ -448,12 +454,12 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
               className="flex items-center space-x-2 p-2 hover:bg-white/10"
             >
               <Avatar className="h-8 w-8">
-                <AvatarImage src={mockUser.avatar} />
+                <AvatarImage src={defaultUser.avatar} />
                 <AvatarFallback className="bg-[#4ecdc4] text-black">
-                  {mockUser.name.charAt(0)}
+                  {defaultUser.name.charAt(0)}
                 </AvatarFallback>
               </Avatar>
-              <span className="hidden md:block text-sm">{mockUser.name}</span>
+              <span className="hidden md:block text-sm">{defaultUser.name}</span>
             </Button>
 
             {/* Profile Dropdown */}

@@ -13,25 +13,27 @@ import { ProfileModal } from './components/ProfileModal'
 import { DMList } from './components/DMList'
 import { ChatRoom } from './components/ChatRoom'
 import { WatchParty } from './components/WatchParty'
-
+import { LiveRooms } from './components/LiveRooms'
 import { WatchPartyConfirmation } from './components/WatchPartyConfirmation'
 import { AddToPlaylistModal } from './components/AddToPlaylistModal'
 import { CreateRoomModal } from './components/CreateRoomModal'
 import { UserProfile } from './components/UserProfile'
 import { Button } from './components/ui/button'
 
+import { WatchRoomDto } from './types/watchRoom'
+
 interface ChatUser {
-  id: number
+  id: string
   name: string
   avatar: string
   isOnline: boolean
 }
 
 interface ContentItem {
-  id: number
+  id: string
   title: string
   thumbnail: string
-  type: 'movie' | 'drama' | 'sports'
+  type: 'movie' | 'tv' | 'sports'
   duration: string
   description: string
   year?: number
@@ -45,6 +47,10 @@ interface WatchPartyConfig {
 
 
 export default function App() {
+  // 페이지 상태를 localStorage에 저장/복원
+  const [currentPage, setCurrentPage] = useState(() => {
+    return localStorage.getItem('currentPage') || 'home'
+  })
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
 
@@ -81,9 +87,29 @@ export default function App() {
     alert('로그인 세션이 만료되었습니다. 다시 로그인해주세요.')
   }
 
+  // accessToken 재발급 함수 (refreshToken 만료 시 null 반환)
+  const refreshAccessToken = async (): Promise<string | null> => {
+    try {
+      // refreshToken은 쿠키에 저장되어 있으므로 별도 헤더 필요 없음
+      const response = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        credentials: 'include', // 쿠키 포함
+      })
+      if (!response.ok) {
+        return null
+      }
+      const text = await response.text()
+      if (!text || text.trim() === '') return null
+      // 응답이 accessToken 문자열임
+      return text.replace(/"/g, '') // 혹시 따옴표로 감싸져 있으면 제거
+    } catch (e) {
+      return null
+    }
+  }
+
   // 인증이 필요한 API 호출을 위한 공통 함수
   const authenticatedFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
-    const accessToken = localStorage.getItem('accessToken')
+    let accessToken = localStorage.getItem('accessToken')
     
     // 토큰이 없는 경우
     if (!accessToken) {
@@ -93,8 +119,19 @@ export default function App() {
     
     // 토큰 만료 체크
     if (isTokenExpired(accessToken)) {
-      handleTokenExpiration()
-      throw new Error('토큰이 만료되었습니다.')
+      // accessToken 재발급 시도
+      const newAccessToken = await refreshAccessToken()
+      if (newAccessToken) {
+        localStorage.setItem('accessToken', newAccessToken)
+        accessToken = newAccessToken
+        // userId도 갱신
+        const userId = extractUserIdFromToken(newAccessToken)
+        if (userId) setUserId(userId)
+      } else {
+        // refreshToken도 만료된 경우
+        handleTokenExpiration()
+        throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.')
+      }
     }
     
     // Authorization 헤더 추가
@@ -109,18 +146,35 @@ export default function App() {
       headers
     })
     
-    // 401 에러 시 자동 로그아웃
+    // 401 에러 시 accessToken 재발급 시도 (만료로 인한 401일 수 있음)
     if (response.status === 401) {
-      console.log('401 에러로 인한 자동 로그아웃')
-      handleTokenExpiration()
-      throw new Error('인증이 만료되었습니다.')
+      // accessToken 재발급 시도
+      const newAccessToken = await refreshAccessToken()
+      if (newAccessToken) {
+        localStorage.setItem('accessToken', newAccessToken)
+        accessToken = newAccessToken
+        // userId도 갱신
+        const userId = extractUserIdFromToken(newAccessToken)
+        if (userId) setUserId(userId)
+        // 재시도
+        const retryHeaders = {
+          ...headers,
+          'Authorization': `Bearer ${newAccessToken}`,
+        }
+        return fetch(url, {
+          ...options,
+          headers: retryHeaders
+        })
+      } else {
+        handleTokenExpiration()
+        throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.')
+      }
     }
     
     return response
   }
 
-  const [currentPage, setCurrentPage] = useState('home')
-  const [selectedPlaylistId, setSelectedPlaylistId] = useState<number | null>(null)
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null)
   const [selectedContentDetail, setSelectedContentDetail] = useState<ContentItem | null>(null)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [isRegister, setIsRegister] = useState(false)
@@ -133,12 +187,6 @@ export default function App() {
   // Watch Party State
   const [showWatchPartyConfirmation, setShowWatchPartyConfirmation] = useState(false)
   const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null)
-  const [currentWatchParty, setCurrentWatchParty] = useState<{
-    content: ContentItem
-    roomCode: string
-    config: WatchPartyConfig
-    isJoinMode?: boolean
-  } | null>(null)
 
   // Playlist Modal State
   const [showAddToPlaylistModal, setShowAddToPlaylistModal] = useState(false)
@@ -146,6 +194,10 @@ export default function App() {
 
   // Create Room Modal State
   const [showCreateRoomModal, setShowCreateRoomModal] = useState(false)
+
+  // Watch Room State
+  const [currentWatchRoomId, setCurrentWatchRoomId] = useState<string | null>(null)
+  const [watchRoomAutoConnect, setWatchRoomAutoConnect] = useState(false) // 방 생성 시 자동 연결 여부
 
   // OAuth 콜백 처리 함수
   const handleOAuthCallback = () => {
@@ -228,10 +280,18 @@ export default function App() {
   useEffect(() => {
     if (!isLoggedIn) return
 
-    const checkTokenExpiration = () => {
+    const checkTokenExpiration = async () => {
       const accessToken = localStorage.getItem('accessToken')
       if (accessToken && isTokenExpired(accessToken)) {
-        handleTokenExpiration()
+        // accessToken 재발급 시도
+        const newAccessToken = await refreshAccessToken()
+        if (newAccessToken) {
+          localStorage.setItem('accessToken', newAccessToken)
+          const userId = extractUserIdFromToken(newAccessToken)
+          if (userId) setUserId(userId)
+        } else {
+          handleTokenExpiration()
+        }
       }
     }
 
@@ -250,21 +310,45 @@ export default function App() {
     if (userId) {
       setUserId(userId)
     } else {
-      // 토큰 파싱 실패 시 기본값 설정
-      setUserId('1')
+      // 토큰 파싱 실패 시 로그아웃 처리
+      localStorage.removeItem('accessToken')
+      setIsLoggedIn(false)
     }
     
     setIsLoggedIn(true)
   }
 
+  // 페이지 변경 시 localStorage에 저장
+  const handlePageChange = (page: string) => {
+    if (page === 'create-room') {
+      setShowCreateRoomModal(true)
+      return
+    }
+    setCurrentPage(page)
+    localStorage.setItem('currentPage', page)
+    // Reset selections when changing pages
+    if (page !== 'playlist-detail') {
+      setSelectedPlaylistId(null)
+    }
+    if (page !== 'watch-party') {
+      setCurrentWatchRoomId(null)
+    }
+    if (page !== 'content-detail') {
+      setSelectedContentDetail(null)
+    }
+  }
+
+  // 새로고침 시 currentPage 유지
+  useEffect(() => {
+    localStorage.setItem('currentPage', currentPage)
+  }, [currentPage])
+
+  // 로그아웃 시 페이지 상태 초기화
   const handleLogout = () => {
-    // 로컬 스토리지에서 토큰 제거
     localStorage.removeItem('accessToken')
-    // 사용자 ID 초기화
+    localStorage.removeItem('currentPage')
     setUserId(null)
-    // 로그인 상태 변경
     setIsLoggedIn(false)
-    // 페이지를 홈으로 리셋
     setCurrentPage('home')
   }
 
@@ -321,26 +405,7 @@ export default function App() {
     }
   }
 
-  const handlePageChange = (page: string) => {
-    if (page === 'create-room') {
-      setShowCreateRoomModal(true)
-      return
-    }
-    
-    setCurrentPage(page)
-    // Reset selections when changing pages
-    if (page !== 'playlist-detail') {
-      setSelectedPlaylistId(null)
-    }
-    if (page !== 'watch-party') {
-      setCurrentWatchParty(null)
-    }
-    if (page !== 'content-detail') {
-      setSelectedContentDetail(null)
-    }
-  }
-
-  const handlePlaylistDetailOpen = (playlistId: number) => {
+  const handlePlaylistDetailOpen = (playlistId: string) => {
     setSelectedPlaylistId(playlistId)
     setCurrentPage('playlist-detail')
   }
@@ -362,7 +427,7 @@ export default function App() {
     if (selectedContentDetail) {
       const typeToPage = {
         movie: 'movies',
-        drama: 'drama',
+        tv: 'tv',
         sports: 'sports'
       }
       setCurrentPage(typeToPage[selectedContentDetail.type] || 'home')
@@ -443,46 +508,36 @@ export default function App() {
     console.log('Room code:', roomCode)
     // ========== API INTEGRATION POINT - END ==========
 
-    setCurrentWatchParty({
-      content: selectedContent,
-      roomCode,
-      config,
-      isJoinMode: false // New room creation
-    })
+    // TODO: Implement watch party creation with real API
+    alert('Watch party creation not implemented yet')
     
     setShowWatchPartyConfirmation(false)
     setSelectedContent(null)
+  }
+
+
+  // Watch Room Handlers
+  const handleJoinRoom = (room: WatchRoomDto) => {
+    setCurrentWatchRoomId(room.id)
+    setWatchRoomAutoConnect(false) // 참여 시에는 수동 연결
     setCurrentPage('watch-party')
   }
 
-  const handleBackFromWatchParty = () => {
-    setCurrentWatchParty(null)
-    setCurrentPage('home')
-  }
-
-  // Create Room Handlers
-  const handleCreateRoom = (content: ContentItem, roomName: string, isPublic: boolean) => {
-    // Generate room code
-    const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase()
-    
-    // ========== API INTEGRATION POINT - START ==========
-    // TODO: Create watch party room on server
-    // Example: const roomData = await createRoomWithContent(content.id, roomName, isPublic)
-    console.log('Creating room with content:', content.title)
-    console.log('Room name:', roomName)
-    console.log('Is public:', isPublic)
-    console.log('Room code:', roomCode)
-    // ========== API INTEGRATION POINT - END ==========
-
-    setCurrentWatchParty({
-      content,
-      roomCode,
-      config: { roomName, isPublic },
-      isJoinMode: false // New room creation
-    })
-    
+  const handleCreateRoom = (room: WatchRoomDto) => {
+    setCurrentWatchRoomId(room.id)
+    setWatchRoomAutoConnect(true) // 방 생성 시에는 자동 연결
     setShowCreateRoomModal(false)
     setCurrentPage('watch-party')
+  }
+
+  const handleBackFromWatchRoom = () => {
+    setCurrentWatchRoomId(null)
+    setWatchRoomAutoConnect(false) // 상태 리셋
+    setCurrentPage('live')
+  }
+
+  const handleCreateRoomModal = () => {
+    setShowCreateRoomModal(true)
   }
 
   const handleCloseCreateRoomModal = () => {
@@ -584,8 +639,8 @@ export default function App() {
         return <Curation onContentPlay={handleContentPlay} onContentDetail={handleContentDetail} onAddToPlaylist={handleAddToPlaylist} />
       case 'movies':
         return <CategoryPage category="movies" onContentPlay={handleContentPlay} onContentDetail={handleContentDetail} onAddToPlaylist={handleAddToPlaylist} />
-      case 'drama':
-        return <CategoryPage category="drama" onContentPlay={handleContentPlay} onContentDetail={handleContentDetail} onAddToPlaylist={handleAddToPlaylist} />
+      case 'tv':
+        return <CategoryPage category="tv" onContentPlay={handleContentPlay} onContentDetail={handleContentDetail} onAddToPlaylist={handleAddToPlaylist} />
       case 'sports':
         return <CategoryPage category="sports" onContentPlay={handleContentPlay} onContentDetail={handleContentDetail} onAddToPlaylist={handleAddToPlaylist} />
       case 'playlist':
@@ -606,17 +661,22 @@ export default function App() {
             content={selectedContentDetail}
             onBack={handleBackFromContentDetail}
             onPlay={handleContentPlay}
+            currentUser={userId ? {
+              id: userId,
+              name: '',
+              avatar: undefined
+            } : undefined}
           />
         ) : (
           <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
         )
       case 'watch-party':
-        return currentWatchParty ? (
+        return currentWatchRoomId && userId ? (
           <WatchParty
-            content={currentWatchParty.content}
-            roomCode={currentWatchParty.roomCode}
-            onBack={handleBackFromWatchParty}
-            isJoinMode={currentWatchParty.isJoinMode}
+            roomId={currentWatchRoomId}
+            userId={userId}
+            onBack={handleBackFromWatchRoom}
+            shouldConnect={watchRoomAutoConnect} // 방 생성 시에만 자동 연결
           />
         ) : (
           <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
@@ -634,8 +694,8 @@ export default function App() {
         ) : (
           <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
         )
-      // case 'live':
-      //   return <LiveRooms onJoinRoom={handleJoinRoom} />
+      case 'live':
+        return <LiveRooms onJoinRoom={handleJoinRoom} onCreateRoom={handleCreateRoomModal} />
       default:
         return <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
     }
@@ -668,6 +728,7 @@ export default function App() {
           isOpen={showCreateRoomModal}
           onClose={handleCloseCreateRoomModal}
           onCreateRoom={handleCreateRoom}
+          userId={userId || ''}
         />
       </div>
     )
@@ -736,6 +797,7 @@ export default function App() {
         isOpen={showCreateRoomModal}
         onClose={handleCloseCreateRoomModal}
         onCreateRoom={handleCreateRoom}
+        userId={userId || ''}
       />
 
       {/* Floating Message Button */}

@@ -6,8 +6,8 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { ScrollArea } from './ui/scroll-area'
 
 interface Message {
-  id: number
-  senderId: number
+  id: string
+  senderId: string
   senderName: string
   content: string
   timestamp: string
@@ -16,7 +16,7 @@ interface Message {
 }
 
 interface ChatUser {
-  id: number
+  id: string
   name: string
   avatar: string
   isOnline: boolean
@@ -29,73 +29,9 @@ interface ChatRoomProps {
   user: ChatUser | null
 }
 
-// ========== TEMPORARY MOCK DATA - START ==========
-const mockMessages: Message[] = [
-  {
-    id: 1,
-    senderId: 2,
-    senderName: '김민수',
-    content: '안녕하세요! 오늘 저녁에 영화 볼까요?',
-    timestamp: '오후 2:30',
-    type: 'text',
-    isOwnMessage: false
-  },
-  {
-    id: 2,
-    senderId: 1,
-    senderName: '나',
-    content: '좋아요! 어떤 영화 보실 생각이에요?',
-    timestamp: '오후 2:32',
-    type: 'text',
-    isOwnMessage: true
-  },
-  {
-    id: 3,
-    senderId: 2,
-    senderName: '김민수',
-    content: '듄: 파트 투 어떠세요? 평점도 좋고 액션도 괜찮더라고요',
-    timestamp: '오후 2:33',
-    type: 'text',
-    isOwnMessage: false
-  },
-  {
-    id: 4,
-    senderId: 1,
-    senderName: '나',
-    content: '완벽해요! 몇 시에 시작할까요?',
-    timestamp: '오후 2:35',
-    type: 'text',
-    isOwnMessage: true
-  },
-  {
-    id: 5,
-    senderId: 2,
-    senderName: '김민수',
-    content: '8시 정도가 어떠세요? 저녁도 먹고 여유롭게',
-    timestamp: '오후 2:36',
-    type: 'text',
-    isOwnMessage: false
-  },
-  {
-    id: 6,
-    senderId: 1,
-    senderName: '나',
-    content: '좋습니다! 그럼 오늘 8시에 만나요 🎬',
-    timestamp: '오후 2:37',
-    type: 'text',
-    isOwnMessage: true
-  }
-]
-
-const currentUser = {
-  id: 1,
-  name: '사용자',
-  avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150'
-}
-// ========== TEMPORARY MOCK DATA - END ==========
 
 export function ChatRoom({ isOpen, onClose, onBack, user }: ChatRoomProps) {
-  const [messages, setMessages] = useState<Message[]>(mockMessages)
+  const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -117,9 +53,9 @@ export function ChatRoom({ isOpen, onClose, onBack, user }: ChatRoomProps) {
     if (!newMessage.trim() || !user) return
 
     const message: Message = {
-      id: messages.length + 1,
-      senderId: currentUser.id,
-      senderName: currentUser.name,
+      id: (messages.length + 1).toString(),
+      senderId: '1',
+      senderName: '사용자',
       content: newMessage.trim(),
       timestamp: new Date().toLocaleTimeString('ko-KR', { 
         hour: 'numeric', 
@@ -148,7 +84,7 @@ export function ChatRoom({ isOpen, onClose, onBack, user }: ChatRoomProps) {
     setTimeout(() => {
       setIsTyping(false)
       const response: Message = {
-        id: messages.length + 2,
+        id: (messages.length + 2).toString(),
         senderId: user.id,
         senderName: user.name,
         content: '메시지를 받았습니다! 👍',
