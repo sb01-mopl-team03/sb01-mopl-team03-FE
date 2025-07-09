@@ -199,7 +199,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
   const navItems = [
     { id: 'home', label: '홈' },
     { id: 'movies', label: '영화' },
-    { id: 'drama', label: '드라마' },
+    { id: 'tv', label: 'TV/드라마' },
     { id: 'sports', label: '스포츠' },
     { id: 'curation', label: '큐레이션' },
     { id: 'live', label: '라이브' },

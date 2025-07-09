@@ -11,10 +11,10 @@ interface CurationProps {
 }
 
 interface ContentItem {
-  id: number
+  id: string
   title: string
   thumbnail: string
-  type: 'movie' | 'drama' | 'sports'
+  type: 'movie' | 'tv' | 'sports'
   duration: string
   description: string
   rating: number
@@ -43,7 +43,7 @@ interface CurationSection {
 // Mock content data with viewer counts
 const mockContent: ContentItem[] = [
   {
-    id: 1,
+    id: 'fc6778ee-066e-470b-8f85-a9cf0d053a8b',
     title: '기생충',
     thumbnail: 'https://images.unsplash.com/photo-1489599538883-17dd35352ad5?w=400&h=600&fit=crop&crop=face',
     type: 'movie',
@@ -58,10 +58,10 @@ const mockContent: ContentItem[] = [
     icon: '🎬'
   },
   {
-    id: 2,
+    id: '99fd7448-9572-496c-9495-0c611c41aa5a',
     title: '사랑의 불시착',
     thumbnail: 'https://images.unsplash.com/photo-1516684732162-798a0062be99?w=400&h=600&fit=crop&crop=face',
-    type: 'drama',
+    type: 'tv',
     duration: '16화',
     description: '재벌 2세 여자와 북한 군인의 로맨스를 그린 로맨틱 코미디.',
     rating: 4.8,
@@ -73,7 +73,7 @@ const mockContent: ContentItem[] = [
     icon: '💕'
   },
   {
-    id: 3,
+    id: '1f1cf50d-c7b9-4ae8-b3f8-efc1989e4f30',
     title: '올드보이',
     thumbnail: 'https://images.unsplash.com/photo-1515634928627-2a4e0dae3ddf?w=400&h=600&fit=crop&crop=face',
     type: 'movie',
@@ -88,7 +88,7 @@ const mockContent: ContentItem[] = [
     icon: '🎭'
   },
   {
-    id: 4,
+    id: '3b94f91b-344a-43a4-bbb4-16c3c470ea73',
     title: 'NBA 파이널',
     thumbnail: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=400&h=600&fit=crop&crop=center',
     type: 'sports',
@@ -103,10 +103,10 @@ const mockContent: ContentItem[] = [
     icon: '🏀'
   },
   {
-    id: 5,
+    id: '54579a3d-c20a-4296-a337-26440e9d9db7',
     title: '킹덤',
     thumbnail: 'https://images.unsplash.com/photo-1489424731084-a5d8b219a5bb?w=400&h=600&fit=crop&crop=face',
-    type: 'drama',
+    type: 'tv',
     duration: '시즌 1-2',
     description: '조선시대를 배경으로 한 좀비 스릴러. 정치와 호러가 결합된 독특한 작품.',
     rating: 4.7,
@@ -118,7 +118,7 @@ const mockContent: ContentItem[] = [
     icon: '👑'
   },
   {
-    id: 6,
+    id: 'e2b622b2-a7bd-4475-b4bd-a64154ceba5d',
     title: '아바타',
     thumbnail: 'https://images.unsplash.com/photo-1518929458119-e5bf444c30f4?w=400&h=600&fit=crop&crop=face',
     type: 'movie',
@@ -133,10 +133,10 @@ const mockContent: ContentItem[] = [
     icon: '🌟'
   },
   {
-    id: 7,
+    id: 'd5e5a3c4-d677-4d9f-827e-db593a3b67fd',
     title: '도깨비',
     thumbnail: 'https://images.unsplash.com/photo-1503023345310-bd7c1de61c7d?w=400&h=600&fit=crop&crop=face',
-    type: 'drama',
+    type: 'tv',
     duration: '16화',
     description: '불멸의 존재 도깨비와 인간들의 판타지 로맨스 드라마.',
     rating: 4.8,
@@ -148,7 +148,7 @@ const mockContent: ContentItem[] = [
     icon: '🔮'
   },
   {
-    id: 8,
+    id: '07f91388-1197-4148-afb1-c8edc8efe45c',
     title: '월드컵 축구',
     thumbnail: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=400&h=600&fit=crop&crop=center',
     type: 'sports',
@@ -163,10 +163,10 @@ const mockContent: ContentItem[] = [
     icon: '⚽'
   },
   {
-    id: 9,
+    id: 'f08b6d3f-a1f5-4e04-84a7-475f172e06e8',
     title: '스카이캐슬',
     thumbnail: 'https://images.unsplash.com/photo-1551334787-21e6bd773eed?w=400&h=600&fit=crop&crop=face',
-    type: 'drama',
+    type: 'tv',
     duration: '20화',
     description: '상위 1% 상류층의 입시 전쟁을 다룬 블랙 코미디 드라마.',
     rating: 4.9,
@@ -178,7 +178,7 @@ const mockContent: ContentItem[] = [
     icon: '🏰'
   },
   {
-    id: 10,
+    id: 'd187534d-2151-4787-8079-0e7a38f4dcec',
     title: '베놈',
     thumbnail: 'https://images.unsplash.com/photo-1515634928627-2a4e0dae3ddf?w=400&h=600&fit=crop&crop=face',
     type: 'movie',
@@ -193,7 +193,7 @@ const mockContent: ContentItem[] = [
     icon: '🦾'
   },
   {
-    id: 11,
+    id: 'e5989ed5-77de-4ade-83b3-100a9037a59d',
     title: '프리미어리그',
     thumbnail: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=400&h=600&fit=crop&crop=center',
     type: 'sports',
@@ -208,7 +208,7 @@ const mockContent: ContentItem[] = [
     icon: '⚽'
   },
   {
-    id: 12,
+    id: '50477e40-5a0a-4b83-b830-04449c7d5e9d',
     title: '해리포터',
     thumbnail: 'https://images.unsplash.com/photo-1518929458119-e5bf444c30f4?w=400&h=600&fit=crop&crop=face',
     type: 'movie',
@@ -268,7 +268,7 @@ export function Curation({ onContentPlay, onContentDetail, onAddToPlaylist }: Cu
             id: 'dramas',
             title: '📺 인기 드라마',
             category: 'dramas',
-            items: mockContent.filter(item => item.type === 'drama').sort((a, b) => b.viewerCount - a.viewerCount)
+            items: mockContent.filter(item => item.type === 'tv').sort((a, b) => b.viewerCount - a.viewerCount)
           },
           {
             id: 'sports',
@@ -297,7 +297,7 @@ export function Curation({ onContentPlay, onContentDetail, onAddToPlaylist }: Cu
 
           // Add type-specific sections if there are enough items
           const movies = filteredContent.filter(item => item.type === 'movie')
-          const dramas = filteredContent.filter(item => item.type === 'drama')
+          const dramas = filteredContent.filter(item => item.type === 'tv')
           const sports = filteredContent.filter(item => item.type === 'sports')
 
           if (movies.length > 0) {
@@ -312,7 +312,7 @@ export function Curation({ onContentPlay, onContentDetail, onAddToPlaylist }: Cu
           if (dramas.length > 0) {
             sections.push({
               id: `${keywordId}-dramas`,
-              title: `${keyword?.label} 드라마`,
+              title: `${keyword?.label} TV`,
               category: `${keywordId}-dramas`,
               items: dramas
             })

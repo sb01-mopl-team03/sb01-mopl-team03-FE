@@ -9,7 +9,7 @@ interface PlaylistContent {
   id: number
   title: string
   thumbnail: string
-  type: 'movie' | 'drama' | 'sports'
+  type: 'movie' | 'tv' | 'sports'
   genre: string[]
   duration: string
   year: number
@@ -21,7 +21,7 @@ interface PlaylistContent {
 interface PlaylistDetailProps {
   playlistId: number
   onBack: () => void
-  onContentPlay?: (content: { id: number; title: string; thumbnail: string; type: 'movie' | 'drama' | 'sports'; duration: string; description: string }) => void
+  onContentPlay?: (content: { id: number; title: string; thumbnail: string; type: 'movie' | 'tv' | 'sports'; duration: string; description: string }) => void
 }
 
 // ========== TEMPORARY MOCK DATA - START ==========
@@ -102,7 +102,7 @@ const mockPlaylistData = {
         id: 5,
         title: '오징어 게임',
         thumbnail: 'https://images.unsplash.com/photo-1605728515502-13b52fd77e03?w=200',
-        type: 'drama' as const,
+        type: 'tv' as const,
         genre: ['스릴러', '드라마'],
         duration: '60분 x 9화',
         year: 2021,
@@ -114,7 +114,7 @@ const mockPlaylistData = {
         id: 6,
         title: '사랑의 불시착',
         thumbnail: 'https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=200',
-        type: 'drama' as const,
+        type: 'tv' as const,
         genre: ['로맨스', '코미디', '드라마'],
         duration: '70분 x 16화',
         year: 2019,
@@ -369,7 +369,7 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay }: PlaylistDe
                           {content.title}
                         </h4>
                         <p className="text-sm text-white/60 truncate">
-                          {content.year} • {content.type === 'movie' ? '영화' : content.type === 'drama' ? '드라마' : '스포츠'}
+                          {content.year} • {content.type === 'movie' ? '영화' : content.type === 'tv' ? '드라마' : '스포츠'}
                         </p>
                       </div>
                     </div>

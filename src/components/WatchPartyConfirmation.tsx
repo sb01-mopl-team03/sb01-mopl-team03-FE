@@ -12,10 +12,10 @@ interface WatchPartyConfirmationProps {
   onCreateWatchParty: (config: WatchPartyConfig) => void
   onWatchAlone: () => void
   content: {
-    id: number
+    id: string
     title: string
     thumbnail: string
-    type: 'movie' | 'drama' | 'sports'
+    type: 'movie' | 'tv' | 'sports'
     duration: string
     description: string
   } | null

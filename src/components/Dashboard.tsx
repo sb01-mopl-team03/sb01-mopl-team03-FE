@@ -6,7 +6,7 @@ import { LiveRoomCard } from './LiveRoomCard'
 interface DashboardProps {
   onPageChange?: (page: string) => void
   onPlaylistOpen?: (playlistId: number) => void
-  onContentPlay?: (content: { id: number; title: string; thumbnail: string; type: 'movie' | 'drama' | 'sports'; duration: string; description: string }) => void
+  onContentPlay?: (content: { id: string; title: string; thumbnail: string; type: 'movie' | 'tv' | 'sports'; duration: string; description: string }) => void
 }
 
 export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: DashboardProps) {
@@ -24,7 +24,7 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
       rating: 8.7,
       genre: '스릴러',
       duration: '시즌 1',
-      type: 'drama' as const,
+      type: 'tv' as const,
       imageUrl: 'https://images.unsplash.com/photo-1594909122845-11baa439b7bf?w=400&h=225&fit=crop'
     },
     {
@@ -101,7 +101,7 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
             <span className="text-white">실시간으로 즐기세요</span>
           </h1>
           <p className="text-xl text-white/80 mb-8 max-w-2xl mx-auto">
-            영화, 드라마, 스포츠를 친구들과 실시간으로 시청하며 채팅으로 소통하세요
+            영화, TV/드라마, 스포츠를 친구들과 실시간으로 시청하며 채팅으로 소통하세요
           </p>
           <Button 
             size="lg" 
@@ -161,7 +161,7 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
                 viewers={content.viewers}
                 isLive={content.isLive}
                 onClick={() => onContentPlay && onContentPlay({
-                  id: index + 1,
+                  id: `dashboard-${index + 1}`,
                   title: content.title,
                   thumbnail: content.imageUrl,
                   type: content.type,

@@ -15,7 +15,9 @@ import {
   ChevronLeft,
   Settings,
   Wifi,
-  WifiOff
+  WifiOff,
+  Crown,
+  Loader2
 } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -23,81 +25,56 @@ import { Badge } from './ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Slider } from './ui/slider'
 import { ImageWithFallback } from './figma/ImageWithFallback'
-import { useWebSocket } from '../hooks/useWebSocket'
+import { useWatchRoomWebSocket } from '../hooks/useWatchRoomWebSocket'
+import { 
+  WatchRoomDto, 
+  WatchRoomMessageDto, 
+  ParticipantsInfoDto, 
+  VideoSyncDto, 
+  WatchRoomInfoDto, 
+  VideoControlAction 
+} from '../types/watchRoom'
+import { watchRoomService } from '../services/watchRoomService'
 
 interface WatchPartyProps {
-  content: {
-    id: number
-    title: string
-    thumbnail: string
-    type: 'movie' | 'drama' | 'sports'
-    duration: string
-    description: string
-  }
-  roomCode: string
+  roomId: string
   onBack: () => void
-  isJoinMode?: boolean // New prop to indicate if joining existing room
+  userId: string
 }
 
 interface Participant {
-  id: number
-  name: string
-  avatar: string
+  userId: string
+  userName: string
+  userAvatar?: string
   isHost: boolean
   isOnline: boolean
+  joinedAt: string
 }
 
-interface ChatMessage {
-  id: number
-  userId: number
-  userName: string
-  userAvatar: string
-  message: string
-  timestamp: string
-  type: 'message' | 'system' | 'join' | 'leave'
-}
-
-interface VideoSyncData {
-  isPlaying: boolean
-  currentTime: number
-  timestamp: number
-  userId: number
-}
-
-// ========== TEMPORARY MOCK DATA - START ==========
-const mockParticipants: Participant[] = [
-  { id: 1, name: '김모플', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100', isHost: true, isOnline: true },
-  { id: 2, name: '이모플', avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b3be?w=100', isHost: false, isOnline: true },
-  { id: 3, name: '박모플', avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100', isHost: false, isOnline: true },
-  { id: 4, name: '최모플', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100', isHost: false, isOnline: false },
-  { id: 5, name: '정모플', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100', isHost: false, isOnline: true },
-  { id: 6, name: '강모플', avatar: 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=100', isHost: false, isOnline: true },
-  { id: 7, name: '윤모플', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100', isHost: false, isOnline: true }
-]
-
-// Current user data - in real app this would come from auth context
-const currentUser = {
-  id: 1,
-  name: '김모플',
-  avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100'
-}
-// ========== TEMPORARY MOCK DATA - END ==========
-
-export function WatchParty({ content, roomCode, onBack }: WatchPartyProps) {
+export function WatchParty({ roomId, onBack, userId }: WatchPartyProps) {
+  // Video State
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [volume, setVolume] = useState([80])
   const [showVolumeSlider, setShowVolumeSlider] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [lastSyncTime, setLastSyncTime] = useState(0)
+
+  // UI State
   const [isChatOpen, setIsChatOpen] = useState(true)
   const [showParticipants, setShowParticipants] = useState(false)
   const [newMessage, setNewMessage] = useState('')
-  const [participants, setParticipants] = useState<Participant[]>(mockParticipants)
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [viewerCount, setViewerCount] = useState(0)
-  const [isLoadingHistory, setIsLoadingHistory] = useState(true)
-  const [lastSyncTime, setLastSyncTime] = useState(0)
+
+  // Data State
+  const [roomData, setRoomData] = useState<WatchRoomDto | null>(null)
+  const [participants, setParticipants] = useState<Participant[]>([])
+  const [chatMessages, setChatMessages] = useState<WatchRoomMessageDto[]>([])
+  const [isHost, setIsHost] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Refs
   const chatEndRef = useRef<HTMLDivElement>(null)
   const volumeTimeoutRef = useRef<NodeJS.Timeout>()
 
@@ -107,77 +84,112 @@ export function WatchParty({ content, roomCode, onBack }: WatchPartyProps) {
   // WebSocket connection
   const {
     isConnected,
+    connectionStatus,
     connect,
     disconnect,
     sendChatMessage: wsSendChatMessage,
-    sendVideoSync,
-    loadChatHistory,
-    loadRoomInfo
-  } = useWebSocket({
-    roomId: roomCode,
-    userId: currentUser.id,
-    userName: currentUser.name,
-    userAvatar: currentUser.avatar,
-    onMessage: (message: ChatMessage) => {
+    sendVideoControl,
+    reconnectAttempts
+  } = useWatchRoomWebSocket({
+    roomId,
+    userId,
+    onChatMessage: (message: WatchRoomMessageDto) => {
       setChatMessages(prev => [...prev, message])
     },
-    onParticipantsUpdate: (newParticipants: Participant[]) => {
-      setParticipants(newParticipants)
+    onParticipantsUpdate: (participantsInfo: ParticipantsInfoDto) => {
+      const mappedParticipants = participantsInfo.participantDtoList.map(p => ({
+        userId: p.userId,
+        userName: p.userName,
+        userAvatar: p.userAvatar,
+        isHost: p.isHost,
+        isOnline: p.isOnline,
+        joinedAt: p.joinedAt
+      }))
+      setParticipants(mappedParticipants)
+      
+      // Check if current user is host
+      const currentUserParticipant = mappedParticipants.find(p => p.userId === userId)
+      setIsHost(currentUserParticipant?.isHost || false)
     },
-    onVideoSync: (syncData: VideoSyncData) => {
-      // Only sync if the event is from another user and not too old
-      if (syncData.userId !== currentUser.id && Date.now() - syncData.timestamp < 5000) {
+    onVideoSync: (syncData: VideoSyncDto) => {
+      // Only sync if not too old
+      if (Date.now() - syncData.timestamp < 5000) {
         setIsPlaying(syncData.isPlaying)
         setCurrentTime(syncData.currentTime)
         setLastSyncTime(Date.now())
       }
     },
-    onViewerCountUpdate: (count: number) => {
-      setViewerCount(count)
+    onRoomSync: (roomInfo: WatchRoomInfoDto) => {
+      setRoomData(roomInfo.room)
+      
+      // Update participants
+      const mappedParticipants = roomInfo.participants.map(p => ({
+        userId: p.userId,
+        userName: p.userName,
+        userAvatar: p.userAvatar,
+        isHost: p.isHost,
+        isOnline: p.isOnline,
+        joinedAt: p.joinedAt
+      }))
+      setParticipants(mappedParticipants)
+      
+      // Update video state
+      setIsPlaying(roomInfo.videoStatus.isPlaying)
+      setCurrentTime(roomInfo.videoStatus.currentTime)
+      
+      // Update chat messages
+      setChatMessages(roomInfo.chatMessages)
+      
+      // Check if current user is host
+      const currentUserParticipant = mappedParticipants.find(p => p.userId === userId)
+      setIsHost(currentUserParticipant?.isHost || false)
+    },
+    onError: (error: string) => {
+      setError(error)
     }
   })
 
-  // Load chat history and room info on mount
+  // Load initial room data
   useEffect(() => {
     const loadInitialData = async () => {
-      setIsLoadingHistory(true)
+      setLoading(true)
+      setError(null)
       
       try {
-        // Load chat history
-        const history = await loadChatHistory()
+        // Load room data
+        const roomInfo = await watchRoomService.joinWatchRoom(roomId)
+        setRoomData(roomInfo.room)
         
-        // Add join message at the end of history
-        const joinMessage: ChatMessage = {
-          id: Date.now(),
-          userId: 0,
-          userName: 'System',
-          userAvatar: '',
-          message: `${currentUser.name}님이 시청방에 입장했습니다.`,
-          timestamp: new Date().toISOString(),
-          type: 'join'
-        }
+        // Check if current user is host
+        const currentUserParticipant = roomInfo.participants.find(p => p.userId === userId)
+        setIsHost(currentUserParticipant?.isHost || false)
         
-        setChatMessages([...history, joinMessage])
+        // Set initial video state
+        setIsPlaying(roomInfo.videoStatus.isPlaying)
+        setCurrentTime(roomInfo.videoStatus.currentTime)
         
-        // Load room info
-        await loadRoomInfo()
+        // Set initial chat messages
+        setChatMessages(roomInfo.chatMessages)
+        
+        // Connect to WebSocket
+        connect()
       } catch (error) {
-        console.error('Failed to load initial data:', error)
+        console.error('Failed to load room data:', error)
+        setError(error instanceof Error ? error.message : '시청방 데이터를 불러오는 중 오류가 발생했습니다.')
       } finally {
-        setIsLoadingHistory(false)
+        setLoading(false)
       }
     }
 
     loadInitialData()
-  }, [loadChatHistory, loadRoomInfo])
+  }, [roomId, userId, connect])
 
-  // Connect to WebSocket
+  // Cleanup on unmount
   useEffect(() => {
-    connect()
     return () => {
       disconnect()
     }
-  }, [connect, disconnect])
+  }, [disconnect])
 
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -213,17 +225,24 @@ export function WatchParty({ content, roomCode, onBack }: WatchPartyProps) {
   }, [showVolumeSlider, volume])
 
   const handlePlayPause = () => {
+    // Only host can control video
+    if (!isHost) {
+      return
+    }
+
     const newIsPlaying = !isPlaying
     setIsPlaying(newIsPlaying)
     
-    // ========== API INTEGRATION POINT - START ==========
-    // TODO: Send sync event to other users (throttled)
+    // Send video control to other users (throttled)
     if (Date.now() - lastSyncTime > 1000) {
-      sendVideoSync(newIsPlaying, currentTime)
+      sendVideoControl({
+        videoControlAction: newIsPlaying ? VideoControlAction.PLAY : VideoControlAction.PAUSE,
+        currentTime,
+        isPlaying: newIsPlaying
+      })
       setLastSyncTime(Date.now())
     }
     console.log(`${newIsPlaying ? 'Playing' : 'Pausing'} at ${currentTime}s`)
-    // ========== API INTEGRATION POINT - END ==========
   }
 
   const handleVolumeClick = () => {
@@ -266,11 +285,8 @@ export function WatchParty({ content, roomCode, onBack }: WatchPartyProps) {
   const handleSendMessage = () => {
     if (!newMessage.trim() || !isConnected) return
 
-    // ========== API INTEGRATION POINT - START ==========
-    // TODO: Send message via WebSocket/API
     wsSendChatMessage(newMessage)
     console.log('Sending message:', newMessage)
-    // ========== API INTEGRATION POINT - END ==========
     
     setNewMessage('')
   }
@@ -294,6 +310,50 @@ export function WatchParty({ content, roomCode, onBack }: WatchPartyProps) {
 
   const progress = (currentTime / totalDuration) * 100
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="h-screen bg-[#0f0f0f] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-[#4ecdc4] mx-auto mb-4" />
+          <p className="text-white/60">시청방에 입장하는 중...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="h-screen bg-[#0f0f0f] flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="text-red-400 mb-4">⚠️</div>
+          <h2 className="text-xl font-medium mb-2">시청방 입장 실패</h2>
+          <p className="text-white/60 mb-4">{error}</p>
+          <div className="flex gap-3 justify-center">
+            <Button onClick={onBack} variant="outline" className="border-white/20 hover:bg-white/5">
+              뒤로가기
+            </Button>
+            <Button onClick={() => window.location.reload()} className="teal-gradient hover:opacity-80 text-black">
+              새로고침
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Room data required
+  if (!roomData) {
+    return (
+      <div className="h-screen bg-[#0f0f0f] flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-white/60">시청방 데이터를 불러오는 중...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="h-screen bg-[#0f0f0f] flex flex-col overflow-hidden">
       {/* Header - Hide in fullscreen mode */}
@@ -310,13 +370,21 @@ export function WatchParty({ content, roomCode, onBack }: WatchPartyProps) {
             </Button>
             
             <div>
-              <h1 className="text-lg font-medium">{content.title}</h1>
+              <div className="flex items-center gap-2 mb-1">
+                <h1 className="text-lg font-medium">{roomData.contentTitle}</h1>
+                {isHost && (
+                  <Badge variant="secondary" className="text-xs">
+                    <Crown className="w-3 h-3 mr-1" />
+                    호스트
+                  </Badge>
+                )}
+              </div>
               <div className="flex items-center space-x-2 text-sm text-white/60">
-                <span>방 코드: {roomCode}</span>
+                <span>콘텐츠: {roomData.contentTitle}</span>
                 <span>•</span>
                 <div className="flex items-center space-x-1">
                   <Users className="w-4 h-4" />
-                  <span>{viewerCount > 0 ? viewerCount : participants.filter(p => p.isOnline).length}명 시청 중</span>
+                  <span>{participants.filter(p => p.isOnline).length}명 시청 중</span>
                 </div>
                 <span>•</span>
                 <div className="flex items-center space-x-1">
@@ -326,8 +394,13 @@ export function WatchParty({ content, roomCode, onBack }: WatchPartyProps) {
                     <WifiOff className="w-4 h-4 text-red-400" />
                   )}
                   <span className={isConnected ? 'text-green-400' : 'text-yellow-400'}>
-                    {isConnected ? 'Mock 연결됨' : 'Mock 연결 중'}
+                    {isConnected ? '연결됨' : connectionStatus === 'connecting' ? '연결 중' : '연결 끊김'}
                   </span>
+                  {reconnectAttempts > 0 && (
+                    <span className="text-yellow-400">
+                      (재연결 시도 {reconnectAttempts}/3)
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -349,7 +422,11 @@ export function WatchParty({ content, roomCode, onBack }: WatchPartyProps) {
       {/* Connection Status Banner */}
       {!isConnected && (
         <div className="bg-yellow-500/20 border-b border-yellow-500/30 px-4 py-2 text-sm text-yellow-300 flex-shrink-0">
-          <span>🔧 Mock 모드로 실행 중 - WebSocket 서버가 연결되지 않았습니다</span>
+          <span>
+            {connectionStatus === 'connecting' ? '🔄 서버에 연결하는 중...' : 
+             connectionStatus === 'error' ? '⚠️ 연결 오류 - 재연결 시도 중' :
+             '🔧 서버 연결이 끊어졌습니다'}
+          </span>
         </div>
       )}
 
@@ -360,8 +437,8 @@ export function WatchParty({ content, roomCode, onBack }: WatchPartyProps) {
           {/* Video Placeholder */}
           <div className="relative w-full h-full flex items-center justify-center bg-black">
             <ImageWithFallback
-              src={content.thumbnail}
-              alt={content.title}
+              src="https://images.unsplash.com/photo-1489599538883-17dd35352ad5?w=800&h=600&fit=crop&crop=face&auto=format&q=80"
+              alt={roomData.contentTitle}
               className="w-full h-full object-contain"
             />
             
@@ -370,13 +447,25 @@ export function WatchParty({ content, roomCode, onBack }: WatchPartyProps) {
               <Button
                 size="lg"
                 onClick={handlePlayPause}
-                className="rounded-full w-20 h-20 teal-gradient hover:opacity-80 text-black opacity-70 group-hover:opacity-100 transition-opacity"
+                disabled={!isHost}
+                className={`rounded-full w-20 h-20 opacity-70 group-hover:opacity-100 transition-opacity ${
+                  isHost 
+                    ? 'teal-gradient hover:opacity-80 text-black' 
+                    : 'bg-gray-600 text-white cursor-not-allowed'
+                }`}
               >
                 {isPlaying ? 
                   <Pause className="w-10 h-10 fill-current" /> : 
                   <Play className="w-10 h-10 fill-current ml-1" />
                 }
               </Button>
+              
+              {!isHost && (
+                <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-sm rounded px-3 py-2 text-sm text-white/80">
+                  <Crown className="w-4 h-4 inline mr-1" />
+                  호스트만 비디오를 제어할 수 있습니다
+                </div>
+              )}
             </div>
 
             {/* Bottom Controls */}
@@ -504,7 +593,7 @@ export function WatchParty({ content, roomCode, onBack }: WatchPartyProps) {
                   </Button>
                 </div>
                 <p className="text-xs text-white/60">
-                  {viewerCount > 0 ? viewerCount : participants.filter(p => p.isOnline).length}명이 시청 중입니다
+                  {participants.filter(p => p.isOnline).length}명이 시청 중입니다
                 </p>
               </div>
 
@@ -515,16 +604,19 @@ export function WatchParty({ content, roomCode, onBack }: WatchPartyProps) {
                     <h4 className="text-sm font-medium mb-3">참여자</h4>
                     <div className={`space-y-2 ${participants.length > 5 ? 'max-h-32 overflow-y-auto scrollbar-thin' : ''}`}>
                       {participants.map(participant => (
-                        <div key={participant.id} className="flex items-center space-x-2">
+                        <div key={participant.userId} className="flex items-center space-x-2">
                           <Avatar className="h-6 w-6 flex-shrink-0">
-                            <AvatarImage src={participant.avatar} />
+                            <AvatarImage src={participant.userAvatar} />
                             <AvatarFallback className="bg-[#4ecdc4] text-black text-xs">
-                              {participant.name.charAt(0)}
+                              {participant.userName.charAt(0)}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="text-sm flex-1 truncate">{participant.name}</span>
+                          <span className="text-sm flex-1 truncate">{participant.userName}</span>
                           {participant.isHost && (
-                            <Badge variant="secondary" className="text-xs flex-shrink-0">호스트</Badge>
+                            <Badge variant="secondary" className="text-xs flex-shrink-0">
+                              <Crown className="w-3 h-3 mr-1" />
+                              호스트
+                            </Badge>
                           )}
                           <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
                             participant.isOnline ? 'bg-green-400' : 'bg-gray-400'
@@ -538,7 +630,7 @@ export function WatchParty({ content, roomCode, onBack }: WatchPartyProps) {
 
               {/* Chat Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0 scrollbar-thin">
-                {isLoadingHistory && (
+                {loading && (
                   <div className="text-center py-4">
                     <div className="text-xs text-white/40">이전 메시지를 불러오는 중...</div>
                   </div>
@@ -546,33 +638,24 @@ export function WatchParty({ content, roomCode, onBack }: WatchPartyProps) {
                 
                 {chatMessages.map(message => (
                   <div key={message.id}>
-                    {(message.type === 'system' || message.type === 'join' || message.type === 'leave') ? (
-                      <div className="text-center">
-                        <p className={`text-xs rounded-full px-3 py-1 inline-block ${
-                          message.type === 'join' ? 'text-green-400 bg-green-400/10' :
-                          message.type === 'leave' ? 'text-red-400 bg-red-400/10' :
-                          'text-white/40 bg-white/5'
-                        }`}>
-                          {message.message}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="flex space-x-2">
-                        <Avatar className="h-6 w-6 flex-shrink-0">
-                          <AvatarImage src={message.userAvatar} />
-                          <AvatarFallback className="bg-[#4ecdc4] text-black text-xs">
-                            {message.userName.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <span className="text-xs font-medium">{message.userName}</span>
-                            <span className="text-xs text-white/40">{formatMessageTime(message.timestamp)}</span>
-                          </div>
-                          <p className="text-sm break-words">{message.message}</p>
+                    <div className="flex space-x-2">
+                      <Avatar className="h-6 w-6 flex-shrink-0">
+                        <AvatarImage src={participants.find(p => p.userId === message.senderId)?.userAvatar} />
+                        <AvatarFallback className="bg-[#4ecdc4] text-black text-xs">
+                          {message.senderName.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2 mb-1">
+                          <span className="text-xs font-medium">{message.senderName}</span>
+                          {participants.find(p => p.userId === message.senderId)?.isHost && (
+                            <Crown className="w-3 h-3 text-yellow-400" />
+                          )}
+                          <span className="text-xs text-white/40">{formatMessageTime(message.createdAt)}</span>
                         </div>
+                        <p className="text-sm break-words">{message.content}</p>
                       </div>
-                    )}
+                    </div>
                   </div>
                 ))}
                 <div ref={chatEndRef} />
@@ -582,7 +665,7 @@ export function WatchParty({ content, roomCode, onBack }: WatchPartyProps) {
               <div className="p-4 border-t border-white/10 flex-shrink-0">
                 <div className="flex space-x-2">
                   <Input
-                    placeholder={isConnected ? "메시지를 입력하세요... (Mock 모드)" : "Mock 연결 중..."}
+                    placeholder={isConnected ? "메시지를 입력하세요..." : "서버에 연결 중..."}
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}

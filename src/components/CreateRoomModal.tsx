@@ -1,187 +1,153 @@
-import { useState } from 'react'
-import { Search, Play, Star } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Search, Play, Star, Loader2 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Input } from './ui/input'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
+import { WatchRoomCreateRequest, WatchRoomDto } from '../types/watchRoom'
+import { watchRoomService } from '../services/watchRoomService'
+import { ContentDto } from '../types/content'
+import { contentService } from '../services/contentService'
 
-interface ContentItem {
-  id: number
-  title: string
-  thumbnail: string
-  type: 'movie' | 'drama' | 'sports'
-  duration: string
-  description: string
-  rating?: number
-  reviewCount?: number
-  year?: number
-}
 
 interface CreateRoomModalProps {
   isOpen: boolean
   onClose: () => void
-  onCreateRoom: (content: ContentItem, roomName: string, isPublic: boolean) => void
+  onCreateRoom: (room: WatchRoomDto) => void
+  userId: string
 }
 
-// Combined content from all categories
-const allContent: ContentItem[] = [
-  // Movies
-  {
-    id: 1,
-    title: '기생충',
-    thumbnail: 'https://images.unsplash.com/photo-1489599538883-17dd35352ad5?w=400&h=600&fit=crop&crop=face',
-    type: 'movie',
-    duration: '132분',
-    description: '전 세계를 놀라게 한 봉준호 감독의 작품. 계급 갈등을 다룬 블랙 코미디 스릴러.',
-    rating: 4.8,
-    reviewCount: 342,
-    year: 2019
-  },
-  {
-    id: 2,
-    title: '올드보이',
-    thumbnail: 'https://images.unsplash.com/photo-1515634928627-2a4e0dae3ddf?w=400&h=600&fit=crop&crop=face',
-    type: 'movie',
-    duration: '120분',
-    description: '박찬욱 감독의 복수 3부작 중 두 번째 작품. 15년간 감금된 남자의 복수 이야기.',
-    rating: 4.6,
-    reviewCount: 289,
-    year: 2003
-  },
-  {
-    id: 3,
-    title: '인터스텔라',
-    thumbnail: 'https://images.unsplash.com/photo-1446776877081-d282a0f896e2?w=400&h=600&fit=crop&crop=face',
-    type: 'movie',
-    duration: '169분',
-    description: '크리스토퍼 놀란 감독의 SF 대작. 인류의 생존을 위한 우주 여행을 그린 작품.',
-    rating: 4.7,
-    reviewCount: 389,
-    year: 2014
-  },
-  // Dramas
-  {
-    id: 4,
-    title: '스카이캐슬',
-    thumbnail: 'https://images.unsplash.com/photo-1551334787-21e6bd773eed?w=400&h=600&fit=crop&crop=face',
-    type: 'drama',
-    duration: '16화',
-    description: '상위 1% 상류층의 입시 전쟁을 다룬 블랙 코미디 드라마.',
-    rating: 4.9,
-    reviewCount: 456,
-    year: 2018
-  },
-  {
-    id: 5,
-    title: '사랑의 불시착',
-    thumbnail: 'https://images.unsplash.com/photo-1516684732162-798a0062be99?w=400&h=600&fit=crop&crop=face',
-    type: 'drama',
-    duration: '16화',
-    description: '재벌 2세 여자와 북한 군인의 로맨스를 그린 로맨틱 코미디.',
-    rating: 4.8,
-    reviewCount: 523,
-    year: 2019
-  },
-  {
-    id: 6,
-    title: '킹덤',
-    thumbnail: 'https://images.unsplash.com/photo-1489424731084-a5d8b219a5bb?w=400&h=600&fit=crop&crop=face',
-    type: 'drama',
-    duration: '시즌 1-2',
-    description: '조선시대를 배경으로 한 좀비 스릴러. 정치와 호러가 결합된 독특한 작품.',
-    rating: 4.7,
-    reviewCount: 234,
-    year: 2019
-  },
-  // Sports
-  {
-    id: 7,
-    title: '2024 파리 올림픽',
-    thumbnail: 'https://images.unsplash.com/photo-1530549387789-4c1017266635?w=400&h=600&fit=crop&crop=center',
-    type: 'sports',
-    duration: '라이브',
-    description: '세계 최고의 선수들이 펼치는 올림픽 경기 실시간 중계.',
-    rating: 4.9,
-    reviewCount: 634,
-    year: 2024
-  },
-  {
-    id: 8,
-    title: 'NBA 파이널',
-    thumbnail: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=400&h=600&fit=crop&crop=center',
-    type: 'sports',
-    duration: '라이브',
-    description: '미국 프로농구 NBA 정규시즌 및 플레이오프 중계.',
-    rating: 4.7,
-    reviewCount: 456,
-    year: 2024
-  },
-  {
-    id: 9,
-    title: '프리미어리그',
-    thumbnail: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=400&h=600&fit=crop&crop=center',
-    type: 'sports',
-    duration: '라이브',
-    description: '영국 프리미어리그 축구 경기 실시간 중계.',
-    rating: 4.8,
-    reviewCount: 567,
-    year: 2024
-  }
-]
 
-export function CreateRoomModal({ isOpen, onClose, onCreateRoom }: CreateRoomModalProps) {
+export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: CreateRoomModalProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState('all')
-  const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null)
-  const [roomName, setRoomName] = useState('')
-  const [isPublic, setIsPublic] = useState(true)
+  const [selectedContent, setSelectedContent] = useState<ContentDto | null>(null)
   const [step, setStep] = useState<'select' | 'create'>('select')
+  const [isCreating, setIsCreating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [contents, setContents] = useState<ContentDto[]>([])
+  const [loading, setLoading] = useState(false)
+  const [hasNext, setHasNext] = useState(false)
+  const [nextCursor, setNextCursor] = useState<string | undefined>()
+  const [loadingMore, setLoadingMore] = useState(false)
 
-  const filteredContent = allContent.filter(item => {
-    const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesType = filterType === 'all' || item.type === filterType
-    return matchesSearch && matchesType
-  })
-
-  const handleContentSelect = (content: ContentItem) => {
-    setSelectedContent(content)
-    setRoomName(`${content.title} 시청방`)
-    setStep('create')
-  }
-
-  const handleCreateRoom = () => {
-    if (selectedContent && roomName.trim()) {
-      onCreateRoom(selectedContent, roomName.trim(), isPublic)
-      handleClose()
+  // 콘텐츠 로드 함수
+  const loadContents = async (isLoadMore = false) => {
+    try {
+      if (!isLoadMore) {
+        setLoading(true)
+      } else {
+        setLoadingMore(true)
+      }
+      setError(null)
+      
+      const response = await contentService.getContents({
+        type: filterType === 'all' ? undefined : filterType.toUpperCase() as 'MOVIE' | 'TV' | 'SPORTS',
+        query: searchQuery || undefined,
+        cursor: isLoadMore ? nextCursor : undefined,
+        size: 20
+      })
+      
+      if (isLoadMore) {
+        setContents(prev => [...prev, ...response.data])
+      } else {
+        setContents(response.data)
+      }
+      
+      setHasNext(response.hasNext)
+      setNextCursor(response.nextCursor)
+    } catch (error) {
+      console.error('콘텐츠 로드 오류:', error)
+      setError(error instanceof Error ? error.message : '콘텐츠를 불러오는 중 오류가 발생했습니다.')
+    } finally {
+      setLoading(false)
+      setLoadingMore(false)
     }
   }
+  
+  // 모달이 열릴 때 콘텐츠 로드
+  useEffect(() => {
+    if (isOpen) {
+      loadContents(false)
+    }
+  }, [isOpen])
+  
+  // 검색어나 필터 변경 시 콘텐츠 새로고침
+  useEffect(() => {
+    if (!isOpen) return
+    
+    const timeoutId = setTimeout(() => {
+      loadContents(false)
+    }, 300)
+    
+    return () => clearTimeout(timeoutId)
+  }, [searchQuery, filterType, isOpen])
+  
+  // 더 보기 핸들러
+  const handleLoadMore = () => {
+    if (hasNext && !loading && !loadingMore) {
+      loadContents(true)
+    }
+  }
+
+  const handleContentSelect = async (content: ContentDto) => {
+    setSelectedContent(content)
+    setIsCreating(true)
+    setError(null)
+
+    try {
+      const request: WatchRoomCreateRequest = {
+        contentId: content.id,
+        ownerId: userId
+      }
+
+      const newRoom = await watchRoomService.createWatchRoom(request)
+      onCreateRoom(newRoom)
+      handleClose()
+    } catch (error) {
+      console.error('시청방 생성 오류:', error)
+      setError(error instanceof Error ? error.message : '시청방 생성 중 오류가 발생했습니다.')
+      setStep('create')
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
 
   const handleClose = () => {
     setSearchQuery('')
     setFilterType('all')
     setSelectedContent(null)
-    setRoomName('')
-    setIsPublic(true)
     setStep('select')
+    setIsCreating(false)
+    setError(null)
+    setContents([])
+    setLoading(false)
+    setHasNext(false)
+    setNextCursor(undefined)
+    setLoadingMore(false)
     onClose()
   }
 
-  const getCategoryTitle = (type: string) => {
-    switch (type) {
-      case 'movie': return '영화'
-      case 'drama': return '드라마'
-      case 'sports': return '스포츠'
+  const getCategoryTitle = (contentType: string) => {
+    switch (contentType) {
+      case 'MOVIE': return '영화'
+      case 'TV': return 'TV/드라마'
+      case 'SPORTS': return '스포츠'
       default: return '콘텐츠'
     }
   }
 
+  // Debug: 모달 상태 확인
+  console.log('CreateRoomModal rendered:', { isOpen, step, selectedContent, loading })
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden bg-card border-white/20">
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden bg-gray-900 border-white/20 z-[9999]">
         <DialogHeader>
           <DialogTitle className="text-xl">
-            {step === 'select' ? '실시간 시청방 만들기' : '시청방 설정'}
+            {step === 'select' ? '실시간 시청방 만들기' : '시청방 생성 오류'}
           </DialogTitle>
         </DialogHeader>
 
@@ -208,15 +174,39 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom }: CreateRoomMod
                   <SelectContent>
                     <SelectItem value="all">전체</SelectItem>
                     <SelectItem value="movie">영화</SelectItem>
-                    <SelectItem value="drama">드라마</SelectItem>
+                    <SelectItem value="tv">TV/드라마</SelectItem>
                     <SelectItem value="sports">스포츠</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
+              {/* Loading State */}
+              {loading && (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-8 h-8 animate-spin text-[#4ecdc4]" />
+                  <span className="ml-2 text-white/60">콘텐츠를 불러오는 중...</span>
+                </div>
+              )}
+              
+              {/* Error State */}
+              {error && !loading && (
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+                  <p className="text-red-400 mb-2">{error}</p>
+                  <Button
+                    onClick={() => loadContents(false)}
+                    variant="outline"
+                    size="sm"
+                    className="border-red-400/30 text-red-400 hover:bg-red-500/10"
+                  >
+                    다시 시도
+                  </Button>
+                </div>
+              )}
+              
               {/* Content Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-96 overflow-y-auto">
-                {filteredContent.map((item) => (
+              {!loading && !error && (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-96 overflow-y-auto">
+                  {contents.map((item) => (
                   <div
                     key={item.id}
                     className="bg-white/5 rounded-lg overflow-hidden border border-white/10 hover:border-[#4ecdc4]/30 transition-all duration-300 group cursor-pointer"
@@ -236,9 +226,9 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom }: CreateRoomMod
                       
                       {/* Overlay */}
                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                        <Button size="sm" className="teal-gradient hover:opacity-80 text-black">
+                        <Button size="sm" className="teal-gradient hover:opacity-80 text-black" disabled={isCreating}>
                           <Play className="w-4 h-4 mr-1" />
-                          선택
+                          {isCreating ? '생성 중...' : '선택'}
                         </Button>
                       </div>
                     </div>
@@ -257,16 +247,39 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom }: CreateRoomMod
                           </div>
                         )}
                         <Badge variant="outline" className="text-xs border-white/20 text-white/60">
-                          {getCategoryTitle(item.type)}
+                          {getCategoryTitle(item.contentType)}
                         </Badge>
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
+                  ))}
+                  
+                  {/* Load More Button */}
+                  {hasNext && (
+                    <div className="col-span-full text-center pt-4">
+                      <Button
+                        onClick={handleLoadMore}
+                        disabled={loadingMore || isCreating}
+                        variant="outline"
+                        size="sm"
+                        className="border-white/20 hover:bg-white/5"
+                      >
+                        {loadingMore ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            로딩 중...
+                          </>
+                        ) : (
+                          '더 보기'
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Empty State */}
-              {filteredContent.length === 0 && (
+              {!loading && !error && contents.length === 0 && (
                 <div className="text-center py-8">
                   <p className="text-white/60 mb-4">검색 결과가 없습니다.</p>
                   <Button
@@ -285,7 +298,7 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom }: CreateRoomMod
           </>
         ) : (
           <>
-            {/* Room Creation Step */}
+            {/* Room Creation Error Step */}
             <div className="space-y-6">
               {/* Selected Content Display */}
               {selectedContent && (
@@ -310,56 +323,19 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom }: CreateRoomMod
                         </div>
                       )}
                       <Badge variant="outline" className="text-xs border-white/20 text-white/60">
-                        {getCategoryTitle(selectedContent.type)}
+                        {getCategoryTitle(selectedContent.contentType)}
                       </Badge>
                     </div>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setStep('select')}
-                    className="border-white/20 hover:bg-white/10"
-                  >
-                    변경
-                  </Button>
                 </div>
               )}
 
-              {/* Room Settings */}
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">시청방 이름</label>
-                  <Input
-                    value={roomName}
-                    onChange={(e) => setRoomName(e.target.value)}
-                    placeholder="시청방 이름을 입력하세요"
-                    className="bg-white/5 border-white/20 focus:border-[#4ecdc4]"
-                  />
+              {/* Error State */}
+              {error && (
+                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                  <p className="text-red-400 text-sm">{error}</p>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">공개 설정</label>
-                  <div className="flex gap-4">
-                    <Button
-                      variant={isPublic ? "default" : "outline"}
-                      onClick={() => setIsPublic(true)}
-                      className={isPublic ? "teal-gradient text-black" : "border-white/20 hover:bg-white/5"}
-                    >
-                      공개방
-                    </Button>
-                    <Button
-                      variant={!isPublic ? "default" : "outline"}
-                      onClick={() => setIsPublic(false)}
-                      className={!isPublic ? "teal-gradient text-black" : "border-white/20 hover:bg-white/5"}
-                    >
-                      비공개방
-                    </Button>
-                  </div>
-                  <p className="text-sm text-white/60 mt-2">
-                    {isPublic ? '누구나 참여할 수 있는 공개방입니다.' : '초대받은 사용자만 참여할 수 있습니다.'}
-                  </p>
-                </div>
-              </div>
+              )}
 
               {/* Action Buttons */}
               <div className="flex gap-3 pt-4">
@@ -371,11 +347,18 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom }: CreateRoomMod
                   뒤로가기
                 </Button>
                 <Button
-                  onClick={handleCreateRoom}
-                  disabled={!selectedContent || !roomName.trim()}
+                  onClick={() => handleContentSelect(selectedContent!)}
+                  disabled={!selectedContent || isCreating}
                   className="flex-1 teal-gradient hover:opacity-80 text-black disabled:opacity-50"
                 >
-                  시청방 만들기
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      생성 중...
+                    </>
+                  ) : (
+                    '다시 시도'
+                  )}
                 </Button>
               </div>
             </div>

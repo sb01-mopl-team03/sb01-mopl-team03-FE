@@ -6,10 +6,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 
 interface ContentItem {
-  id: number
+  id: string
   title: string
   thumbnail: string
-  type: 'movie' | 'drama' | 'sports'
+  type: 'movie' | 'tv' | 'sports'
   year?: number
   rating?: number
 }
@@ -172,7 +172,7 @@ export function AddToPlaylistModal({ isOpen, onClose, content }: AddToPlaylistMo
             <div className="flex-1 min-w-0">
               <p className="font-medium truncate">{content.title}</p>
               <p className="text-sm text-white/60">
-                {content.type === 'movie' ? '영화' : content.type === 'drama' ? '드라마' : '스포츠'} • {content.year}
+                {content.type === 'movie' ? '영화' : content.type === 'tv' ? 'TV' : '스포츠'} • {content.year}
               </p>
             </div>
           </div>

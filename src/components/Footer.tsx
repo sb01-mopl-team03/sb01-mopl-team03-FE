@@ -7,7 +7,7 @@ export function Footer() {
     서비스: [
       { name: '홈', href: '#home' },
       { name: '영화', href: '#movies' },
-      { name: '드라마', href: '#drama' },
+      { name: 'TV/드라마', href: '#tv' },
       { name: '스포츠', href: '#sports' },
       { name: '큐레이션', href: '#curation' },
       { name: '라이브', href: '#live' }

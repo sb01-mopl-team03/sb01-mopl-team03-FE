@@ -13,12 +13,15 @@ import { ProfileModal } from './components/ProfileModal'
 import { DMList } from './components/DMList'
 import { ChatRoom } from './components/ChatRoom'
 import { WatchParty } from './components/WatchParty'
+import { LiveRooms } from './components/LiveRooms'
 
 import { WatchPartyConfirmation } from './components/WatchPartyConfirmation'
 import { AddToPlaylistModal } from './components/AddToPlaylistModal'
 import { CreateRoomModal } from './components/CreateRoomModal'
 import { UserProfile } from './components/UserProfile'
 import { Button } from './components/ui/button'
+
+import { WatchRoomDto } from './types/watchRoom'
 
 interface ChatUser {
   id: number
@@ -28,10 +31,10 @@ interface ChatUser {
 }
 
 interface ContentItem {
-  id: number
+  id: string
   title: string
   thumbnail: string
-  type: 'movie' | 'drama' | 'sports'
+  type: 'movie' | 'tv' | 'sports'
   duration: string
   description: string
   year?: number
@@ -120,7 +123,7 @@ export default function App() {
   }
 
   const [currentPage, setCurrentPage] = useState('home')
-  const [selectedPlaylistId, setSelectedPlaylistId] = useState<number | null>(null)
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null)
   const [selectedContentDetail, setSelectedContentDetail] = useState<ContentItem | null>(null)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [isRegister, setIsRegister] = useState(false)
@@ -133,12 +136,6 @@ export default function App() {
   // Watch Party State
   const [showWatchPartyConfirmation, setShowWatchPartyConfirmation] = useState(false)
   const [selectedContent, setSelectedContent] = useState<ContentItem | null>(null)
-  const [currentWatchParty, setCurrentWatchParty] = useState<{
-    content: ContentItem
-    roomCode: string
-    config: WatchPartyConfig
-    isJoinMode?: boolean
-  } | null>(null)
 
   // Playlist Modal State
   const [showAddToPlaylistModal, setShowAddToPlaylistModal] = useState(false)
@@ -146,6 +143,9 @@ export default function App() {
 
   // Create Room Modal State
   const [showCreateRoomModal, setShowCreateRoomModal] = useState(false)
+
+  // Watch Room State
+  const [currentWatchRoomId, setCurrentWatchRoomId] = useState<string | null>(null)
 
   // OAuth 콜백 처리 함수
   const handleOAuthCallback = () => {
@@ -333,14 +333,14 @@ export default function App() {
       setSelectedPlaylistId(null)
     }
     if (page !== 'watch-party') {
-      setCurrentWatchParty(null)
+      setCurrentWatchRoomId(null)
     }
     if (page !== 'content-detail') {
       setSelectedContentDetail(null)
     }
   }
 
-  const handlePlaylistDetailOpen = (playlistId: number) => {
+  const handlePlaylistDetailOpen = (playlistId: string) => {
     setSelectedPlaylistId(playlistId)
     setCurrentPage('playlist-detail')
   }
@@ -362,7 +362,7 @@ export default function App() {
     if (selectedContentDetail) {
       const typeToPage = {
         movie: 'movies',
-        drama: 'drama',
+        tv: 'tv',
         sports: 'sports'
       }
       setCurrentPage(typeToPage[selectedContentDetail.type] || 'home')
@@ -443,46 +443,33 @@ export default function App() {
     console.log('Room code:', roomCode)
     // ========== API INTEGRATION POINT - END ==========
 
-    setCurrentWatchParty({
-      content: selectedContent,
-      roomCode,
-      config,
-      isJoinMode: false // New room creation
-    })
+    // TODO: Implement watch party creation with real API
+    alert('Watch party creation not implemented yet')
     
     setShowWatchPartyConfirmation(false)
     setSelectedContent(null)
+  }
+
+
+  // Watch Room Handlers
+  const handleJoinRoom = (room: WatchRoomDto) => {
+    setCurrentWatchRoomId(room.id)
     setCurrentPage('watch-party')
   }
 
-  const handleBackFromWatchParty = () => {
-    setCurrentWatchParty(null)
-    setCurrentPage('home')
-  }
-
-  // Create Room Handlers
-  const handleCreateRoom = (content: ContentItem, roomName: string, isPublic: boolean) => {
-    // Generate room code
-    const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase()
-    
-    // ========== API INTEGRATION POINT - START ==========
-    // TODO: Create watch party room on server
-    // Example: const roomData = await createRoomWithContent(content.id, roomName, isPublic)
-    console.log('Creating room with content:', content.title)
-    console.log('Room name:', roomName)
-    console.log('Is public:', isPublic)
-    console.log('Room code:', roomCode)
-    // ========== API INTEGRATION POINT - END ==========
-
-    setCurrentWatchParty({
-      content,
-      roomCode,
-      config: { roomName, isPublic },
-      isJoinMode: false // New room creation
-    })
-    
+  const handleCreateRoom = (room: WatchRoomDto) => {
+    setCurrentWatchRoomId(room.id)
     setShowCreateRoomModal(false)
     setCurrentPage('watch-party')
+  }
+
+  const handleBackFromWatchRoom = () => {
+    setCurrentWatchRoomId(null)
+    setCurrentPage('live')
+  }
+
+  const handleCreateRoomModal = () => {
+    setShowCreateRoomModal(true)
   }
 
   const handleCloseCreateRoomModal = () => {
@@ -584,8 +571,8 @@ export default function App() {
         return <Curation onContentPlay={handleContentPlay} onContentDetail={handleContentDetail} onAddToPlaylist={handleAddToPlaylist} />
       case 'movies':
         return <CategoryPage category="movies" onContentPlay={handleContentPlay} onContentDetail={handleContentDetail} onAddToPlaylist={handleAddToPlaylist} />
-      case 'drama':
-        return <CategoryPage category="drama" onContentPlay={handleContentPlay} onContentDetail={handleContentDetail} onAddToPlaylist={handleAddToPlaylist} />
+      case 'tv':
+        return <CategoryPage category="tv" onContentPlay={handleContentPlay} onContentDetail={handleContentDetail} onAddToPlaylist={handleAddToPlaylist} />
       case 'sports':
         return <CategoryPage category="sports" onContentPlay={handleContentPlay} onContentDetail={handleContentDetail} onAddToPlaylist={handleAddToPlaylist} />
       case 'playlist':
@@ -606,17 +593,21 @@ export default function App() {
             content={selectedContentDetail}
             onBack={handleBackFromContentDetail}
             onPlay={handleContentPlay}
+            currentUser={userId ? {
+              id: userId,
+              name: '현재 사용자',
+              avatar: undefined
+            } : undefined}
           />
         ) : (
           <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
         )
       case 'watch-party':
-        return currentWatchParty ? (
+        return currentWatchRoomId && userId ? (
           <WatchParty
-            content={currentWatchParty.content}
-            roomCode={currentWatchParty.roomCode}
-            onBack={handleBackFromWatchParty}
-            isJoinMode={currentWatchParty.isJoinMode}
+            roomId={currentWatchRoomId}
+            userId={userId}
+            onBack={handleBackFromWatchRoom}
           />
         ) : (
           <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
@@ -634,8 +625,8 @@ export default function App() {
         ) : (
           <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
         )
-      // case 'live':
-      //   return <LiveRooms onJoinRoom={handleJoinRoom} />
+      case 'live':
+        return <LiveRooms onJoinRoom={handleJoinRoom} onCreateRoom={handleCreateRoomModal} />
       default:
         return <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
     }
@@ -668,6 +659,7 @@ export default function App() {
           isOpen={showCreateRoomModal}
           onClose={handleCloseCreateRoomModal}
           onCreateRoom={handleCreateRoom}
+          userId={userId || ''}
         />
       </div>
     )
@@ -736,6 +728,7 @@ export default function App() {
         isOpen={showCreateRoomModal}
         onClose={handleCloseCreateRoomModal}
         onCreateRoom={handleCreateRoom}
+        userId={userId || ''}
       />
 
       {/* Floating Message Button */}

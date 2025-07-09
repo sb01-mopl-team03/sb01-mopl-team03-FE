@@ -1,10 +1,10 @@
 import { ImageWithFallback } from './figma/ImageWithFallback'
 
 interface ContentItem {
-  id: number
+  id: string
   title: string
   thumbnail: string
-  type: 'movie' | 'drama' | 'sports'
+  type: 'movie' | 'tv' | 'sports'
 }
 
 interface OverlappingThumbnailsProps {

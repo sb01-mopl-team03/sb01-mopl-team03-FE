@@ -7,7 +7,7 @@ import { OverlappingThumbnails } from './OverlappingThumbnails'
 import { PlaylistCreationModal } from './PlaylistCreationModal'
 
 interface PlaylistItem {
-  id: number
+  id: string
   title: string
   description: string
   thumbnail: string | null
@@ -16,21 +16,21 @@ interface PlaylistItem {
   createdAt: string
   isPublic: boolean
   contents: Array<{
-    id: number
+    id: string
     title: string
     thumbnail: string
-    type: 'movie' | 'drama' | 'sports'
+    type: 'movie' | 'tv' | 'sports'
   }>
 }
 
 interface PlaylistProps {
-  onPlaylistOpen?: (playlistId: number) => void
+  onPlaylistOpen?: (playlistId: string) => void
 }
 
 // ========== TEMPORARY MOCK DATA - START ==========
 const mockPlaylists: PlaylistItem[] = [
   {
-    id: 1,
+    id: 'playlist-1',
     title: '최고의 액션 영화 모음',
     description: '스릴 넘치는 액션 영화들을 모아봤어요',
     thumbnail: 'https://images.unsplash.com/photo-1489599856621-6c0e9b89c2e4?w=400',
@@ -39,14 +39,14 @@ const mockPlaylists: PlaylistItem[] = [
     createdAt: '2024-01-15',
     isPublic: true,
     contents: [
-      { id: 1, title: '듄: 파트 투', thumbnail: 'https://images.unsplash.com/photo-1489599856621-6c0e9b89c2e4?w=200', type: 'movie' },
-      { id: 2, title: '탑건: 매버릭', thumbnail: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=200', type: 'movie' },
-      { id: 3, title: '어벤져스: 엔드게임', thumbnail: 'https://images.unsplash.com/photo-1509347528160-9a9e33742cdb?w=200', type: 'movie' },
-      { id: 4, title: '존 윅 4', thumbnail: 'https://images.unsplash.com/photo-1518676590629-3dcbd9c5a5c9?w=200', type: 'movie' }
+      { id: '7e582e7a-7262-48f1-98e4-2894ab0aaae7', title: '듄: 파트 투', thumbnail: 'https://images.unsplash.com/photo-1489599856621-6c0e9b89c2e4?w=200', type: 'movie' },
+      { id: 'da5f1734-ecb7-4b87-8c3d-d4499aecbd52', title: '탑건: 매버릭', thumbnail: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=200', type: 'movie' },
+      { id: '4a1ca2f4-254a-49e4-bd2f-4c092f893a3e', title: '어벤져스: 엔드게임', thumbnail: 'https://images.unsplash.com/photo-1509347528160-9a9e33742cdb?w=200', type: 'movie' },
+      { id: '2b13b283-dce3-4f09-9037-14731a5c1178', title: '존 윅 4', thumbnail: 'https://images.unsplash.com/photo-1518676590629-3dcbd9c5a5c9?w=200', type: 'movie' }
     ]
   },
   {
-    id: 2,
+    id: 'playlist-2',
     title: 'K-드라마 명작선',
     description: '한국 드라마의 진수를 느껴보세요',
     thumbnail: 'https://images.unsplash.com/photo-1605728515502-13b52fd77e03?w=400',
@@ -55,14 +55,14 @@ const mockPlaylists: PlaylistItem[] = [
     createdAt: '2024-01-20',
     isPublic: false,
     contents: [
-      { id: 5, title: '오징어 게임', thumbnail: 'https://images.unsplash.com/photo-1605728515502-13b52fd77e03?w=200', type: 'drama' },
-      { id: 6, title: '사랑의 불시착', thumbnail: 'https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=200', type: 'drama' },
-      { id: 7, title: '킹덤', thumbnail: 'https://images.unsplash.com/photo-1551268281-86aa4aba8edd?w=200', type: 'drama' },
-      { id: 8, title: '스카이캐슬', thumbnail: 'https://images.unsplash.com/photo-1595854341625-f33ee10dbf94?w=200', type: 'drama' }
+      { id: '8d714f80-ffbe-4029-859f-c8e85087e07f', title: '오징어 게임', thumbnail: 'https://images.unsplash.com/photo-1605728515502-13b52fd77e03?w=200', type: 'tv' },
+      { id: 'acd4bb15-905b-492b-94ce-cb72ceed527c', title: '사랑의 불시착', thumbnail: 'https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=200', type: 'tv' },
+      { id: 'a00c2a43-7a40-4d67-b68b-9c32ee6b8ce3', title: '킹덤', thumbnail: 'https://images.unsplash.com/photo-1551268281-86aa4aba8edd?w=200', type: 'tv' },
+      { id: '2cced8d5-b9fa-4bb2-8396-f196489a45ce', title: '스카이캐슬', thumbnail: 'https://images.unsplash.com/photo-1595854341625-f33ee10dbf94?w=200', type: 'tv' }
     ]
   },
   {
-    id: 3,
+    id: 'playlist-3',
     title: '스포츠 하이라이트',
     description: '잊을 수 없는 스포츠 명장면들',
     thumbnail: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=400',
@@ -71,13 +71,13 @@ const mockPlaylists: PlaylistItem[] = [
     createdAt: '2024-01-25',
     isPublic: true,
     contents: [
-      { id: 9, title: '2022 월드컵 결승', thumbnail: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=200', type: 'sports' },
-      { id: 10, title: 'NBA 파이널 2023', thumbnail: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=200', type: 'sports' },
-      { id: 11, title: '올림픽 하이라이트', thumbnail: 'https://images.unsplash.com/photo-1461896788775-0c422d9d5751?w=200', type: 'sports' }
+      { id: '53a617c3-0e79-417a-a7ea-9b7b3b7ce06c', title: '2022 월드컵 결승', thumbnail: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=200', type: 'sports' },
+      { id: 'bf32ee30-2fda-43e8-91e5-ce23232ffbb3', title: 'NBA 파이널 2023', thumbnail: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=200', type: 'sports' },
+      { id: 'd124a45f-c604-4c83-8222-11a6c80f82f2', title: '올림픽 하이라이트', thumbnail: 'https://images.unsplash.com/photo-1461896788775-0c422d9d5751?w=200', type: 'sports' }
     ]
   },
   {
-    id: 4,
+    id: 'playlist-4',
     title: '가족과 함께 보기 좋은',
     description: '온 가족이 함께 즐길 수 있는 컨텐츠',
     thumbnail: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400',
@@ -86,10 +86,10 @@ const mockPlaylists: PlaylistItem[] = [
     createdAt: '2024-02-01',
     isPublic: true,
     contents: [
-      { id: 12, title: '토이 스토리', thumbnail: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=200', type: 'movie' },
-      { id: 13, title: '미니언즈', thumbnail: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=200', type: 'movie' },
-      { id: 14, title: '겨울왕국', thumbnail: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=200', type: 'movie' },
-      { id: 15, title: '라이온 킹', thumbnail: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=200', type: 'movie' }
+      { id: 'f99b45cb-f91b-44fa-8b34-8961fe5d01e8', title: '토이 스토리', thumbnail: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=200', type: 'movie' },
+      { id: '59ac2f52-2bd7-4e0e-9007-692fbfff5041', title: '미니언즈', thumbnail: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=200', type: 'movie' },
+      { id: 'f8e6e2d2-7485-4412-9bfe-3f5ea6a082d1', title: '겨울왕국', thumbnail: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=200', type: 'movie' },
+      { id: 'eadb7068-7e40-417b-834f-73de56309311', title: '라이온 킹', thumbnail: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=200', type: 'movie' }
     ]
   }
 ]
