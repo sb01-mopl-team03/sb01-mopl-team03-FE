@@ -3,9 +3,12 @@
 React + TypeScript + Vite로 개발된 스트리밍 플랫폼 프론트엔드입니다.
 
 실행 방법은 3가지 입니다.
-1. 일반 실행
-2. Docker - 간단한 방법(권장)
-3. Docker - nignx
+
+[1. 일반 실행 방법](#1.일반-실행-방법)
+
+[2. Docker - 간단한 방법(권장)](#방법-1:-간단한-방법)
+
+[3. Docker - nignx](#방법-2:-nginx-사용)
 
 
 ## 일반 실행 방법
@@ -26,8 +29,8 @@ React + TypeScript + Vite로 개발된 스트리밍 플랫폼 프론트엔드입
 
 ## Docker로 실행하기
 
-### 방법 1: 간단한 방법 (권장)
-nginx 없이 vite preview 서버를 사용하는 방법입니다.
+### 방법 1: 간단한 방법
+nginx 없이 vite preview 서버를 사용하는 방법입니다. (권장)
 
 ```bash
 # 1. 이미지 빌드
