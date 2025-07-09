@@ -390,6 +390,26 @@ export default function App() {
   }
 
   // Live Room Handlers
+  // const handleJoinRoom = (room: LiveRoom) => {
+  //   // ========== API INTEGRATION POINT - START ==========
+  //   // TODO: Join existing room via API
+  //   // Example: await joinLiveRoom(room.id)
+  //   console.log('Joining live room:', room.roomName, 'with content:', room.content.title)
+  //   // ========== API INTEGRATION POINT - END ==========
+    
+  //   // Set up watch party with existing room data
+  //   setCurrentWatchParty({
+  //     content: room.content,
+  //     roomCode: room.id, // Use room ID as room code
+  //     config: { 
+  //       roomName: room.roomName, 
+  //       isPublic: room.isPublic 
+  //     },
+  //     isJoinMode: true // Flag to indicate joining existing room
+  //   })
+    
+  //   setCurrentPage('watch-party')
+  // }
 
   // Watch Party Handlers
   const handleContentPlay = (content: ContentItem) => {
