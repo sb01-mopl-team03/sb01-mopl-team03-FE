@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { MessageCircle } from 'lucide-react'
 import { Header } from './components/Header'
 import { Footer } from './components/Footer'
@@ -9,7 +9,6 @@ import { Playlist } from './components/Playlist'
 import { PlaylistDetail } from './components/PlaylistDetail'
 import { CategoryPage } from './components/CategoryPage'
 import { ContentDetail } from './components/ContentDetail'
-import { LiveRooms } from './components/LiveRooms'
 import { ProfileModal } from './components/ProfileModal'
 import { DMList } from './components/DMList'
 import { ChatRoom } from './components/ChatRoom'
@@ -18,6 +17,7 @@ import { WatchParty } from './components/WatchParty'
 import { WatchPartyConfirmation } from './components/WatchPartyConfirmation'
 import { AddToPlaylistModal } from './components/AddToPlaylistModal'
 import { CreateRoomModal } from './components/CreateRoomModal'
+import { UserProfile } from './components/UserProfile'
 import { Button } from './components/ui/button'
 
 interface ChatUser {
@@ -43,15 +43,6 @@ interface WatchPartyConfig {
   roomName: string
 }
 
-interface LiveRoom {
-  id: string
-  roomName: string
-  content: ContentItem
-  hostName: string
-  viewerCount: number
-  isPublic: boolean
-  createdAt: string
-}
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -66,12 +57,75 @@ export default function App() {
       console.error('JWT 토큰 파싱 오류:', error)
       return null
     }
-  } 
+  }
+
+  // JWT 토큰 만료 확인 함수
+  const isTokenExpired = (token: string): boolean => {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      const currentTime = Date.now() / 1000 // 현재 시간을 초 단위로 변환
+      return payload.exp < currentTime
+    } catch (error) {
+      console.error('토큰 만료 체크 오류:', error)
+      return true // 에러 발생 시 만료된 것으로 처리
+    }
+  }
+
+  // 토큰 만료 시 자동 로그아웃 함수
+  const handleTokenExpiration = () => {
+    console.log('토큰이 만료되어 자동 로그아웃됩니다.')
+    localStorage.removeItem('accessToken')
+    setUserId(null)
+    setIsLoggedIn(false)
+    setCurrentPage('home')
+    alert('로그인 세션이 만료되었습니다. 다시 로그인해주세요.')
+  }
+
+  // 인증이 필요한 API 호출을 위한 공통 함수
+  const authenticatedFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
+    const accessToken = localStorage.getItem('accessToken')
+    
+    // 토큰이 없는 경우
+    if (!accessToken) {
+      handleTokenExpiration()
+      throw new Error('인증 토큰이 없습니다.')
+    }
+    
+    // 토큰 만료 체크
+    if (isTokenExpired(accessToken)) {
+      handleTokenExpiration()
+      throw new Error('토큰이 만료되었습니다.')
+    }
+    
+    // Authorization 헤더 추가
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+      ...(options.headers || {})
+    }
+    
+    const response = await fetch(url, {
+      ...options,
+      headers
+    })
+    
+    // 401 에러 시 자동 로그아웃
+    if (response.status === 401) {
+      console.log('401 에러로 인한 자동 로그아웃')
+      handleTokenExpiration()
+      throw new Error('인증이 만료되었습니다.')
+    }
+    
+    return response
+  }
+
   const [currentPage, setCurrentPage] = useState('home')
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<number | null>(null)
   const [selectedContentDetail, setSelectedContentDetail] = useState<ContentItem | null>(null)
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [isRegister, setIsRegister] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
+  const [profileModalTargetUserId, setProfileModalTargetUserId] = useState<string | null>(null)
   const [showDMList, setShowDMList] = useState(false)
   const [showChatRoom, setShowChatRoom] = useState(false)
   const [currentChatUser, setCurrentChatUser] = useState<ChatUser | null>(null)
@@ -93,10 +147,73 @@ export default function App() {
   // Create Room Modal State
   const [showCreateRoomModal, setShowCreateRoomModal] = useState(false)
 
-  // 초기 로드 시 로그인 상태 확인
+  // OAuth 콜백 처리 함수
+  const handleOAuthCallback = () => {
+    const currentUrl = new URL(window.location.href)
+    const pathname = currentUrl.pathname
+    
+    // OAuth 성공 처리 - 백엔드에서 /oauth/success?access_token=...로 리다이렉트
+    if (pathname === '/oauth/success') {
+      const accessToken = currentUrl.searchParams.get('access_token')
+      
+      if (accessToken) {
+        // 로그인 성공 처리
+        handleLogin(accessToken)
+        
+        // URL 정리 후 메인 페이지로 이동
+        window.history.replaceState({}, document.title, '/')
+        
+        console.log('OAuth 로그인 성공! 메인 페이지로 이동합니다.')
+      } else {
+        alert('로그인 중 오류가 발생했습니다. 액세스 토큰을 받지 못했습니다.')
+        window.history.replaceState({}, document.title, '/')
+      }
+    }
+    
+    // OAuth 에러 처리 - 백엔드에서 /oauth/error?message=...로 리다이렉트
+    if (pathname === '/oauth/error') {
+      const rawErrorMessage = currentUrl.searchParams.get('message')
+      
+      if (rawErrorMessage) {
+        // URL 디코딩을 먼저 수행
+        const decodedErrorMessage = decodeURIComponent(rawErrorMessage)
+        
+        // 다양한 중복 오류 감지
+        if (decodedErrorMessage.includes('jwt_sessions_user_id_key')) {
+          // 이미 가입된 사용자가 다시 OAuth 로그인 시도
+          alert(`이미 가입된 이메일입니다.\n\n해당 이메일로 직접 로그인해주세요.`)
+        } else if (decodedErrorMessage.includes('users_name_key')) {
+          // 동일한 이름을 가진 사용자가 이미 존재
+          alert(`동일한 이름을 가진 사용자가 이미 존재합니다.\n\n다른 이름으로 가입하거나 기존 이메일로 로그인해주세요.`)
+        } else if (decodedErrorMessage.includes('duplicate key value violates unique constraint')) {
+          // 기타 중복 오류
+          alert(`이미 사용 중인 정보입니다.\n\n다시 확인해주세요.`)
+        } else {
+          // 기타 오류
+          alert(decodedErrorMessage)
+        }
+      } else {
+        alert('OAuth 로그인 중 알 수 없는 오류가 발생했습니다.')
+      }
+      
+      // URL 정리
+      window.history.replaceState({}, document.title, '/')
+    }
+  }
+
+  // 초기 로드 시 로그인 상태 확인 및 OAuth 콜백 처리
   useEffect(() => {
+    // 먼저 OAuth 콜백 처리
+    handleOAuthCallback()
+    
     const accessToken = localStorage.getItem('accessToken')
     if (accessToken) {
+      // 토큰 만료 체크
+      if (isTokenExpired(accessToken)) {
+        handleTokenExpiration()
+        return
+      }
+      
       const userId = extractUserIdFromToken(accessToken)
       if (userId) {
         setUserId(userId)
@@ -107,7 +224,24 @@ export default function App() {
     }
   }, [])
 
-  const handleLogin = (accessToken: string, isTempPassword: boolean) => {
+  // 주기적인 토큰 만료 체크
+  useEffect(() => {
+    if (!isLoggedIn) return
+
+    const checkTokenExpiration = () => {
+      const accessToken = localStorage.getItem('accessToken')
+      if (accessToken && isTokenExpired(accessToken)) {
+        handleTokenExpiration()
+      }
+    }
+
+    // 30초마다 토큰 만료 체크
+    const interval = setInterval(checkTokenExpiration, 30000)
+
+    return () => clearInterval(interval)
+  }, [isLoggedIn])
+
+  const handleLogin = (accessToken: string) => {
     // 로그인 성공 시 accessToken 저장
     localStorage.setItem('accessToken', accessToken)
     
@@ -138,10 +272,53 @@ export default function App() {
     setIsRegister(!isRegister)
   }
 
-  const handleForgotPassword = () => {
-    // Handle forgot password functionality
-    alert('임시비밀번호를 이메일로 발송했습니다. 이메일을 확인해주세요.')
-    console.log('임시비밀번호 발급 요청')
+  const handleForgotPassword = async () => {
+    // 이메일 입력 받기
+    const email = prompt('임시 비밀번호를 발급받을 이메일을 입력하세요:')
+    
+    if (!email?.trim()) {
+      return
+    }
+    
+    // 이메일 유효성 검사
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email.trim())) {
+      alert('유효한 이메일 주소를 입력해주세요.')
+      return
+    }
+    
+    try {
+      // 임시 비밀번호 발급 API 호출 (TempPasswordRequest 스펙에 맞춤)
+      const response = await fetch('/api/auth/temp-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email: email.trim() 
+        }),
+      })
+      
+      if (!response.ok) {
+        // 에러 응답 처리
+        let errorMessage = '임시 비밀번호 발급에 실패했습니다.'
+        
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.message || errorMessage
+        } catch (parseError) {
+          console.error('Error parsing error response:', parseError)
+        }
+        
+        throw new Error(errorMessage)
+      }
+      
+      // 성공 시 메시지 표시 (백엔드에서 이메일 발송 완료)
+      alert(`${email}로 임시 비밀번호를 발송했습니다.\n이메일을 확인하고 임시 비밀번호로 로그인 후 비밀번호를 변경해주세요.`)
+    } catch (error) {
+      console.error('임시 비밀번호 발급 오류:', error)
+      alert(error instanceof Error ? error.message : '임시 비밀번호 발급 중 오류가 발생했습니다.')
+    }
   }
 
   const handlePageChange = (page: string) => {
@@ -213,26 +390,6 @@ export default function App() {
   }
 
   // Live Room Handlers
-  const handleJoinRoom = (room: LiveRoom) => {
-    // ========== API INTEGRATION POINT - START ==========
-    // TODO: Join existing room via API
-    // Example: await joinLiveRoom(room.id)
-    console.log('Joining live room:', room.roomName, 'with content:', room.content.title)
-    // ========== API INTEGRATION POINT - END ==========
-    
-    // Set up watch party with existing room data
-    setCurrentWatchParty({
-      content: room.content,
-      roomCode: room.id, // Use room ID as room code
-      config: { 
-        roomName: room.roomName, 
-        isPublic: room.isPublic 
-      },
-      isJoinMode: true // Flag to indicate joining existing room
-    })
-    
-    setCurrentPage('watch-party')
-  }
 
   // Watch Party Handlers
   const handleContentPlay = (content: ContentItem) => {
@@ -313,11 +470,35 @@ export default function App() {
   }
 
   const handleProfileClick = () => {
+    setProfileModalTargetUserId(null) // 자신의 프로필
     setShowProfileModal(true)
   }
 
   const handleCloseProfile = () => {
     setShowProfileModal(false)
+    setProfileModalTargetUserId(null)
+  }
+
+  // const handleProfileModalUserOpen = (targetUserId: string) => {
+  //   setProfileModalTargetUserId(targetUserId)
+  //   setShowProfileModal(true)
+  // }
+
+  // UserProfile 페이지 핸들러들
+  const handleUserProfileOpen = (targetUserId: string) => {
+    setSelectedUserId(targetUserId)
+    setCurrentPage('user-profile')
+  }
+
+  const handleMyProfileOpen = () => {
+    if (userId) {
+      handleUserProfileOpen(userId)
+    }
+  }
+
+  const handleBackFromUserProfile = () => {
+    setSelectedUserId(null)
+    setCurrentPage('home')
   }
 
   const handleMessageClick = () => {
@@ -420,15 +601,28 @@ export default function App() {
         ) : (
           <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
         )
-      case 'live':
-        return <LiveRooms onJoinRoom={handleJoinRoom} />
+      case 'user-profile':
+        return selectedUserId ? (
+          <UserProfile
+            key={selectedUserId} // 사용자 ID가 변경될 때마다 컴포넌트 재렌더링
+            userId={selectedUserId}
+            currentUserId={userId}
+            onBack={handleBackFromUserProfile}
+            authenticatedFetch={authenticatedFetch}
+            onUserProfileOpen={handleUserProfileOpen}
+          />
+        ) : (
+          <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
+        )
+      // case 'live':
+      //   return <LiveRooms onJoinRoom={handleJoinRoom} />
       default:
         return <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
     }
   }
 
-  // Don't show header/footer in watch party mode or content detail mode
-  if (currentPage === 'watch-party' || currentPage === 'content-detail') {
+  // Don't show header/footer in watch party mode, content detail mode, or user profile mode
+  if (currentPage === 'watch-party' || currentPage === 'content-detail' || currentPage === 'user-profile') {
     return (
       <div className="min-h-screen bg-background text-foreground">
         {renderCurrentPage()}
@@ -465,8 +659,11 @@ export default function App() {
         currentPage={currentPage}
         onPageChange={handlePageChange}
         onProfileClick={handleProfileClick}
+        onMyProfileClick={handleMyProfileOpen}
         onCloseDM={handleCloseDM}
         onLogout={handleLogout} // 로그아웃 핸들러 전달
+        authenticatedFetch={authenticatedFetch} // 인증된 API 호출 함수 전달
+        userId={userId} // 사용자 ID 전달 (SSE 연결용)
       />
       
       {/* Main content with click handler to close DM */}
@@ -480,6 +677,9 @@ export default function App() {
         isOpen={showProfileModal}
         onClose={handleCloseProfile}
         userId={userId} // 사용자 ID 전달
+        targetUserId={profileModalTargetUserId} // 보려는 사용자 ID 전달
+        authenticatedFetch={authenticatedFetch} // 인증된 API 호출 함수 전달
+        onUserProfileOpen={handleUserProfileOpen} // 사용자 프로필 열기 함수 전달
       />
 
       <DMList 

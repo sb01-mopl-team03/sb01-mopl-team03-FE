@@ -1,4 +1,3 @@
-import React from 'react'
 import { ImageWithFallback } from './figma/ImageWithFallback'
 
 interface ContentItem {

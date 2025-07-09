@@ -1,4 +1,3 @@
-import React from 'react'
 import { Heart, Github, Twitter, Instagram, Mail } from 'lucide-react'
 
 export function Footer() {

@@ -2,86 +2,199 @@ import React, { useState, useEffect } from 'react'
 import { Bell, User, LogOut, Trash2, MessageSquare, UserPlus, Heart, Play } from 'lucide-react'
 import { Button } from './ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
+import { EventSourcePolyfill } from 'event-source-polyfill' 
 
 interface HeaderProps {
   currentPage: string
   onPageChange: (page: string) => void
   onProfileClick: () => void
+  onMyProfileClick: () => void // 내 프로필 보기 함수 추가
   onCloseDM?: () => void
   onLogout: () => void  // 로그아웃 함수 추가
+  authenticatedFetch: (url: string, options?: RequestInit) => Promise<Response> // 인증된 API 호출 함수
+  userId: string | null // 사용자 ID 추가 (SSE 연결용)
 }
 
-// ========== TEMPORARY MOCK DATA - START ==========
-const mockNotifications = [
-  {
-    id: 1,
-    type: 'message',
-    title: '김민수님이 메시지를 보냈습니다',
-    content: '언제 영화 볼까요?',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
-    timestamp: '2분 전',
-    isRead: false
-  },
-  {
-    id: 2,
-    type: 'follow',
-    title: '박지영님이 팔로우했습니다',
-    content: '새로운 친구가 생겼어요!',
-    avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150',
-    timestamp: '15분 전',
-    isRead: false
-  },
-  {
-    id: 3,
-    type: 'like',
-    title: '이준호님이 회원님의 플레이리스트를 좋아합니다',
-    content: '액션 영화 모음',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-    timestamp: '1시간 전',
-    isRead: true
-  },
-  {
-    id: 4,
-    type: 'watch',
-    title: '최유진님이 시청방에 참여했습니다',
-    content: '오징어 게임 시즌2 - EP 1',
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150',
-    timestamp: '3시간 전',
-    isRead: true
-  },
-  {
-    id: 5,
-    type: 'message',
-    title: '강서준님이 메시지를 보냈습니다',
-    content: '듄 파트2 어떠셨어요?',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
-    timestamp: '5시간 전',
-    isRead: false
-  },
-  {
-    id: 6,
-    type: 'follow',
-    title: '정수현님이 팔로우했습니다',
-    content: '새로운 친구가 생겼어요!',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-    timestamp: '어제',
-    isRead: true
-  }
-]
+// API 응답 타입 정의
+interface NotificationDto {
+  id: string
+  content: string
+  notificationType: 'ROLE_CHANGED' | 'PLAYLIST_SUBSCRIBED' | 'FOLLOWING_POSTED_PLAYLIST' | 'FOLLOWED' | 'UNFOLLOWED' | 'DM_RECEIVED' | 'NEW_DM_ROOM'
+  createdAt: string
+}
+
+// UI용 알림 타입 (기존 mock 데이터와 호환)
+interface UINotification {
+  id: string
+  type: string
+  title: string
+  content: string
+  avatar: string
+  timestamp: string
+  isRead: boolean
+}
 
 const mockUser = {
   name: '사용자',
   avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150'
 }
-// ========== TEMPORARY MOCK DATA - END ==========
 
-export function Header({ currentPage, onPageChange, onProfileClick, onCloseDM, onLogout }: HeaderProps) {
-  // ========== TEMPORARY STATE MANAGEMENT - START ==========
-  const [notifications, setNotifications] = useState(mockNotifications)
-  // ========== TEMPORARY STATE MANAGEMENT - END ==========
-  
+export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileClick, onCloseDM, onLogout, authenticatedFetch, userId }: HeaderProps) {
+  const [notifications, setNotifications] = useState<UINotification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
+  const [eventSource, setEventSource] = useState<EventSource | null>(null)
+
+  // NotificationDto를 UINotification으로 변환하는 함수
+  const convertToUINotification = (dto: NotificationDto): UINotification => {
+    const getTypeFromNotificationType = (type: string) => {
+      switch (type) {
+        case 'DM_RECEIVED':
+        case 'NEW_DM_ROOM':
+          return 'message'
+        case 'FOLLOWED':
+          return 'follow'
+        case 'PLAYLIST_SUBSCRIBED':
+        case 'FOLLOWING_POSTED_PLAYLIST':
+          return 'like'
+        default:
+          return 'notification'
+      }
+    }
+
+    const getTitleFromNotificationType = (type: string) => {
+      switch (type) {
+        case 'DM_RECEIVED':
+          return '새로운 메시지가 도착했습니다'
+        case 'NEW_DM_ROOM':
+          return '새로운 채팅방이 생성되었습니다'
+        case 'FOLLOWED':
+          return '새로운 팔로워가 생겼습니다'
+        case 'PLAYLIST_SUBSCRIBED':
+          return '플레이리스트를 구독했습니다'
+        case 'FOLLOWING_POSTED_PLAYLIST':
+          return '팔로우한 사용자가 플레이리스트를 게시했습니다'
+        case 'ROLE_CHANGED':
+          return '권한이 변경되었습니다'
+        default:
+          return '새로운 알림'
+      }
+    }
+
+    const formatTimestamp = (dateString: string) => {
+      const date = new Date(dateString)
+      const now = new Date()
+      const diff = now.getTime() - date.getTime()
+      const minutes = Math.floor(diff / (1000 * 60))
+      const hours = Math.floor(diff / (1000 * 60 * 60))
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+
+      if (minutes < 1) return '방금 전'
+      if (minutes < 60) return `${minutes}분 전`
+      if (hours < 24) return `${hours}시간 전`
+      if (days === 1) return '어제'
+      return `${days}일 전`
+    }
+
+    return {
+      id: dto.id,
+      type: getTypeFromNotificationType(dto.notificationType),
+      title: getTitleFromNotificationType(dto.notificationType),
+      content: dto.content,
+      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150', // 기본 아바타
+      timestamp: formatTimestamp(dto.createdAt),
+      isRead: false // 새로 받은 알림은 읽지 않음으로 표시
+    }
+  }
+
+  // 알림 목록 조회 함수
+  const fetchNotifications = async () => {
+    if (!userId) return
+
+    try {
+      const response = await authenticatedFetch(`/notifications/${userId}`)
+      
+      if (!response.ok) {
+        throw new Error('알림 목록을 가져오는데 실패했습니다.')
+      }
+
+      const notificationDtos: NotificationDto[] = await response.json()
+      const uiNotifications = notificationDtos.map(dto => ({
+        ...convertToUINotification(dto),
+        isRead: true // 알림 목록 조회 시 백엔드에서 자동으로 읽음 처리됨
+      }))
+      setNotifications(uiNotifications)
+    } catch (error) {
+      console.error('알림 목록 조회 오류:', error)
+    }
+  }
+
+  // SSE 연결 설정 함수 (토큰 포함)
+  const connectSSE = () => {
+    if (!userId) return
+
+    // 기존 연결 종료
+    if (eventSource) {
+      eventSource.close()
+    }
+
+    const token = localStorage.getItem('accessToken') // 또는 쿠키에서 가져와도 됨
+    if (!token) {
+      console.warn('accessToken이 없습니다. SSE 연결 생략')
+      return
+    }
+
+    const newEventSource = new EventSourcePolyfill(
+      `/notifications/subscribe/${userId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        withCredentials: true // 필요 시 쿠키도 함께 보냄
+      }
+    )
+
+    newEventSource.onopen = () => {
+      console.log('SSE 연결이 설정되었습니다.')
+    }
+
+    newEventSource.onmessage = (event) => {
+      try {
+        const notificationDto: NotificationDto = JSON.parse(event.data)
+        const newNotification = convertToUINotification(notificationDto)
+        setNotifications(prev => [newNotification, ...prev])
+        console.log('새로운 알림을 받았습니다:', newNotification)
+      } catch (error) {
+        console.error('SSE 메시지 파싱 오류:', error)
+      }
+    }
+
+    newEventSource.onerror = (error) => {
+      console.error('SSE 연결 오류:', error)
+      newEventSource.close()
+
+      setTimeout(() => {
+        connectSSE() // 재연결 시도
+      }, 5000)
+    }
+
+    setEventSource(newEventSource)
+  }
+
+  // 컴포넌트 마운트 시 알림 목록 조회 및 SSE 연결
+  useEffect(() => {
+    if (userId) {
+      fetchNotifications()
+      connectSSE()
+    }
+
+    // 컴포넌트 언마운트 시 SSE 연결 정리
+    return () => {
+      if (eventSource) {
+        eventSource.close()
+      }
+    }
+  }, [userId])
 
   const navItems = [
     { id: 'home', label: '홈' },
@@ -120,44 +233,32 @@ export function Header({ currentPage, onPageChange, onProfileClick, onCloseDM, o
     }
   }
 
-  const handleDeleteNotification = (notificationId: number) => {
-    // ========== API INTEGRATION POINT - START ==========
-    // TODO: Replace with actual API call to delete notification
-    // Example: await deleteNotification(notificationId)
+  const handleDeleteNotification = (notificationId: string) => {
+    // 알림 삭제는 UI에서만 처리 (백엔드에 개별 삭제 API가 없음)
     console.log(`Deleting notification with ID: ${notificationId}`)
-    // ========== API INTEGRATION POINT - END ==========
-
-    // ========== TEMPORARY DELETE FUNCTIONALITY - START ==========
     setNotifications(prev => prev.filter(notification => notification.id !== notificationId))
-    // ========== TEMPORARY DELETE FUNCTIONALITY - END ==========
   }
 
-  const handleNotificationClick = (notificationId: number) => {
-    // ========== API INTEGRATION POINT - START ==========
-    // TODO: Replace with actual API call to mark notification as read
-    // Example: await markNotificationAsRead(notificationId)
+  const handleNotificationClick = (notificationId: string) => {
+    // 알림 클릭 시 읽음 처리 (UI에서만 처리)
     console.log(`Marking notification as read: ${notificationId}`)
-    // ========== API INTEGRATION POINT - END ==========
-
-    // ========== TEMPORARY READ FUNCTIONALITY - START ==========
     setNotifications(prev => prev.map(notification => 
       notification.id === notificationId 
         ? { ...notification, isRead: true }
         : notification
     ))
-    // ========== TEMPORARY READ FUNCTIONALITY - END ==========
   }
 
-  const handleMarkAllRead = () => {
-    // ========== API INTEGRATION POINT - START ==========
-    // TODO: Replace with actual API call to mark all notifications as read
-    // Example: await markAllNotificationsAsRead()
-    console.log('Marking all notifications as read')
-    // ========== API INTEGRATION POINT - END ==========
-
-    // ========== TEMPORARY MARK ALL READ FUNCTIONALITY - START ==========
-    setNotifications(prev => prev.map(notification => ({ ...notification, isRead: true })))
-    // ========== TEMPORARY MARK ALL READ FUNCTIONALITY - END ==========
+  const handleMarkAllRead = async () => {
+    // 모든 알림 읽음 처리 - 알림 목록 API를 다시 호출하면 백엔드에서 자동으로 읽음 처리됨
+    try {
+      await fetchNotifications()
+      // UI에서도 모든 알림을 읽음으로 표시
+      setNotifications(prev => prev.map(notification => ({ ...notification, isRead: true })))
+      console.log('모든 알림을 읽음 처리했습니다.')
+    } catch (error) {
+      console.error('알림 읽음 처리 오류:', error)
+    }
   }
 
   const handleNavClick = (pageId: string) => {
@@ -181,12 +282,8 @@ export function Header({ currentPage, onPageChange, onProfileClick, onCloseDM, o
   const handleLogout = async () => {
     try {
       // 로그아웃 API 호출
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}` 
-        },
+      const response = await authenticatedFetch('/api/auth/logout', {
+        method: 'POST'
       })
 
       if (!response.ok) {
@@ -365,6 +462,19 @@ export function Header({ currentPage, onPageChange, onProfileClick, onCloseDM, o
                 backdropFilter: 'blur(12px)',
                 background: 'rgba(26, 26, 26, 0.85)'
               }}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowProfile(false)
+                    onMyProfileClick()
+                  }}
+                  className="w-full justify-start space-x-2 p-3 hover:bg-white/10"
+                >
+                  <User className="w-4 h-4" />
+                  <span>내 프로필 보기</span>
+                </Button>
+
                 <Button
                   variant="ghost"
                   size="sm"

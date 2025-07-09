@@ -1,5 +1,5 @@
-import React from 'react'
-import { Users, Play, Settings, Globe, Lock } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Users, Play, Globe, Lock } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Switch } from './ui/switch'
@@ -33,10 +33,10 @@ export function WatchPartyConfirmation({
   onWatchAlone,
   content 
 }: WatchPartyConfirmationProps) {
-  const [isPublic, setIsPublic] = React.useState(false)
-  const [roomName, setRoomName] = React.useState('')
+  const [isPublic, setIsPublic] = useState(false)
+  const [roomName, setRoomName] = useState('')
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (content && isOpen) {
       setRoomName(`${content.title} 시청방`)
     }

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { 
   ArrowLeft, 
   Play, 
@@ -14,7 +14,6 @@ import {
   ChevronRight,
   ChevronLeft,
   Settings,
-  MoreVertical,
   Wifi,
   WifiOff
 } from 'lucide-react'
@@ -84,7 +83,7 @@ const currentUser = {
 }
 // ========== TEMPORARY MOCK DATA - END ==========
 
-export function WatchParty({ content, roomCode, onBack, isJoinMode = false }: WatchPartyProps) {
+export function WatchParty({ content, roomCode, onBack }: WatchPartyProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [volume, setVolume] = useState([80])
@@ -108,7 +107,6 @@ export function WatchParty({ content, roomCode, onBack, isJoinMode = false }: Wa
   // WebSocket connection
   const {
     isConnected,
-    error: wsError,
     connect,
     disconnect,
     sendChatMessage: wsSendChatMessage,

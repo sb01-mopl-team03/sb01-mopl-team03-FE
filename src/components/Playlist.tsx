@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Play, MoreVertical, Plus, Search, Clock, Calendar, Users, Palette } from 'lucide-react'
+import { useState } from 'react'
+import { Play, MoreVertical, Plus, Search, Clock, Calendar, Palette } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { ImageWithFallback } from './figma/ImageWithFallback'

@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { ArrowLeft, Play, Shuffle, MoreVertical, Edit3, Share, Download, Heart, Clock, Calendar, X, GripVertical } from 'lucide-react'
+import { useState } from 'react'
+import { ArrowLeft, Play, Shuffle, MoreVertical, Share, Heart, Clock, Calendar, X } from 'lucide-react'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'

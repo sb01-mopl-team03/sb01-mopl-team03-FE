@@ -1,4 +1,3 @@
-import React from 'react'
 import { Users, Eye, MessageCircle } from 'lucide-react'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'

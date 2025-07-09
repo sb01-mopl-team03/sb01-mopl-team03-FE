@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Search, Filter, Play, Eye, Star, MessageSquare, Plus } from 'lucide-react'
+import { useState } from 'react'
+import { Search, Play, Eye, Star, MessageSquare, Plus } from 'lucide-react'
 import { Input } from './ui/input'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'

@@ -1,10 +1,9 @@
-import React, { useState } from 'react'
-import { X, Upload, Lock, Globe, Image as ImageIcon, Check, Palette } from 'lucide-react'
+import { useState } from 'react'
+import { X, Lock, Globe, Image as ImageIcon, Check, Palette } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Textarea } from './ui/textarea'
-import { Switch } from './ui/switch'
 
 interface PlaylistCreationModalProps {
   isOpen: boolean
