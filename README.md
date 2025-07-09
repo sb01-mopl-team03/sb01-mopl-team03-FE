@@ -6,12 +6,12 @@ React + TypeScript + Vite로 개발된 스트리밍 플랫폼 프론트엔드입
 
 [1. 일반 실행 방법](#1.일반-실행-방법)
 
-[2. Docker - 간단한 방법(권장)](#방법-1:-간단한-방법)
+[2. Docker - 간단한 방법(권장)](#방법1.-간단한-방법)
 
-[3. Docker - nignx](#방법-2:-nginx-사용)
+[3. Docker - nignx](#방법2.-nginx-사용)
 
 
-## 일반 실행 방법
+## 1.일반 실행 방법
 
 ### `npm run dev`
 
@@ -29,7 +29,7 @@ React + TypeScript + Vite로 개발된 스트리밍 플랫폼 프론트엔드입
 
 ## Docker로 실행하기
 
-### 방법 1: 간단한 방법
+### 방법1. 간단한 방법
 nginx 없이 vite preview 서버를 사용하는 방법입니다. (권장)
 
 ```bash
@@ -45,7 +45,7 @@ docker run -p 3000:3000 mopl-frontend-simple
 
 > **참고:** Docker 컨테이너는 `host.docker.internal:8080`을 통해 호스트의 백엔드에 접근합니다.
 
-### 방법 2: nginx 사용
+### 방법2. nginx 사용
 프로덕션 환경에서 더 안정적인 nginx를 사용하는 방법입니다.
 
 ```bash
