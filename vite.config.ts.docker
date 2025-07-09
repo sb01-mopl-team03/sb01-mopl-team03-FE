@@ -36,23 +36,23 @@ export default defineConfig({
     }
   },
   
-  // preview 모드에서도 프록시 활성화
+  // preview 모드에서도 프록시 활성화 - Docker용
   preview: {
     port: 3000,
     host: '0.0.0.0',
     proxy: {
       '/api': {
-        target: 'http://localhost:8080', // Spring Boot 서버
+        target: 'http://host.docker.internal:8080', // Docker에서 호스트 접근
         changeOrigin: true,
         secure: false,
       },
       '/ws': {
-        target: 'http://localhost:8080',
+        target: 'http://host.docker.internal:8080',
         changeOrigin: true,
         ws: true, // WebSocket 지원
       },
       '/notifications': {
-        target: 'http://localhost:8080', // 알림 API 프록시
+        target: 'http://host.docker.internal:8080', // 알림 API 프록시
         changeOrigin: true,
         secure: false,
       }
