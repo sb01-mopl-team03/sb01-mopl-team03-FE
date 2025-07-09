@@ -19,7 +19,7 @@ interface CreateRoomModalProps {
 }
 
 
-export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: CreateRoomModalProps) {
+export function CreateRoomModal({ isOpen, onClose, onCreateRoom }: CreateRoomModalProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState('all')
   const [selectedContent, setSelectedContent] = useState<ContentDto | null>(null)
@@ -98,8 +98,7 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: Creat
 
     try {
       const request: WatchRoomCreateRequest = {
-        contentId: content.id,
-        ownerId: userId
+        contentId: content.id
       }
 
       const newRoom = await watchRoomService.createWatchRoom(request)

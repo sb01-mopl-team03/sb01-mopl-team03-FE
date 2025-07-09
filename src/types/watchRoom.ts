@@ -2,6 +2,11 @@
 
 export interface WatchRoomDto {
   id: string
+  ownerId: string
+  ownerName: string
+  contentTitle: string
+  headCount: number
+  createdAt: string
 }
 
 export interface WatchRoomCreateRequest {
@@ -72,4 +77,23 @@ export interface WatchRoomSearchOptions {
   sortBy?: WatchRoomSortOptions['sortBy']
   limit?: number
   offset?: number
+}
+
+// 백엔드 WebSocket 응답 타입 (실제 백엔드 구조에 맞춤)
+export interface BackendParticipantDto {
+  username: string
+  profile: string | null
+  isOwner: boolean
+}
+
+export interface BackendParticipantsInfoDto {
+  participantDtoList: BackendParticipantDto[]
+  participantsCount: number
+}
+
+export interface BackendWatchRoomSyncDto {
+  id: string
+  newUserId: string
+  contentTitle: string
+  participantsInfoDto: BackendParticipantsInfoDto
 }

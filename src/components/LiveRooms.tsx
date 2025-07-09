@@ -20,6 +20,8 @@ export function LiveRooms({ onJoinRoom, onCreateRoom }: LiveRoomsProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  // 추가: 참여 중인 방 id 상태
+  const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null)
 
   // 시청방 목록 로드
   const loadRooms = async (showLoading = true) => {
@@ -78,25 +80,36 @@ export function LiveRooms({ onJoinRoom, onCreateRoom }: LiveRoomsProps) {
     }
   }
 
-  const formatTimeAgo = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
-    
-    if (diffInMinutes < 60) {
-      return `${diffInMinutes}분 전`
-    } else if (diffInMinutes < 1440) {
-      return `${Math.floor(diffInMinutes / 60)}시간 전`
-    } else {
-      return `${Math.floor(diffInMinutes / 1440)}일 전`
-    }
-  }
+  // const formatTimeAgo = (dateString: string) => {
+  //   const date = new Date(dateString)
+  //   const now = new Date()
+  //   const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
+  //   
+  //   if (diffInMinutes < 60) {
+  //     return `${diffInMinutes}분 전`
+  //   } else if (diffInMinutes < 1440) {
+  //     return `${Math.floor(diffInMinutes / 60)}시간 전`
+  //   } else {
+  //     return `${Math.floor(diffInMinutes / 1440)}일 전`
+  //   }
+  // }
 
   // 인기 시청방 (참여자 수가 10명 이상인 방들)
   const popularRooms = rooms.filter(room => room.headCount >= 10)
 
   // 현재 표시할 방 목록
   const displayRooms = rooms
+
+  // 참여 버튼 클릭 핸들러
+  const handleJoinRoom = async (room: WatchRoomDto) => {
+    if (joiningRoomId) return // 이미 참여 중이면 무시
+    setJoiningRoomId(room.id)
+    try {
+      await onJoinRoom?.(room)
+    } finally {
+      setJoiningRoomId(null)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -224,10 +237,15 @@ export function LiveRooms({ onJoinRoom, onCreateRoom }: LiveRoomsProps) {
                     {/* Overlay with join button */}
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                       <Button
-                        onClick={() => onJoinRoom?.(room)}
+                        onClick={() => handleJoinRoom(room)}
                         className="teal-gradient hover:opacity-80 text-black"
+                        disabled={!!joiningRoomId}
                       >
-                        <Users className="w-4 h-4 mr-2" />
+                        {joiningRoomId === room.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        ) : (
+                          <Users className="w-4 h-4 mr-2" />
+                        )}
                         참여하기
                       </Button>
                     </div>
@@ -287,10 +305,15 @@ export function LiveRooms({ onJoinRoom, onCreateRoom }: LiveRoomsProps) {
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                     <Button
                       size="sm"
-                      onClick={() => onJoinRoom?.(room)}
+                      onClick={() => handleJoinRoom(room)}
                       className="teal-gradient hover:opacity-80 text-black"
+                      disabled={!!joiningRoomId}
                     >
-                      <Users className="w-4 h-4 mr-2" />
+                      {joiningRoomId === room.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <Users className="w-4 h-4 mr-2" />
+                      )}
                       참여
                     </Button>
                   </div>

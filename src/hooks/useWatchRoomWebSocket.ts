@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Client } from '@stomp/stompjs'
+import SockJS from 'sockjs-client'
 import { 
   WatchRoomMessageDto, 
   WatchRoomMessageCreateRequest, 
@@ -40,32 +41,50 @@ export function useWatchRoomWebSocket({
   }
 
   const connect = useCallback(() => {
-    if (clientRef.current?.connected) {
-      return
+    // 이미 연결 중이거나 연결되어 있으면 아무것도 하지 않음
+    if (clientRef.current) {
+      if (clientRef.current.connected || connectionStatus === 'connecting') {
+        return
+      }
     }
 
     const token = getAuthToken()
+    console.log('WebSocket 연결 시도 - 토큰:', token ? '존재함' : '없음')
+    
+    // 임시로 토큰 없이도 연결 시도 (디버깅용)
     if (!token) {
-      onError?.('인증 토큰이 없습니다.')
-      return
+      console.warn('⚠️  토큰이 없지만 연결을 시도합니다 (디버깅용)')
+      // onError?.('인증 토큰이 없습니다.')
+      // return
     }
 
     setConnectionStatus('connecting')
+    console.log('WebSocket 연결 시작:', {
+      url: 'http://localhost:8080/ws',
+      token: token ? `${token.substring(0, 10)}...` : 'null'
+    })
     
     const client = new Client({
-      brokerURL: 'ws://localhost:8080/ws',
-      connectHeaders: {
+      webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+      connectHeaders: token ? {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json'
+      } : {
+        'Content-Type': 'application/json'
+      },
+      beforeConnect: () => {
+        console.log('🔄 WebSocket 연결 시도 중... 헤더:', token ? {
+          Authorization: `Bearer ${token.substring(0, 10)}...`
+        } : { token: 'none' })
       },
       debug: (str) => {
         console.log('STOMP Debug:', str)
       },
-      reconnectDelay: 5000,
+      reconnectDelay: 0, // 무한 자동 재연결 방지
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
       onConnect: () => {
-        console.log('WebSocket 연결 성공')
+        console.log('✅ WebSocket 연결 성공!')
         setIsConnected(true)
         setConnectionStatus('connected')
         setReconnectAttempts(0)
@@ -85,6 +104,9 @@ export function useWatchRoomWebSocket({
           try {
             const participants: ParticipantsInfoDto = JSON.parse(message.body)
             onParticipantsUpdate?.(participants)
+            // 데이터 수신 시 연결 완료 처리
+            setConnectionStatus('connected')
+            setIsConnected(true)
           } catch (error) {
             console.error('참여자 정보 파싱 오류:', error)
           }
@@ -104,7 +126,15 @@ export function useWatchRoomWebSocket({
         client.subscribe(`/user/queue/sync`, (message) => {
           try {
             const roomInfo: WatchRoomInfoDto = JSON.parse(message.body)
+            // participantsInfoDto 보정
+            if (roomInfo && roomInfo.participantsInfoDto) {
+              if (!Array.isArray(roomInfo.participantsInfoDto.participantDtoList)) {
+                roomInfo.participantsInfoDto.participantDtoList = []
+              }
+            }
             onRoomSync?.(roomInfo)
+            setConnectionStatus('connected')
+            setIsConnected(true)
           } catch (error) {
             console.error('룸 동기화 데이터 파싱 오류:', error)
           }
@@ -113,21 +143,30 @@ export function useWatchRoomWebSocket({
         // 방 참가 요청
         client.publish({
           destination: `/app/rooms/${roomId}/join`,
-          body: JSON.stringify({
-            userId,
-            roomId
-          })
+          body: JSON.stringify({})
         })
       },
       onDisconnect: () => {
-        console.log('WebSocket 연결 해제')
+        console.log('❌ WebSocket 연결 해제')
         setIsConnected(false)
         setConnectionStatus('disconnected')
       },
       onStompError: (frame) => {
-        console.error('STOMP 에러:', frame.headers['message'])
+        console.error('❌ STOMP 에러:', {
+          message: frame.headers['message'],
+          body: frame.body,
+          headers: frame.headers
+        })
+        
+        // 특정 에러 타입 확인
+        if (frame.headers['message']?.includes('ExecutorSubscribableChannel')) {
+          console.error('🔧 백엔드 인터셉터 문제 - WebSocketAuthInterceptor 확인 필요')
+          onError?.('백엔드 인증 처리 오류가 발생했습니다. 관리자에게 문의하세요.')
+        } else {
+          onError?.(`연결 오류: ${frame.headers['message']}`)
+        }
+        
         setConnectionStatus('error')
-        onError?.(`연결 오류: ${frame.headers['message']}`)
         
         // 재연결 시도
         if (reconnectAttempts < maxReconnectAttempts) {
@@ -138,15 +177,20 @@ export function useWatchRoomWebSocket({
         }
       },
       onWebSocketError: (error) => {
-        console.error('WebSocket 에러:', error)
+        console.error('❌ WebSocket 에러:', error)
         setConnectionStatus('error')
         onError?.('WebSocket 연결 오류가 발생했습니다.')
+        // 연결 실패 시 클라이언트 비활성화 및 참조 해제
+        if (clientRef.current) {
+          clientRef.current.deactivate()
+          clientRef.current = null
+        }
       }
     })
 
     clientRef.current = client
     client.activate()
-  }, [roomId, userId, onChatMessage, onParticipantsUpdate, onVideoSync, onRoomSync, onError, reconnectAttempts])
+  }, [roomId, userId, onChatMessage, onParticipantsUpdate, onVideoSync, onRoomSync, onError])
 
   const disconnect = useCallback(() => {
     if (clientRef.current) {
@@ -154,10 +198,7 @@ export function useWatchRoomWebSocket({
       if (clientRef.current.connected) {
         clientRef.current.publish({
           destination: `/app/rooms/${roomId}/leave`,
-          body: JSON.stringify({
-            userId,
-            roomId
-          })
+          body: JSON.stringify({})
         })
       }
       

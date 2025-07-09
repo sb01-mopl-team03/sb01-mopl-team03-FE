@@ -40,6 +40,7 @@ interface WatchPartyProps {
   roomId: string
   onBack: () => void
   userId: string
+  shouldConnect?: boolean // 웹소켓 연결 여부 제어
 }
 
 interface Participant {
@@ -51,7 +52,7 @@ interface Participant {
   joinedAt: string
 }
 
-export function WatchParty({ roomId, onBack, userId }: WatchPartyProps) {
+export function WatchParty({ roomId, onBack, userId, shouldConnect = false }: WatchPartyProps) {
   // Video State
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
@@ -78,8 +79,11 @@ export function WatchParty({ roomId, onBack, userId }: WatchPartyProps) {
   const chatEndRef = useRef<HTMLDivElement>(null)
   const volumeTimeoutRef = useRef<NodeJS.Timeout>()
 
-  // Mock video duration (in seconds)
-  const totalDuration = 7200 // 2 hours
+  // ========== API INTEGRATION POINT - START ==========
+  // TODO: Replace with actual video duration from content data
+  // Example: const totalDuration = roomData?.contentDuration || 0
+  const totalDuration = 7200 // 2 hours for demo - should come from content data
+  // ========== API INTEGRATION POINT - END ==========
 
   // WebSocket connection
   const {
@@ -97,19 +101,25 @@ export function WatchParty({ roomId, onBack, userId }: WatchPartyProps) {
       setChatMessages(prev => [...prev, message])
     },
     onParticipantsUpdate: (participantsInfo: ParticipantsInfoDto) => {
-      const mappedParticipants = participantsInfo.participantDtoList.map(p => ({
-        userId: p.userId,
-        userName: p.userName,
-        userAvatar: p.userAvatar,
-        isHost: p.isHost,
-        isOnline: p.isOnline,
-        joinedAt: p.joinedAt
+      // 방어적으로 participantDtoList가 undefined/null일 때 빈 배열 처리
+      const mappedParticipants = (participantsInfo.participantDtoList ?? []).map((p: any) => ({
+        userId: p.userId ?? p.username ?? '', // 백엔드 필드명이 username일 수도 있으니 보완
+        userName: p.userName ?? p.username ?? '',
+        userAvatar: p.userAvatar ?? p.profile ?? '',
+        isHost: p.isHost ?? p.isOwner ?? false,
+        isOnline: p.isOnline ?? true, // 기본값 true
+        joinedAt: p.joinedAt ?? ''
       }))
       setParticipants(mappedParticipants)
       
       // Check if current user is host
       const currentUserParticipant = mappedParticipants.find(p => p.userId === userId)
       setIsHost(currentUserParticipant?.isHost || false)
+
+      // 동적으로 참여: 아직 연결 안되어 있으면 자동 참여
+      if (!isConnected && typeof connect === 'function') {
+        connect()
+      }
     },
     onVideoSync: (syncData: VideoSyncDto) => {
       // Only sync if not too old
@@ -120,10 +130,13 @@ export function WatchParty({ roomId, onBack, userId }: WatchPartyProps) {
       }
     },
     onRoomSync: (roomInfo: WatchRoomInfoDto) => {
-      setRoomData(roomInfo.room)
-      
+      // roomInfo.room이 없을 수도 있으니 방어적으로 처리
+      if (roomInfo.room) {
+        setRoomData(roomInfo.room)
+      }
+
       // Update participants
-      const mappedParticipants = roomInfo.participants.map(p => ({
+      const mappedParticipants = (roomInfo.participantsInfoDto?.participantDtoList ?? []).map(p => ({
         userId: p.userId,
         userName: p.userName,
         userAvatar: p.userAvatar,
@@ -132,17 +145,20 @@ export function WatchParty({ roomId, onBack, userId }: WatchPartyProps) {
         joinedAt: p.joinedAt
       }))
       setParticipants(mappedParticipants)
-      
-      // Update video state
-      setIsPlaying(roomInfo.videoStatus.isPlaying)
-      setCurrentTime(roomInfo.videoStatus.currentTime)
-      
+
+      // Update video state (방어적 처리)
+      setIsPlaying(roomInfo.videoStatus?.isPlaying ?? false)
+      setCurrentTime(roomInfo.videoStatus?.currentTime ?? 0)
+
       // Update chat messages
-      setChatMessages(roomInfo.chatMessages)
-      
+      setChatMessages(roomInfo.chatMessages ?? [])
+
       // Check if current user is host
       const currentUserParticipant = mappedParticipants.find(p => p.userId === userId)
       setIsHost(currentUserParticipant?.isHost || false)
+
+      // 데이터가 오면 loading false로 전환 (roomData가 없더라도 한 번만)
+      setLoading(false)
     },
     onError: (error: string) => {
       setError(error)
@@ -154,7 +170,6 @@ export function WatchParty({ roomId, onBack, userId }: WatchPartyProps) {
     const loadInitialData = async () => {
       setLoading(true)
       setError(null)
-      
       try {
         // Load room data
         const roomInfo = await watchRoomService.joinWatchRoom(roomId)
@@ -171,8 +186,10 @@ export function WatchParty({ roomId, onBack, userId }: WatchPartyProps) {
         // Set initial chat messages
         setChatMessages(roomInfo.chatMessages)
         
-        // Connect to WebSocket
-        connect()
+        // Connect to WebSocket if shouldConnect is true
+        if (shouldConnect) {
+          connect()
+        }
       } catch (error) {
         console.error('Failed to load room data:', error)
         setError(error instanceof Error ? error.message : '시청방 데이터를 불러오는 중 오류가 발생했습니다.')
@@ -180,9 +197,9 @@ export function WatchParty({ roomId, onBack, userId }: WatchPartyProps) {
         setLoading(false)
       }
     }
-
     loadInitialData()
-  }, [roomId, userId, connect])
+    // connect 함수는 의존성에서 제거
+  }, [roomId, userId])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -317,6 +334,44 @@ export function WatchParty({ roomId, onBack, userId }: WatchPartyProps) {
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-[#4ecdc4] mx-auto mb-4" />
           <p className="text-white/60">시청방에 입장하는 중...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // WebSocket 연결 전 상태 - 참여하기 버튼 표시
+  if (!shouldConnect && !isConnected) {
+    return (
+      <div className="h-screen bg-[#0f0f0f] flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="mb-6">
+            <h2 className="text-2xl font-medium mb-2">{roomData?.contentTitle || '시청방'}</h2>
+            <p className="text-white/60 mb-4">시청방에 참여하시겠습니까?</p>
+            <div className="flex items-center justify-center gap-4 text-sm text-white/60 mb-6">
+              <div className="flex items-center gap-1">
+                <Users className="w-4 h-4" />
+                <span>{roomData?.headCount || 0}명 시청 중</span>
+              </div>
+              <span>•</span>
+              <div className="flex items-center gap-1">
+                <MessageCircle className="w-4 h-4" />
+                <span>실시간 채팅</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-3 justify-center">
+            <Button onClick={onBack} variant="outline" className="border-white/20 hover:bg-white/5">
+              뒤로가기
+            </Button>
+            <Button onClick={connect} className="teal-gradient hover:opacity-80 text-black">
+              {connectionStatus === 'connecting' ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Users className="w-4 h-4 mr-2" />
+              )}
+              시청방 참여
+            </Button>
+          </div>
         </div>
       </div>
     )
@@ -603,26 +658,30 @@ export function WatchParty({ roomId, onBack, userId }: WatchPartyProps) {
                   <div className="p-4">
                     <h4 className="text-sm font-medium mb-3">참여자</h4>
                     <div className={`space-y-2 ${participants.length > 5 ? 'max-h-32 overflow-y-auto scrollbar-thin' : ''}`}>
-                      {participants.map(participant => (
-                        <div key={participant.userId} className="flex items-center space-x-2">
-                          <Avatar className="h-6 w-6 flex-shrink-0">
-                            <AvatarImage src={participant.userAvatar} />
-                            <AvatarFallback className="bg-[#4ecdc4] text-black text-xs">
-                              {participant.userName.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm flex-1 truncate">{participant.userName}</span>
-                          {participant.isHost && (
-                            <Badge variant="secondary" className="text-xs flex-shrink-0">
-                              <Crown className="w-3 h-3 mr-1" />
-                              호스트
-                            </Badge>
-                          )}
-                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                            participant.isOnline ? 'bg-green-400' : 'bg-gray-400'
-                          }`} />
-                        </div>
-                      ))}
+                      {participants.length === 0 ? (
+                        <div className="text-xs text-white/50">참여자가 없습니다.</div>
+                      ) : (
+                        participants.map(participant => (
+                          <div key={participant.userId + participant.userName} className="flex items-center space-x-2">
+                            <Avatar className="h-6 w-6 flex-shrink-0">
+                              <AvatarImage src={participant.userAvatar} />
+                              <AvatarFallback className="bg-[#4ecdc4] text-black text-xs">
+                                {participant.userName?.charAt(0) || '?'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm flex-1 truncate">{participant.userName}</span>
+                            {participant.isHost && (
+                              <Badge variant="secondary" className="text-xs flex-shrink-0">
+                                <Crown className="w-3 h-3 mr-1" />
+                                호스트
+                              </Badge>
+                            )}
+                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                              participant.isOnline ? 'bg-green-400' : 'bg-gray-400'
+                            }`} />
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 </div>

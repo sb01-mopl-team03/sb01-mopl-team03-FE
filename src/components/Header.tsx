@@ -34,10 +34,14 @@ interface UINotification {
   isRead: boolean
 }
 
-const mockUser = {
+// ========== API INTEGRATION POINT - START ==========
+// TODO: Replace with actual user data from authentication context
+// Example: const user = useUser() or const user = getCurrentUser()
+const defaultUser = {
   name: '사용자',
   avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150'
 }
+// ========== API INTEGRATION POINT - END ==========
 
 export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileClick, onCloseDM, onLogout, authenticatedFetch, userId }: HeaderProps) {
   const [notifications, setNotifications] = useState<UINotification[]>([])
@@ -448,12 +452,12 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
               className="flex items-center space-x-2 p-2 hover:bg-white/10"
             >
               <Avatar className="h-8 w-8">
-                <AvatarImage src={mockUser.avatar} />
+                <AvatarImage src={defaultUser.avatar} />
                 <AvatarFallback className="bg-[#4ecdc4] text-black">
-                  {mockUser.name.charAt(0)}
+                  {defaultUser.name.charAt(0)}
                 </AvatarFallback>
               </Avatar>
-              <span className="hidden md:block text-sm">{mockUser.name}</span>
+              <span className="hidden md:block text-sm">{defaultUser.name}</span>
             </Button>
 
             {/* Profile Dropdown */}
