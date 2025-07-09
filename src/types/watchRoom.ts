@@ -11,6 +11,7 @@ export interface WatchRoomDto {
 
 export interface WatchRoomCreateRequest {
   contentId: string
+  ownerId: string // 생성자 uuid 추가
 }
 
 export interface WatchRoomInfoDto {
@@ -18,6 +19,8 @@ export interface WatchRoomInfoDto {
   participants: ParticipantDto[]
   videoStatus: VideoSyncDto
   chatMessages: WatchRoomMessageDto[]
+  // 백엔드 WebSocket 동기화 메시지 대응 (옵셔널)
+  participantsInfoDto?: ParticipantsInfoDto
 }
 
 export interface ParticipantDto {

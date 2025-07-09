@@ -102,9 +102,9 @@ export function useWatchRoomWebSocket({
         // 참여자 정보 구독
         client.subscribe(`/topic/rooms/${roomId}/participants`, (message) => {
           try {
+            // 백엔드에서 ParticipantsInfoDto로 내려주므로 타입 그대로 사용
             const participants: ParticipantsInfoDto = JSON.parse(message.body)
             onParticipantsUpdate?.(participants)
-            // 데이터 수신 시 연결 완료 처리
             setConnectionStatus('connected')
             setIsConnected(true)
           } catch (error) {
@@ -125,12 +125,11 @@ export function useWatchRoomWebSocket({
         // 개인 동기화 정보 구독
         client.subscribe(`/user/queue/sync`, (message) => {
           try {
+            // WatchRoomInfoDto에 participantsInfoDto가 포함되어 있다고 가정
             const roomInfo: WatchRoomInfoDto = JSON.parse(message.body)
-            // participantsInfoDto 보정
-            if (roomInfo && roomInfo.participantsInfoDto) {
-              if (!Array.isArray(roomInfo.participantsInfoDto.participantDtoList)) {
-                roomInfo.participantsInfoDto.participantDtoList = []
-              }
+            // participantsInfoDto가 없을 수도 있으니 방어적으로 처리
+            if (!('participantsInfoDto' in roomInfo) || !roomInfo.participantsInfoDto) {
+              (roomInfo as any).participantsInfoDto = { participantDtoList: [], participantsCount: 0 }
             }
             onRoomSync?.(roomInfo)
             setConnectionStatus('connected')

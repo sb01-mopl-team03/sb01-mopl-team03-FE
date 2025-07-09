@@ -130,34 +130,35 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false }: Wa
       }
     },
     onRoomSync: (roomInfo: WatchRoomInfoDto) => {
-      // roomInfo.room이 없을 수도 있으니 방어적으로 처리
       if (roomInfo.room) {
         setRoomData(roomInfo.room)
       }
 
-      // Update participants
-      const mappedParticipants = (roomInfo.participantsInfoDto?.participantDtoList ?? []).map(p => ({
-        userId: p.userId,
-        userName: p.userName,
-        userAvatar: p.userAvatar,
-        isHost: p.isHost,
-        isOnline: p.isOnline,
-        joinedAt: p.joinedAt
+      // participantsInfoDto 대신 participants 또는 participantDtoList로 유연하게 처리
+      let participantList: any[] = []
+      if ('participants' in roomInfo && Array.isArray((roomInfo as any).participants)) {
+        participantList = (roomInfo as any).participants
+      } else if ('participantDtoList' in roomInfo && Array.isArray((roomInfo as any).participantDtoList)) {
+        participantList = (roomInfo as any).participantDtoList
+      }
+
+      const mappedParticipants = participantList.map((p: any) => ({
+        userId: p.userId ?? p.username ?? '',
+        userName: p.userName ?? p.username ?? '',
+        userAvatar: p.userAvatar ?? p.profile ?? '',
+        isHost: p.isHost ?? p.isOwner ?? false,
+        isOnline: p.isOnline ?? true,
+        joinedAt: p.joinedAt ?? ''
       }))
       setParticipants(mappedParticipants)
 
-      // Update video state (방어적 처리)
       setIsPlaying(roomInfo.videoStatus?.isPlaying ?? false)
       setCurrentTime(roomInfo.videoStatus?.currentTime ?? 0)
+      setChatMessages((roomInfo as any).chatMessages ?? [])
 
-      // Update chat messages
-      setChatMessages(roomInfo.chatMessages ?? [])
-
-      // Check if current user is host
-      const currentUserParticipant = mappedParticipants.find(p => p.userId === userId)
+      const currentUserParticipant = mappedParticipants.find((p: any) => p.userId === userId)
       setIsHost(currentUserParticipant?.isHost || false)
 
-      // 데이터가 오면 loading false로 전환 (roomData가 없더라도 한 번만)
       setLoading(false)
     },
     onError: (error: string) => {

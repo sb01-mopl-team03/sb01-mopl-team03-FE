@@ -19,7 +19,7 @@ interface CreateRoomModalProps {
 }
 
 
-export function CreateRoomModal({ isOpen, onClose, onCreateRoom }: CreateRoomModalProps) {
+export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: CreateRoomModalProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState('all')
   const [selectedContent, setSelectedContent] = useState<ContentDto | null>(null)
@@ -91,28 +91,33 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom }: CreateRoomMod
     }
   }
 
-  const handleContentSelect = async (content: ContentDto) => {
+  // 콘텐츠 선택 핸들러: 생성 요청 없이 확인 단계로 이동
+  const handleContentSelect = (content: ContentDto) => {
     setSelectedContent(content)
+    setStep('create')
+    setError(null)
+  }
+
+  // 시청방 생성 요청
+  const handleCreateRoom = async () => {
+    if (!selectedContent) return
     setIsCreating(true)
     setError(null)
-
     try {
       const request: WatchRoomCreateRequest = {
-        contentId: content.id
+        contentId: selectedContent.id,
+        ownerId: userId // 생성자 uuid 추가
       }
-
       const newRoom = await watchRoomService.createWatchRoom(request)
       onCreateRoom(newRoom)
       handleClose()
     } catch (error) {
       console.error('시청방 생성 오류:', error)
       setError(error instanceof Error ? error.message : '시청방 생성 중 오류가 발생했습니다.')
-      setStep('create')
     } finally {
       setIsCreating(false)
     }
   }
-
 
   const handleClose = () => {
     setSearchQuery('')
@@ -143,12 +148,18 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom }: CreateRoomMod
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden bg-gray-900 border-white/20 z-[9999]">
+      <DialogContent
+        className="max-w-4xl max-h-[80vh] overflow-hidden bg-gray-900 border-white/20 z-[9999]"
+        aria-describedby="create-room-modal-desc"
+      >
         <DialogHeader>
           <DialogTitle className="text-xl">
-            {step === 'select' ? '실시간 시청방 만들기' : '시청방 생성 오류'}
+            {step === 'select' ? '실시간 시청방 만들기' : '시청방 생성 확인'}
           </DialogTitle>
         </DialogHeader>
+        <div id="create-room-modal-desc" className="sr-only">
+          원하는 콘텐츠를 선택해 실시간 시청방을 생성할 수 있습니다.
+        </div>
 
         {step === 'select' ? (
           <>
@@ -206,51 +217,51 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom }: CreateRoomMod
               {!loading && !error && (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-96 overflow-y-auto">
                   {contents.map((item) => (
-                  <div
-                    key={item.id}
-                    className="bg-white/5 rounded-lg overflow-hidden border border-white/10 hover:border-[#4ecdc4]/30 transition-all duration-300 group cursor-pointer"
-                    onClick={() => handleContentSelect(item)}
-                  >
-                    {/* Thumbnail */}
-                    <div className="aspect-[3/4] relative overflow-hidden">
-                      <img
-                        src={item.thumbnail}
-                        alt={item.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement
-                          target.src = `https://images.unsplash.com/photo-1489599538883-17dd35352ad5?w=400&h=600&fit=crop&crop=face&auto=format&q=80`
-                        }}
-                      />
+                    <div
+                      key={item.id}
+                      className="bg-white/5 rounded-lg overflow-hidden border border-white/10 hover:border-[#4ecdc4]/30 transition-all duration-300 group cursor-pointer"
+                      onClick={() => handleContentSelect(item)}
+                    >
+                      {/* Thumbnail */}
+                      <div className="aspect-[3/4] relative overflow-hidden">
+                        <img
+                          src={item.thumbnail}
+                          alt={item.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement
+                            target.src = `https://images.unsplash.com/photo-1489599538883-17dd35352ad5?w=400&h=600&fit=crop&crop=face&auto=format&q=80`
+                          }}
+                        />
+                        
+                        {/* Overlay */}
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                          <Button size="sm" className="teal-gradient hover:opacity-80 text-black" disabled={isCreating}>
+                            <Play className="w-4 h-4 mr-1" />
+                            선택
+                          </Button>
+                        </div>
+                      </div>
                       
-                      {/* Overlay */}
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                        <Button size="sm" className="teal-gradient hover:opacity-80 text-black" disabled={isCreating}>
-                          <Play className="w-4 h-4 mr-1" />
-                          {isCreating ? '생성 중...' : '선택'}
-                        </Button>
+                      {/* Content Info */}
+                      <div className="p-3">
+                        <h3 className="font-medium mb-1 line-clamp-1 text-sm">{item.title}</h3>
+                        <p className="text-xs text-white/60 mb-1">{item.duration}</p>
+                        
+                        {/* Rating and Type */}
+                        <div className="flex items-center justify-between">
+                          {item.rating && (
+                            <div className="flex items-center gap-1">
+                              <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                              <span className="text-xs">{item.rating}</span>
+                            </div>
+                          )}
+                          <Badge variant="outline" className="text-xs border-white/20 text-white/60">
+                            {getCategoryTitle(item.contentType)}
+                          </Badge>
+                        </div>
                       </div>
                     </div>
-                    
-                    {/* Content Info */}
-                    <div className="p-3">
-                      <h3 className="font-medium mb-1 line-clamp-1 text-sm">{item.title}</h3>
-                      <p className="text-xs text-white/60 mb-1">{item.duration}</p>
-                      
-                      {/* Rating and Type */}
-                      <div className="flex items-center justify-between">
-                        {item.rating && (
-                          <div className="flex items-center gap-1">
-                            <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                            <span className="text-xs">{item.rating}</span>
-                          </div>
-                        )}
-                        <Badge variant="outline" className="text-xs border-white/20 text-white/60">
-                          {getCategoryTitle(item.contentType)}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
                   ))}
                   
                   {/* Load More Button */}
@@ -297,7 +308,7 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom }: CreateRoomMod
           </>
         ) : (
           <>
-            {/* Room Creation Error Step */}
+            {/* Room Creation Confirm Step */}
             <div className="space-y-6">
               {/* Selected Content Display */}
               {selectedContent && (
@@ -340,13 +351,18 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom }: CreateRoomMod
               <div className="flex gap-3 pt-4">
                 <Button
                   variant="outline"
-                  onClick={() => setStep('select')}
+                  onClick={() => {
+                    setStep('select')
+                    setSelectedContent(null)
+                    setError(null)
+                  }}
                   className="flex-1 border-white/20 hover:bg-white/5"
+                  disabled={isCreating}
                 >
                   뒤로가기
                 </Button>
                 <Button
-                  onClick={() => handleContentSelect(selectedContent!)}
+                  onClick={handleCreateRoom}
                   disabled={!selectedContent || isCreating}
                   className="flex-1 teal-gradient hover:opacity-80 text-black disabled:opacity-50"
                 >
@@ -356,7 +372,7 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom }: CreateRoomMod
                       생성 중...
                     </>
                   ) : (
-                    '다시 시도'
+                    '시청방 생성'
                   )}
                 </Button>
               </div>
