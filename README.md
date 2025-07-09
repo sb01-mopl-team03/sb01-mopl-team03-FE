@@ -1,4 +1,4 @@
-# 모플 (MOPL) - 한국 스트리밍 플랫폼
+# 모플 (MOPL) - 모두의 플레이 (Frontend)
 
 React + TypeScript + Vite로 개발된 스트리밍 플랫폼 프론트엔드입니다.
 
