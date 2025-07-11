@@ -230,7 +230,14 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: Creat
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement
-                            target.src = `https://images.unsplash.com/photo-1489599538883-17dd35352ad5?w=400&h=600&fit=crop&crop=face&auto=format&q=80`
+                            target.style.display = 'none'
+                            const parent = target.parentElement
+                            if (parent && !parent.querySelector('.image-fallback')) {
+                              const fallback = document.createElement('div')
+                              fallback.className = 'image-fallback w-full h-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-2xl font-bold'
+                              fallback.textContent = item.title.charAt(0).toUpperCase()
+                              parent.appendChild(fallback)
+                            }
                           }}
                         />
                         
@@ -313,15 +320,24 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: Creat
               {/* Selected Content Display */}
               {selectedContent && (
                 <div className="flex items-center gap-4 p-4 bg-white/5 rounded-lg border border-white/10">
-                  <img
-                    src={selectedContent.thumbnail}
-                    alt={selectedContent.title}
-                    className="w-16 h-20 object-cover rounded"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement
-                      target.src = `https://images.unsplash.com/photo-1489599538883-17dd35352ad5?w=400&h=600&fit=crop&crop=face&auto=format&q=80`
-                    }}
-                  />
+                  <div className="w-16 h-20 rounded overflow-hidden">
+                    <img
+                      src={selectedContent.thumbnail}
+                      alt={selectedContent.title}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement
+                        target.style.display = 'none'
+                        const parent = target.parentElement
+                        if (parent && !parent.querySelector('.image-fallback')) {
+                          const fallback = document.createElement('div')
+                          fallback.className = 'image-fallback w-full h-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-sm font-bold'
+                          fallback.textContent = selectedContent.title.charAt(0).toUpperCase()
+                          parent.appendChild(fallback)
+                        }
+                      }}
+                    />
+                  </div>
                   <div className="flex-1">
                     <h3 className="font-medium mb-1">{selectedContent.title}</h3>
                     <p className="text-sm text-white/60 mb-2">{selectedContent.duration}</p>

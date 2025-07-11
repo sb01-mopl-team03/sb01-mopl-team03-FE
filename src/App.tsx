@@ -22,11 +22,19 @@ import { Button } from './components/ui/button'
 
 import { WatchRoomDto } from './types/watchRoom'
 
+// Window 객체에 headerRefreshUserProfile 함수 추가
+declare global {
+  interface Window {
+    headerRefreshUserProfile?: () => void
+  }
+}
+
 interface ChatUser {
   id: string
   name: string
   avatar: string
   isOnline: boolean
+  roomId: string
 }
 
 interface ContentItem {
@@ -554,6 +562,13 @@ export default function App() {
     setProfileModalTargetUserId(null)
   }
 
+  // 헤더의 사용자 프로필 정보 새로고침 함수
+  const refreshUserProfile = () => {
+    if (window.headerRefreshUserProfile) {
+      window.headerRefreshUserProfile()
+    }
+  }
+
   // const handleProfileModalUserOpen = (targetUserId: string) => {
   //   setProfileModalTargetUserId(targetUserId)
   //   setShowProfileModal(true)
@@ -636,7 +651,7 @@ export default function App() {
   const renderCurrentPage = () => {
     switch (currentPage) {
       case 'curation':
-        return <Curation onContentPlay={handleContentPlay} onContentDetail={handleContentDetail} onAddToPlaylist={handleAddToPlaylist} />
+        return <Curation onContentPlay={handleContentPlay} onContentDetail={handleContentDetail} onAddToPlaylist={handleAddToPlaylist} userId={userId || undefined} />
       case 'movies':
         return <CategoryPage category="movies" onContentPlay={handleContentPlay} onContentDetail={handleContentDetail} onAddToPlaylist={handleAddToPlaylist} />
       case 'tv':
@@ -745,6 +760,7 @@ export default function App() {
         onLogout={handleLogout} // 로그아웃 핸들러 전달
         authenticatedFetch={authenticatedFetch} // 인증된 API 호출 함수 전달
         userId={userId} // 사용자 ID 전달 (SSE 연결용)
+        refreshUserProfile={refreshUserProfile} // 사용자 프로필 새로고침 함수 전달
       />
       
       {/* Main content with click handler to close DM */}
@@ -761,12 +777,15 @@ export default function App() {
         targetUserId={profileModalTargetUserId} // 보려는 사용자 ID 전달
         authenticatedFetch={authenticatedFetch} // 인증된 API 호출 함수 전달
         onUserProfileOpen={handleUserProfileOpen} // 사용자 프로필 열기 함수 전달
+        refreshUserProfile={refreshUserProfile} // 사용자 프로필 새로고침 함수 전달
       />
 
       <DMList 
         isOpen={showDMList}
         onClose={handleCloseDMList}
         onOpenChat={handleOpenChat}
+        authenticatedFetch={authenticatedFetch}
+        currentUserId={userId}
       />
 
       <ChatRoom
@@ -774,6 +793,8 @@ export default function App() {
         onClose={handleCloseChatRoom}
         onBack={handleBackToDMList}
         user={currentChatUser}
+        authenticatedFetch={authenticatedFetch}
+        currentUserId={userId}
       />
 
       {/* Watch Party Confirmation Modal */}

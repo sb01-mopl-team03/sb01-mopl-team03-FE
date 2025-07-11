@@ -24,15 +24,16 @@ import { Input } from './ui/input'
 import { Badge } from './ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Slider } from './ui/slider'
-import { ImageWithFallback } from './figma/ImageWithFallback'
+// YouTube API 토큰 받은 후 활성화
+// import { YouTubePlayer } from './YouTubePlayer'
 import { useWatchRoomWebSocket } from '../hooks/useWatchRoomWebSocket'
 import { 
   WatchRoomDto, 
   WatchRoomMessageDto, 
   ParticipantsInfoDto, 
   VideoSyncDto, 
-  WatchRoomInfoDto, 
-  VideoControlAction 
+  WatchRoomInfoDto,
+  VideoControlAction
 } from '../types/watchRoom'
 import { watchRoomService } from '../services/watchRoomService'
 
@@ -54,13 +55,15 @@ interface Participant {
 
 export function WatchParty({ roomId, onBack, userId, shouldConnect = false }: WatchPartyProps) {
   // Video State
-  const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [volume, setVolume] = useState([80])
   const [showVolumeSlider, setShowVolumeSlider] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const [lastSyncTime, setLastSyncTime] = useState(0)
+  // lastSyncTime 제거 (useYouTubeSync에서 관리)
+  // YouTube API 토큰 받은 후 활성화
+  // const [youtubePlayer, setYoutubePlayer] = useState<YT.Player | null>(null)
+  // const youtubeVideoId = 'ZnR0JiQGxRE' // https://www.youtube.com/watch?v=ZnR0JiQGxRE&t=131s
+  // const startTime = 131 // 시작 시간 (초)
 
   // UI State
   const [isChatOpen, setIsChatOpen] = useState(true)
@@ -84,6 +87,10 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false }: Wa
   // Example: const totalDuration = roomData?.contentDuration || 0
   const totalDuration = 7200 // 2 hours for demo - should come from content data
   // ========== API INTEGRATION POINT - END ==========
+  
+  // 비디오 상태 관리
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
 
   // WebSocket connection
   const {
@@ -122,11 +129,26 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false }: Wa
       }
     },
     onVideoSync: (syncData: VideoSyncDto) => {
-      // Only sync if not too old
-      if (Date.now() - syncData.timestamp < 5000) {
+      // Only sync if not too old and not host
+      if (Date.now() - syncData.timestamp < 5000 && !isHost) {
+        // YouTube API 토큰 받은 후 활성화
+        // const latency = Date.now() - syncData.timestamp
+        // const adjustedTime = syncData.currentTime + (latency / 1000)
+        // 
+        // try {
+        //   if (syncData.isPlaying) {
+        //     youtubePlayer.seekTo(adjustedTime, true)
+        //     youtubePlayer.playVideo()
+        //   } else {
+        //     youtubePlayer.pauseVideo()
+        //   }
+        // } catch (error) {
+        //   console.error('YouTube sync error:', error)
+        // }
+        
+        // 임시로 상태만 동기화
         setIsPlaying(syncData.isPlaying)
         setCurrentTime(syncData.currentTime)
-        setLastSyncTime(Date.now())
       }
     },
     onRoomSync: (roomInfo: WatchRoomInfoDto) => {
@@ -152,8 +174,25 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false }: Wa
       }))
       setParticipants(mappedParticipants)
 
-      setIsPlaying(roomInfo.videoStatus?.isPlaying ?? false)
-      setCurrentTime(roomInfo.videoStatus?.currentTime ?? 0)
+      // 초기 비디오 상태 설정
+      if (roomInfo.videoStatus) {
+        setIsPlaying(roomInfo.videoStatus.isPlaying)
+        setCurrentTime(roomInfo.videoStatus.currentTime)
+      }
+      
+      // YouTube API 토큰 받은 후 활성화
+      // if (youtubePlayer && roomInfo.videoStatus) {
+      //   try {
+      //     youtubePlayer.seekTo(roomInfo.videoStatus.currentTime, true)
+      //     if (roomInfo.videoStatus.isPlaying) {
+      //       youtubePlayer.playVideo()
+      //     } else {
+      //       youtubePlayer.pauseVideo()
+      //     }
+      //   } catch (error) {
+      //     console.error('Initial video state sync error:', error)
+      //   }
+      // }
       setChatMessages((roomInfo as any).chatMessages ?? [])
 
       const currentUserParticipant = mappedParticipants.find((p: any) => p.userId === userId)
@@ -214,16 +253,28 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false }: Wa
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages])
 
-  // Video timer
+  // 비디오 시간 업데이트 (임시 타이머)
   useEffect(() => {
-    let interval: NodeJS.Timeout
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setCurrentTime(prev => Math.min(prev + 1, totalDuration))
-      }, 1000)
-    }
+    if (!isPlaying) return
+    
+    const interval = setInterval(() => {
+      setCurrentTime(prev => prev + 1)
+    }, 1000)
+    
     return () => clearInterval(interval)
-  }, [isPlaying, totalDuration])
+  }, [isPlaying])
+  
+  // YouTube API 토큰 받은 후 활성화
+  // useEffect(() => {
+  //   if (!youtubePlayer || !isPlaying) return
+  //   
+  //   const interval = setInterval(() => {
+  //     const time = Math.floor(youtubePlayer.getCurrentTime())
+  //     setCurrentTime(time)
+  //   }, 1000)
+  //   
+  //   return () => clearInterval(interval)
+  // }, [youtubePlayer, isPlaying])
 
   // Auto-hide volume slider
   useEffect(() => {
@@ -248,20 +299,67 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false }: Wa
       return
     }
 
+    // YouTube API 토큰 받은 후 활성화
+    // if (isPlaying) {
+    //   youtubePlayer.pauseVideo()
+    // } else {
+    //   youtubePlayer.playVideo()
+    // }
+    
+    // 임시로 상태만 토글
     const newIsPlaying = !isPlaying
     setIsPlaying(newIsPlaying)
     
-    // Send video control to other users (throttled)
-    if (Date.now() - lastSyncTime > 1000) {
-      sendVideoControl({
-        videoControlAction: newIsPlaying ? VideoControlAction.PLAY : VideoControlAction.PAUSE,
-        currentTime,
-        isPlaying: newIsPlaying
-      })
-      setLastSyncTime(Date.now())
-    }
-    console.log(`${newIsPlaying ? 'Playing' : 'Pausing'} at ${currentTime}s`)
+    // Send video control to other users
+    sendVideoControl({
+      videoControlAction: newIsPlaying ? VideoControlAction.PLAY : VideoControlAction.PAUSE,
+      currentTime,
+      isPlaying: newIsPlaying
+    })
   }
+  
+  // YouTube API 토큰 받은 후 활성화
+  // const handleYouTubeReady = (player: YT.Player) => {
+  //   setYoutubePlayer(player)
+  //   
+  //   // 초기 시간 설정
+  //   player.seekTo(startTime, true)
+  //   
+  //   // 플레이어 상태 변경 감지
+  //   const handleStateChange = (event: YT.OnStateChangeEvent) => {
+  //     const state = event.data
+  //     const newIsPlaying = state === window.YT.PlayerState.PLAYING
+  //     const newCurrentTime = Math.floor(player.getCurrentTime())
+  //     
+  //     setIsPlaying(newIsPlaying)
+  //     setCurrentTime(newCurrentTime)
+  //     
+  //     // 호스트만 다른 사용자에게 동기화 신호 전송
+  //     if (isHost && isConnected) {
+  //       sendVideoControl({
+  //         videoControlAction: newIsPlaying ? VideoControlAction.PLAY : VideoControlAction.PAUSE,
+  //         currentTime: newCurrentTime,
+  //         isPlaying: newIsPlaying
+  //       })
+  //     }
+  //   }
+  //   
+  //   player.addEventListener('onStateChange', handleStateChange)
+  //   
+  //   // 방 정보가 이미 로드되었다면 초기 상태 적용
+  //   if (roomData?.videoStatus) {
+  //     try {
+  //       player.seekTo(roomData.videoStatus.currentTime, true)
+  //       if (roomData.videoStatus.isPlaying) {
+  //         player.playVideo()
+  //       }
+  //       setIsPlaying(roomData.videoStatus.isPlaying)
+  //       setCurrentTime(roomData.videoStatus.currentTime)
+  //     } catch (error) {
+  //       console.error('Initial state apply error:', error)
+  //     }
+  //   }
+  // }
 
   const handleVolumeClick = () => {
     if (showVolumeSlider) {
@@ -492,11 +590,19 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false }: Wa
         <div className={`flex-1 bg-black relative`}>
           {/* Video Placeholder */}
           <div className="relative w-full h-full flex items-center justify-center bg-black">
-            <ImageWithFallback
-              src="https://images.unsplash.com/photo-1489599538883-17dd35352ad5?w=800&h=600&fit=crop&crop=face&auto=format&q=80"
-              alt={roomData.contentTitle}
-              className="w-full h-full object-contain"
-            />
+            {/* YouTube API 토큰 받은 후 활성화 */}
+            {/* <YouTubePlayer
+              videoId={youtubeVideoId}
+              onReady={handleYouTubeReady}
+              autoplay={false}
+              controls={false}
+              startTime={startTime}
+            /> */}
+            
+            {/* 임시 비디오 placeholder */}
+            <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-white text-4xl font-bold">
+              {roomData?.contentTitle?.charAt(0).toUpperCase() || 'V'}
+            </div>
             
             {/* Video Overlay Controls */}
             <div className="absolute inset-0 bg-black/30 flex items-center justify-center group">

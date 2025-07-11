@@ -7,6 +7,7 @@ export interface WatchRoomDto {
   contentTitle: string
   headCount: number
   createdAt: string
+  videoStatus?: VideoSyncDto
 }
 
 export interface WatchRoomCreateRequest {
@@ -55,7 +56,7 @@ export interface VideoSyncDto {
   videoControlAction: VideoControlAction
   currentTime: number
   isPlaying: boolean
-  timestamp: number
+  timestamp: number // 서버가 발행한 시간
 }
 
 export interface VideoControlRequest {
@@ -67,8 +68,7 @@ export interface VideoControlRequest {
 export enum VideoControlAction {
   PLAY = 'PLAY',
   PAUSE = 'PAUSE',
-  SEEK = 'SEEK',
-  SYNC = 'SYNC'
+  SEEK = 'SEEK'
 }
 
 export interface WatchRoomSortOptions {

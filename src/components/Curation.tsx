@@ -3,11 +3,13 @@ import { ChevronLeft, ChevronRight, Play, X, Plus, Check, Target, Users, Trendin
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Badge } from './ui/badge'
+import { curationService, type ContentDto } from '../services/curationService'
 
 interface CurationProps {
   onContentPlay: (content: ContentItem) => void
   onContentDetail?: (content: ContentItem) => void
   onAddToPlaylist?: (content: ContentItem) => void
+  userId?: string
 }
 
 interface ContentItem {
@@ -33,6 +35,24 @@ interface Keyword {
   isDefault: boolean
 }
 
+// API ContentDto를 UI ContentItem으로 변환하는 헬퍼 함수
+const convertContentDtoToItem = (dto: ContentDto): ContentItem => {
+  return {
+    id: dto.id,
+    title: dto.title,
+    thumbnail: `/api/placeholder/300/400?text=${encodeURIComponent(dto.title)}`,
+    type: dto.contentType.toLowerCase() as 'movie' | 'tv' | 'sports',
+    duration: '2시간 30분',
+    description: dto.description,
+    rating: Math.floor(Math.random() * 50) / 10 + 5,
+    year: new Date(dto.releaseDate).getFullYear(),
+    genres: ['액션', '드라마'],
+    displayGenres: ['액션', '드라마'],
+    viewerCount: Math.floor(Math.random() * 10000) + 1000,
+    reviewCount: Math.floor(Math.random() * 500) + 50
+  }
+}
+
 interface CurationSection {
   id: string
   title: string
@@ -41,41 +61,105 @@ interface CurationSection {
 }
 
 
-export function Curation({ onContentPlay, onContentDetail, onAddToPlaylist }: CurationProps) {
-  const [selectedKeyword, setSelectedKeyword] = useState('all')
+
+// 기본 키워드 목록 (제거)
+// const DEFAULT_KEYWORDS: Keyword[] = []
+
+export function Curation({ onContentPlay, onContentDetail, onAddToPlaylist, userId }: CurationProps) {
+  const [selectedKeyword, setSelectedKeyword] = useState('')
   const [curationContent, setCurationContent] = useState<CurationSection[]>([])
-  const [keywords, setKeywords] = useState<Keyword[]>([
-    { id: 'all', label: '전체', color: '#4ecdc4', isDefault: true },
-    { id: 'romance', label: '로맨스', color: '#ff6b6b', isDefault: true },
-    { id: 'action', label: '액션', color: '#ffa726', isDefault: true },
-    { id: 'comedy', label: '코미디', color: '#66bb6a', isDefault: true },
-    { id: 'thriller', label: '스릴러', color: '#ab47bc', isDefault: true },
-    { id: 'sf', label: 'SF', color: '#42a5f5', isDefault: true },
-    { id: 'fantasy', label: '판타지', color: '#ec407a', isDefault: true },
-    { id: 'horror', label: '호러', color: '#8d6e63', isDefault: true }
-  ])
+  const [keywords, setKeywords] = useState<Keyword[]>([])
   const [showAddKeyword, setShowAddKeyword] = useState(false)
   const [newKeywordInput, setNewKeywordInput] = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    loadKeywordContent('all')
+    loadUserKeywords()
   }, [])
+  
+  // 키워드 목록이 로드되고 선택된 키워드가 없으면 첫 번째 키워드 선택
+  useEffect(() => {
+    if (keywords.length > 0 && !selectedKeyword) {
+      const firstKeyword = keywords[0]
+      setSelectedKeyword(firstKeyword.id)
+      loadKeywordContent(firstKeyword.id)
+    }
+  }, [keywords, selectedKeyword])
+
+  const loadUserKeywords = async () => {
+    try {
+      if (!userId) {
+        console.error('사용자 ID가 없습니다.')
+        return
+      }
+      
+      // API를 통해 사용자 키워드 목록 조회
+      const userKeywordDtos = await curationService.getUserKeywords(userId)
+      
+      // KeywordDto를 Keyword로 변환
+      const userKeywords: Keyword[] = userKeywordDtos.map(dto => ({
+        id: dto.keywordId,
+        label: dto.keyword,
+        color: `#${Math.floor(Math.random()*16777215).toString(16)}`,
+        isDefault: false
+      }))
+      
+      setKeywords(userKeywords)
+    } catch (error) {
+      console.error('사용자 키워드 로딩 실패:', error)
+      // 키워드가 없는 경우 빈 배열 유지
+      setKeywords([])
+    }
+  }
 
   const loadKeywordContent = async (keywordId: string) => {
     try {
       setLoading(true)
       
-      if (keywordId === 'all') {
-        const sections: CurationSection[] = []
-        setCurationContent(sections)
-      } else {
-        const sections: CurationSection[] = []
-        
-        setCurationContent(sections)
+      // 특정 키워드의 콘텐츠 조회
+      const contentDtos = await curationService.getKeywordContents(keywordId)
+      const contentItems = contentDtos.map(convertContentDtoToItem)
+      
+      const keyword = keywords.find(k => k.id === keywordId)
+      
+      // 콘텐츠 타입별로 분류
+      const movieItems = contentItems.filter(item => item.type === 'movie')
+      const tvItems = contentItems.filter(item => item.type === 'tv')
+      const sportsItems = contentItems.filter(item => item.type === 'sports')
+      
+      const sections: CurationSection[] = []
+      
+      if (movieItems.length > 0) {
+        sections.push({
+          id: `${keywordId}-movie`,
+          title: `${keyword?.label || '키워드'} 영화`,
+          items: movieItems,
+          category: '영화'
+        })
       }
+      
+      if (tvItems.length > 0) {
+        sections.push({
+          id: `${keywordId}-tv`,
+          title: `${keyword?.label || '키워드'} TV 프로그램`,
+          items: tvItems,
+          category: 'TV'
+        })
+      }
+      
+      if (sportsItems.length > 0) {
+        sections.push({
+          id: `${keywordId}-sports`,
+          title: `${keyword?.label || '키워드'} 스포츠`,
+          items: sportsItems,
+          category: '스포츠'
+        })
+      }
+      
+      setCurationContent(sections)
     } catch (error) {
       console.error('콘텐츠 로딩 실패:', error)
+      setCurationContent([])
     } finally {
       setLoading(false)
     }
@@ -94,9 +178,15 @@ export function Curation({ onContentPlay, onContentDetail, onAddToPlaylist }: Cu
     }
 
     try {
+      // API를 통한 키워드 생성
+      const createdKeyword = await curationService.createKeyword({
+        userId: userId || 'temp-user-id',
+        keyword: newKeywordInput.trim()
+      })
+      
       const newKeyword: Keyword = {
-        id: `custom_${Date.now()}`,
-        label: newKeywordInput.trim(),
+        id: createdKeyword.keywordId,
+        label: createdKeyword.keyword,
         color: `#${Math.floor(Math.random()*16777215).toString(16)}`,
         isDefault: false
       }
@@ -113,19 +203,23 @@ export function Curation({ onContentPlay, onContentDetail, onAddToPlaylist }: Cu
   }
 
   const handleDeleteKeyword = async (keywordId: string) => {
-    // Special handling for 'all' keyword - prevent deletion
-    if (keywordId === 'all') {
-      alert('전체 키워드는 삭제할 수 없습니다.')
-      return
-    }
-
     if (window.confirm('이 키워드를 삭제하시겠습니까?')) {
       try {
+        // API를 통한 키워드 삭제
+        await curationService.deleteKeyword(keywordId)
+        
         setKeywords(prev => prev.filter(k => k.id !== keywordId))
         
         if (selectedKeyword === keywordId) {
-          setSelectedKeyword('all')
-          loadKeywordContent('all')
+          // 삭제된 키워드가 선택된 키워드인 경우 첫 번째 키워드로 이동
+          const remainingKeywords = keywords.filter(k => k.id !== keywordId)
+          if (remainingKeywords.length > 0) {
+            setSelectedKeyword(remainingKeywords[0].id)
+            loadKeywordContent(remainingKeywords[0].id)
+          } else {
+            setSelectedKeyword('')
+            setCurationContent([])
+          }
         }
         
         alert('키워드가 삭제되었습니다.')
@@ -204,20 +298,18 @@ export function Curation({ onContentPlay, onContentDetail, onAddToPlaylist }: Cu
                         {keyword.label}
                       </Button>
                       
-                      {/* Delete button for non-default keywords */}
-                      {keyword.id !== 'all' && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeleteKeyword(keyword.id)
-                          }}
-                          className="absolute -top-2 -right-2 w-5 h-5 p-0 rounded-full bg-red-500 hover:bg-red-600 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10"
-                        >
-                          <X className="w-3 h-3" />
-                        </Button>
-                      )}
+                      {/* Delete button for keywords */}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteKeyword(keyword.id)
+                        }}
+                        className="absolute -top-2 -right-2 w-5 h-5 p-0 rounded-full bg-red-500 hover:bg-red-600 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10"
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
                     </div>
                   ))}
                   
@@ -350,7 +442,14 @@ export function Curation({ onContentPlay, onContentDetail, onAddToPlaylist }: Cu
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement
-                            target.src = `https://images.unsplash.com/photo-1489599538883-17dd35352ad5?w=400&h=600&fit=crop&crop=face&auto=format&q=80`
+                            target.style.display = 'none'
+                            const parent = target.parentElement
+                            if (parent && !parent.querySelector('.image-fallback')) {
+                              const fallback = document.createElement('div')
+                              fallback.className = 'image-fallback w-full h-full bg-gradient-to-br from-green-500 to-teal-500 flex items-center justify-center text-white text-2xl font-bold group-hover:scale-105 transition-transform duration-300'
+                              fallback.textContent = item.title.charAt(0).toUpperCase()
+                              parent.appendChild(fallback)
+                            }
                           }}
                         />
                         
@@ -469,14 +568,14 @@ export function Curation({ onContentPlay, onContentDetail, onAddToPlaylist }: Cu
         {!loading && curationContent.length === 0 && (
           <div className="text-center py-12 px-6">
             <Target className="w-12 h-12 text-white/40 mx-auto mb-4" />
-            <p className="text-white/60 mb-4">선택한 키워드에 해당하는 콘텐츠가 없습니다.</p>
-            <Button
-              variant="outline"
-              onClick={() => handleKeywordClick('all')}
-              className="border-white/20 hover:bg-white/5"
-            >
-              전체 콘텐츠 보기
-            </Button>
+            {keywords.length === 0 ? (
+              <div>
+                <p className="text-white/60 mb-4">등록된 키워드가 없습니다.</p>
+                <p className="text-white/40 text-sm">새로운 키워드를 추가해보세요!</p>
+              </div>
+            ) : (
+              <p className="text-white/60 mb-4">선택한 키워드에 해당하는 콘텐츠가 없습니다.</p>
+            )}
           </div>
         )}
       </div>

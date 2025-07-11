@@ -1,9 +1,11 @@
 import React, { useState } from 'react'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Camera } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Separator } from './ui/separator'
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
+import { ProfileImageSelector } from './ProfileImageSelector'
 
 interface LoginProps {
   onLogin: (accessToken: string, isTempPassword: boolean) => void
@@ -27,6 +29,8 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
   })
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [profileImage, setProfileImage] = useState<File | null>(null)
+  const [showProfileSelector, setShowProfileSelector] = useState(false)
 
   // 카카오 OAuth 로그인
   const handleKakaoLogin = () => {
@@ -73,20 +77,20 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
           return
         }
         
-        // 회원가입 API 호출
-        const requestBody = {
-          email: formData.email,
-          name: formData.name,
-          password: formData.password,
-          profileImage: '' // 기본값으로 빈 문자열 설정
+        // 회원가입 API 호출 - multipart/form-data 방식
+        const formDataToSend = new FormData()
+        formDataToSend.append('email', formData.email)
+        formDataToSend.append('name', formData.name)
+        formDataToSend.append('password', formData.password)
+        
+        // 프로필 이미지 추가
+        if (profileImage) {
+          formDataToSend.append('profile', profileImage)
         }
         
         const response = await fetch('/api/users', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
+          body: formDataToSend, // FormData를 직접 전송 (Content-Type 헤더는 자동 설정됨)
         })
         
         if (!response.ok) {
@@ -260,6 +264,46 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
                   placeholder="비밀번호를 다시 입력하세요"
                   required
                 />
+              </div>
+            )}
+            
+            {isRegister && (
+              <div>
+                <Label className="text-base">프로필 사진</Label>
+                <div className="mt-2 flex items-center space-x-4">
+                  {/* 프로필 이미지 미리보기 */}
+                  <Avatar className="h-16 w-16">
+                    <AvatarImage 
+                      src={profileImage ? URL.createObjectURL(profileImage) : undefined}
+                    />
+                    <AvatarFallback className="bg-[#4ecdc4] text-black">
+                      {formData.name.charAt(0) || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  
+                  {/* 프로필 이미지 선택 버튼 */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowProfileSelector(!showProfileSelector)}
+                    className="flex items-center space-x-2 border-white/20 hover:bg-white/5"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span>사진 선택</span>
+                  </Button>
+                </div>
+                
+                {/* 프로필 이미지 선택기 */}
+                {showProfileSelector && (
+                  <div className="mt-4">
+                    <ProfileImageSelector
+                      selectedImage={profileImage}
+                      onImageSelect={setProfileImage}
+                      onClose={() => setShowProfileSelector(false)}
+                      userName={formData.name}
+                    />
+                  </div>
+                )}
               </div>
             )}
             
