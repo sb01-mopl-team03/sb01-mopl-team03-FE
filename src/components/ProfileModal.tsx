@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { X, Camera, Check, UserPlus, UserMinus, Users, Heart } from 'lucide-react'
+import { X, Camera, UserPlus, UserMinus, Users, Heart } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
+import { ProfileImageSelector } from './ProfileImageSelector'
 
 interface UserData {
   id?: string
@@ -21,24 +22,15 @@ interface ProfileModalProps {
   targetUserId?: string | null // 보려는 사용자 ID (다른 사용자 프로필 보기용)
   authenticatedFetch: (url: string, options?: RequestInit) => Promise<Response> // 인증된 API 호출 함수
   onUserProfileOpen?: (targetUserId: string) => void // 사용자 프로필 열기 함수
+  refreshUserProfile?: () => void // 사용자 프로필 새로고침 함수
 }
 
-const avatarOptions = [
-  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1494790108755-2616b612b3be?w=100&h=100&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&h=100&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face',
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face'
-]
 
-export function ProfileModal({ isOpen, onClose, userId, targetUserId, authenticatedFetch, onUserProfileOpen }: ProfileModalProps) {
-  const [selectedAvatar, setSelectedAvatar] = useState(0)
+export function ProfileModal({ isOpen, onClose, userId, targetUserId, authenticatedFetch, onUserProfileOpen, refreshUserProfile }: ProfileModalProps) {
   const [name, setName] = useState('김모플')
   const [email, setEmail] = useState('user@moplay.kr')
-  const [showAvatarPicker, setShowAvatarPicker] = useState(false)
+  const [showProfileSelector, setShowProfileSelector] = useState(false)
+  const [profileImage, setProfileImage] = useState<File | null>(null)
   const [password, setPassword] = useState('') // 비밀번호 상태 추가
   const [isLoading, setIsLoading] = useState(false) // 로딩 상태 추가
   const [error, setError] = useState<string | null>(null) // 오류 상태 추가
@@ -83,6 +75,7 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
       setUserData(data)
       setName(data.name)
       setEmail(data.email)
+      // 기존 프로필 이미지는 표시하지 않고, 새 이미지만 업로드 가능
       
       // // 임시 데이터 로딩 (API 연동 전까지)
       // setName('김모플')
@@ -212,45 +205,75 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
         setIsLoading(false)
         return
       }
+
+      // 비밀번호가 입력되지 않은 경우 에러
+      if (!password.trim()) {
+        setError('프로필 수정을 위해 현재 비밀번호를 입력해주세요.')
+        setIsLoading(false)
+        return
+      }
+
+      // FormData를 사용하여 multipart/form-data 요청 생성
+      const formData = new FormData()
       
-      // 1. 이름 변경 API 호출 (이름이 변경된 경우)
-      const originalName = userData?.name || '김모플'
-      if (name !== originalName) {
-        const nameRequestBody = {
-          newName: name,
-          newPassword: 'dummy' // API 스펙상 필수 필드이지만 실제로는 사용되지 않음
-        }
-        
-        const nameResponse = await authenticatedFetch(`/api/user/${userId}`, {
-          method: 'PUT',
-          body: JSON.stringify(nameRequestBody)
-        })
-        
-        if (!nameResponse.ok) {
-          const errorData = await nameResponse.json()
-          throw new Error(errorData.message || '이름 업데이트에 실패했습니다.')
-        }
+      // request JSON을 문자열로 변환하여 추가
+      const requestData = {
+        newName: name,
+        newPassword: password
       }
       
-      // 2. 비밀번호 변경 API 호출 (비밀번호가 입력된 경우)
-      if (password.trim()) {
-        const passwordRequestBody = {
-          newPassword: password
-        }
-        
-        const passwordResponse = await authenticatedFetch('/api/auth/change-password', {
-          method: 'POST',
-          body: JSON.stringify(passwordRequestBody)
-        })
-        
-        if (!passwordResponse.ok) {
-          const errorData = await passwordResponse.json()
-          throw new Error(errorData.message || '비밀번호 변경에 실패했습니다.')
-        }
+      console.log('Request data:', requestData)
+      
+      // request 부분을 JSON 문자열로 추가 (Content-Type: application/json으로 처리됨)
+      const requestBlob = new Blob([JSON.stringify(requestData)], {
+        type: 'application/json'
+      })
+      formData.append('request', requestBlob)
+      
+      // 프로필 이미지가 선택된 경우 추가
+      if (profileImage) {
+        formData.append('profile', profileImage)
+        console.log('Profile image added:', profileImage.name)
       }
+      
+      // FormData 내용 확인
+      console.log('FormData entries:')
+      for (let [key, value] of formData.entries()) {
+        console.log(key, value)
+      }
+
+      // API 호출
+      const response = await fetch(`/api/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        },
+        body: formData
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || '프로필 업데이트에 실패했습니다.')
+      }
+
+      const updatedUserData = await response.json()
+      
+      // 상태 업데이트
+      setUserData(updatedUserData)
+      setName(updatedUserData.name)
+      setEmail(updatedUserData.email)
+      setProfileImage(null) // 업로드된 이미지 초기화
+      
+      // 서버에서 최신 데이터를 다시 가져오기
+      await fetchUserData()
       
       // 성공적으로 업데이트 완료
       alert('프로필이 성공적으로 업데이트되었습니다.')
+      
+      // 헤더의 사용자 프로필 정보 새로고침
+      if (refreshUserProfile) {
+        refreshUserProfile()
+      }
       
       // 비밀번호 필드 초기화
       setPassword('')
@@ -325,7 +348,9 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
         <div className="flex flex-col items-center mb-6">
           <div className="relative">
             <Avatar className="h-20 w-20 mb-4">
-              <AvatarImage src={avatarOptions[selectedAvatar]} />
+              <AvatarImage 
+                src={profileImage ? URL.createObjectURL(profileImage) : userData?.profileImage}
+              />
               <AvatarFallback className="bg-[#4ecdc4] text-black text-xl">
                 {name.charAt(0)}
               </AvatarFallback>
@@ -336,43 +361,22 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
                 variant="ghost"
                 size="sm"
                 className="absolute -bottom-2 -right-2 p-2 bg-[#4ecdc4] hover:bg-[#26a69a] text-black rounded-full"
-                onClick={() => setShowAvatarPicker(!showAvatarPicker)}
+                onClick={() => setShowProfileSelector(!showProfileSelector)}
               >
                 <Camera className="w-4 h-4" />
               </Button>
             )}
           </div>
           
-          {/* Avatar Picker */}
-          {showAvatarPicker && !isViewingOtherUser && (
-            <div className="w-full p-4 bg-black/20 rounded-lg border border-white/10 mb-4">
-              <p className="text-sm text-white/80 mb-3">프로필 사진 선택</p>
-              <div className="grid grid-cols-4 gap-2">
-                {avatarOptions.map((avatar, index) => (
-                  <button
-                    key={index}
-                    onClick={() => {
-                      setSelectedAvatar(index)
-                      setShowAvatarPicker(false)
-                    }}
-                    className={`relative rounded-full overflow-hidden transition-all duration-200 w-12 h-12 flex-shrink-0 ${
-                      selectedAvatar === index 
-                        ? 'ring-2 ring-[#4ecdc4] scale-110' 
-                        : 'hover:scale-105'
-                    }`}
-                  >
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src={avatar} />
-                      <AvatarFallback>U</AvatarFallback>
-                    </Avatar>
-                    {selectedAvatar === index && (
-                      <div className="absolute inset-0 bg-[#4ecdc4]/20 flex items-center justify-center">
-                        <Check className="w-4 h-4 text-[#4ecdc4]" />
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </div>
+          {/* Profile Image Selector */}
+          {showProfileSelector && !isViewingOtherUser && (
+            <div className="w-full mb-4">
+              <ProfileImageSelector
+                selectedImage={profileImage}
+                onImageSelect={setProfileImage}
+                onClose={() => setShowProfileSelector(false)}
+                userName={name}
+              />
             </div>
           )}
           
@@ -447,18 +451,19 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
               {!isViewingOtherUser && (
                 <div>
                   <Label htmlFor="password" className="text-sm">
-                    새 비밀번호
-                    <span className="text-white/60 ml-1">(선택사항)</span>
+                    현재 비밀번호
+                    <span className="text-red-400 ml-1">*</span>
                   </Label>
                   <Input
                     id="password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="변경하려면 입력하세요"
+                    placeholder="프로필 수정을 위해 현재 비밀번호를 입력하세요"
                     className="mt-1 h-12 px-4 text-base bg-white/5 border-white/20 focus:border-[#4ecdc4]"
+                    required
                   />
-                  <p className="text-xs text-white/60 mt-1">비밀번호를 변경하지 않으려면 비워두세요.</p>
+                  <p className="text-xs text-white/60 mt-1">보안을 위해 현재 비밀번호 확인이 필요합니다.</p>
                 </div>
               )}
             </div>

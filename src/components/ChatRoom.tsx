@@ -4,6 +4,8 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { ScrollArea } from './ui/scroll-area'
+import { DmService, DmDto } from '../services/dmService'
+import { useDmWebSocket } from '../hooks/useDmWebSocket'
 
 interface Message {
   id: string
@@ -20,6 +22,7 @@ interface ChatUser {
   name: string
   avatar: string
   isOnline: boolean
+  roomId: string
 }
 
 interface ChatRoomProps {
@@ -27,15 +30,39 @@ interface ChatRoomProps {
   onClose: () => void
   onBack: () => void
   user: ChatUser | null
+  authenticatedFetch: (url: string, options?: RequestInit) => Promise<Response>
+  currentUserId: string | null
 }
 
 
-export function ChatRoom({ isOpen, onClose, onBack, user }: ChatRoomProps) {
+export function ChatRoom({ isOpen, onClose, onBack, user, authenticatedFetch, currentUserId }: ChatRoomProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
+  const [isTyping] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  
+  const dmService = new DmService(authenticatedFetch)
+  
+  // WebSocket connection
+  const { isConnected, sendMessage } = useDmWebSocket({
+    roomId: user?.roomId || null,
+    userId: currentUserId,
+    onMessageReceived: (dmMessage: DmDto) => {
+      const message: Message = {
+        id: dmMessage.id,
+        senderId: dmMessage.senderId,
+        senderName: dmMessage.senderId === currentUserId ? '나' : user?.name || 'Unknown',
+        content: dmMessage.content,
+        timestamp: formatTimestamp(dmMessage.createdAt),
+        type: 'text',
+        isOwnMessage: dmMessage.senderId === currentUserId
+      }
+      setMessages(prev => [...prev, message])
+    }
+  })
 
   // Auto scroll to bottom when new messages arrive
   useEffect(() => {
@@ -49,55 +76,55 @@ export function ChatRoom({ isOpen, onClose, onBack, user }: ChatRoomProps) {
     }
   }, [isOpen])
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim() || !user) return
-
-    const message: Message = {
-      id: (messages.length + 1).toString(),
-      senderId: '1',
-      senderName: '사용자',
-      content: newMessage.trim(),
-      timestamp: new Date().toLocaleTimeString('ko-KR', { 
-        hour: 'numeric', 
-        minute: '2-digit',
-        hour12: true 
-      }),
-      type: 'text',
-      isOwnMessage: true
+  // Load messages when room changes
+  useEffect(() => {
+    if (user?.roomId) {
+      loadMessages()
     }
+  }, [user?.roomId])
 
-    // ========== API INTEGRATION POINT - START ==========
-    // TODO: Replace with actual API call to send message
-    // Example: await sendMessage({
-    //   recipientId: user.id,
-    //   content: newMessage.trim(),
-    //   type: 'text'
-    // })
-    console.log('Sending message:', message)
-    // ========== API INTEGRATION POINT - END ==========
+  const formatTimestamp = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleTimeString('ko-KR', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    })
+  }
 
-    setMessages(prev => [...prev, message])
-    setNewMessage('')
-
-    // Simulate typing indicator and response (for demo)
-    setIsTyping(true)
-    setTimeout(() => {
-      setIsTyping(false)
-      const response: Message = {
-        id: (messages.length + 2).toString(),
-        senderId: user.id,
-        senderName: user.name,
-        content: '메시지를 받았습니다! 👍',
-        timestamp: new Date().toLocaleTimeString('ko-KR', { 
-          hour: 'numeric', 
-          minute: '2-digit',
-          hour12: true 
-        }),
+  const loadMessages = async () => {
+    if (!user?.roomId) return
+    
+    try {
+      setLoading(true)
+      setError(null)
+      const dmMessages = await dmService.getDmMessages(user.roomId)
+      
+      const messageList: Message[] = dmMessages.map(dm => ({
+        id: dm.id,
+        senderId: dm.senderId,
+        senderName: dm.senderId === currentUserId ? '나' : user?.name || 'Unknown',
+        content: dm.content,
+        timestamp: formatTimestamp(dm.createdAt),
         type: 'text',
-        isOwnMessage: false
-      }
-      setMessages(prev => [...prev, response])
-    }, 2000)
+        isOwnMessage: dm.senderId === currentUserId
+      }))
+      
+      setMessages(messageList)
+    } catch (error) {
+      console.error('Error loading messages:', error)
+      setError('메시지를 불러올 수 없습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSendMessage = () => {
+    if (!newMessage.trim() || !user || !isConnected) return
+
+    console.log('Sending message via WebSocket:', newMessage.trim())
+    sendMessage(newMessage.trim())
+    setNewMessage('')
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -168,6 +195,21 @@ export function ChatRoom({ isOpen, onClose, onBack, user }: ChatRoomProps) {
         <div className="flex-1 overflow-hidden">
           <ScrollArea className="h-full">
             <div className="p-4 space-y-4">
+              {loading && (
+                <div className="flex items-center justify-center h-32 text-white/60">
+                  메시지를 불러오는 중...
+                </div>
+              )}
+              {error && (
+                <div className="flex items-center justify-center h-32 text-red-400">
+                  {error}
+                </div>
+              )}
+              {!loading && !error && messages.length === 0 && (
+                <div className="flex items-center justify-center h-32 text-white/60">
+                  아직 메시지가 없습니다.
+                </div>
+              )}
               {messages.map((message, index) => {
                 const showTime = index === 0 || 
                   messages[index - 1].timestamp !== message.timestamp ||

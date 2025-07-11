@@ -2,7 +2,16 @@ import React, { useState, useEffect } from 'react'
 import { Bell, User, LogOut, Trash2, MessageSquare, UserPlus, Heart, Play } from 'lucide-react'
 import { Button } from './ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
-import { EventSourcePolyfill } from 'event-source-polyfill' 
+import { EventSourcePolyfill } from 'event-source-polyfill'
+import { userService } from '../services/userService'
+import { UserResponse } from '../types/user'
+
+// Window 객체에 headerRefreshUserProfile 함수 추가
+declare global {
+  interface Window {
+    headerRefreshUserProfile?: () => void
+  }
+} 
 
 interface HeaderProps {
   currentPage: string
@@ -13,6 +22,7 @@ interface HeaderProps {
   onLogout: () => void  // 로그아웃 함수 추가
   authenticatedFetch: (url: string, options?: RequestInit) => Promise<Response> // 인증된 API 호출 함수
   userId: string | null // 사용자 ID 추가 (SSE 연결용)
+  refreshUserProfile?: () => void // 사용자 프로필 새로고침 함수 추가
 }
 
 // API 응답 타입 정의
@@ -35,19 +45,15 @@ interface UINotification {
 }
 
 // ========== API INTEGRATION POINT - START ==========
-// TODO: Replace with actual user data from authentication context
-// Example: const user = useUser() or const user = getCurrentUser()
-const defaultUser = {
-  name: '사용자',
-  avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150'
-}
+// Actual user data from API
 // ========== API INTEGRATION POINT - END ==========
 
-export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileClick, onCloseDM, onLogout, authenticatedFetch, userId }: HeaderProps) {
+export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileClick, onCloseDM, onLogout, authenticatedFetch, userId, refreshUserProfile }: HeaderProps) {
   const [notifications, setNotifications] = useState<UINotification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
-  const [eventSource, setEventSource] = useState<EventSource | null>(null)
+  const [_eventSources, setEventSources] = useState<EventSource[]>([])
+  const [user, setUser] = useState<UserResponse | null>(null)
 
   // NotificationDto를 UINotification으로 변환하는 함수
   const convertToUINotification = (dto: NotificationDto): UINotification => {
@@ -111,6 +117,18 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
     }
   }
 
+  // 유저 정보 조회 함수
+  const fetchUserInfo = async () => {
+    if (!userId) return
+
+    try {
+      const userData = await userService.getUser(userId)
+      setUser(userData)
+    } catch (error) {
+      console.error('유저 정보 조회 오류:', error)
+    }
+  }
+
   // 알림 목록 조회 함수
   const fetchNotifications = async () => {
     if (!userId) return
@@ -138,69 +156,96 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
   const connectSSE = () => {
     if (!userId) return
 
-    // 기존 연결 종료
-    if (eventSource) {
-      eventSource.close()
-    }
-
     const token = localStorage.getItem('accessToken')
     if (!token) {
       console.warn('accessToken이 없습니다. SSE 연결 생략')
       return
     }
 
-    // 백엔드에서 userId를 path param으로 받지 않고 인증 principal로 처리하므로, URL에서 userId를 빼야 함
-    const newEventSource = new EventSourcePolyfill(
-      `/notifications/subscribe`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
-        withCredentials: true
+    // 연결 수 제한 확인 및 처리
+    setEventSources(prev => {
+      // 현재 연결 수가 2개 이상이면 새로운 연결 생성하지 않음
+      if (prev.length >= 2) {
+        console.log('최대 SSE 연결 수(2개)에 도달했습니다. 새로운 연결을 생성하지 않습니다.')
+        return prev
       }
-    )
 
-    newEventSource.onopen = () => {
-      console.log('SSE 연결이 설정되었습니다.')
-    }
+      // 백엔드에서 userId를 path param으로 받지 않고 인증 principal로 처리하므로, URL에서 userId를 빼야 함
+      const newEventSource = new EventSourcePolyfill(
+        `/notifications/subscribe`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          },
+          withCredentials: true
+        }
+      )
 
-    newEventSource.onmessage = (event) => {
-      try {
-        const notificationDto: NotificationDto = JSON.parse(event.data)
-        const newNotification = convertToUINotification(notificationDto)
-        setNotifications(prev => [newNotification, ...prev])
-        console.log('새로운 알림을 받았습니다:', newNotification)
-      } catch (error) {
-        console.error('SSE 메시지 파싱 오류:', error)
+      newEventSource.onopen = () => {
+        console.log(`SSE 연결이 설정되었습니다. 현재 연결 수: ${prev.length + 1}`)
       }
-    }
 
-    newEventSource.onerror = (error) => {
-      console.error('SSE 연결 오류:', error)
-      newEventSource.close()
+      newEventSource.onmessage = (event) => {
+        try {
+          const notificationDto: NotificationDto = JSON.parse(event.data)
+          const newNotification = convertToUINotification(notificationDto)
+          setNotifications(prev => [newNotification, ...prev])
+          console.log('새로운 알림을 받았습니다:', newNotification)
+        } catch (error) {
+          console.error('SSE 메시지 파싱 오류:', error)
+        }
+      }
 
-      setTimeout(() => {
-        connectSSE() // 재연결 시도
-      }, 5000)
-    }
+      newEventSource.onerror = (error) => {
+        console.error('SSE 연결 오류:', error)
+        // 에러 발생한 연결을 배열에서 제거
+        setEventSources(prev => prev.filter(source => source !== newEventSource))
+        newEventSource.close()
 
-    setEventSource(newEventSource)
+        setTimeout(() => {
+          connectSSE() // 재연결 시도
+        }, 5000)
+      }
+
+      // 새 연결을 배열에 추가
+      return [...prev, newEventSource]
+    })
   }
 
-  // 컴포넌트 마운트 시 알림 목록 조회 및 SSE 연결
+  // 컴포넌트 마운트 시 유저 정보, 알림 목록 조회 및 SSE 연결
   useEffect(() => {
     if (userId) {
+      fetchUserInfo()
       fetchNotifications()
       connectSSE()
     }
 
-    // 컴포넌트 언마운트 시 SSE 연결 정리
+    // 컴포넌트 언마운트 시 모든 SSE 연결 정리
     return () => {
-      if (eventSource) {
-        eventSource.close()
-      }
+      setEventSources(prev => {
+        prev.forEach(source => {
+          if (source.readyState !== EventSource.CLOSED) {
+            source.close()
+          }
+        })
+        return []
+      })
     }
   }, [userId])
+
+  // 외부에서 사용자 프로필 새로고침 요청 시 처리 (App.tsx에서 호출)
+  useEffect(() => {
+    if (refreshUserProfile) {
+      // refreshUserProfile 함수 참조를 업데이트
+      window.headerRefreshUserProfile = fetchUserInfo
+    }
+    
+    return () => {
+      if (window.headerRefreshUserProfile) {
+        delete window.headerRefreshUserProfile
+      }
+    }
+  }, [refreshUserProfile])
 
   const navItems = [
     { id: 'home', label: '홈' },
@@ -454,12 +499,12 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
               className="flex items-center space-x-2 p-2 hover:bg-white/10"
             >
               <Avatar className="h-8 w-8">
-                <AvatarImage src={defaultUser.avatar} />
+                <AvatarImage src={user?.profileImage || ''} />
                 <AvatarFallback className="bg-[#4ecdc4] text-black">
-                  {defaultUser.name.charAt(0)}
+                  {user?.name.charAt(0) || 'U'}
                 </AvatarFallback>
               </Avatar>
-              <span className="hidden md:block text-sm">{defaultUser.name}</span>
+              <span className="hidden md:block text-sm">{user?.name || '사용자'}</span>
             </Button>
 
             {/* Profile Dropdown */}

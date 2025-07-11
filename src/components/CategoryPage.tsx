@@ -70,9 +70,9 @@ export function CategoryPage({ category, onContentPlay, onContentDetail, onAddTo
       const response = await contentService.getContents({
         type: getContentType(category),
         query: searchQuery || undefined,
-        sortBy: sortBy === 'latest' ? 'createdAt' : 
-               sortBy === 'rating' ? 'rating' : 
-               sortBy === 'title' ? 'title' : 'createdAt',
+        sortBy: sortBy === 'latest' ? 'RELEASE_AT' : 
+               sortBy === 'rating' ? 'RELEASE_AT' : 
+               sortBy === 'title' ? 'TITLE' : 'RELEASE_AT',
         direction: sortBy === 'title' ? 'ASC' : 'DESC',
         cursor: isLoadMore ? nextCursor : undefined,
         size: 20

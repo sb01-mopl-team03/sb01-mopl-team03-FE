@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, X, Circle, ArrowLeft, Users } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
+import { DmService } from '../services/dmService'
 
 interface Conversation {
   id: string
@@ -12,9 +13,10 @@ interface Conversation {
   timestamp: string
   unreadCount: number
   isOnline: boolean
+  userId: string
 }
 
-interface Friend {
+interface ChatPartner {
   id: string
   name: string
   avatar: string
@@ -25,60 +27,152 @@ interface Friend {
 interface DMListProps {
   isOpen: boolean
   onClose: () => void
-  onOpenChat: (user: { id: string; name: string; avatar: string; isOnline: boolean }) => void
+  onOpenChat: (user: { id: string; name: string; avatar: string; isOnline: boolean; roomId: string }) => void
+  authenticatedFetch: (url: string, options?: RequestInit) => Promise<Response>
+  currentUserId: string | null
 }
 
 
-export function DMList({ isOpen, onClose, onOpenChat }: DMListProps) {
+export function DMList({ isOpen, onClose, onOpenChat, authenticatedFetch, currentUserId }: DMListProps) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [showFriendSelection, setShowFriendSelection] = useState(false)
+  const [showChatPartnerSelection, setShowChatPartnerSelection] = useState(false)
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [chatPartners, setChatPartners] = useState<ChatPartner[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const filteredConversations: Conversation[] = []
+  const dmService = new DmService(authenticatedFetch)
 
-  const filteredFriends: Friend[] = []
+  const filteredConversations = conversations.filter(conv => 
+    conv.name.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  const filteredChatPartners = chatPartners.filter(partner => 
+    partner.name.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   const handleConversationClick = (conversation: Conversation) => {
-    // ========== API INTEGRATION POINT - START ==========
-    // TODO: Replace with actual API call to open conversation
-    // Example: await openConversation(conversation.id)
     console.log(`Opening conversation with ${conversation.name}`)
-    // ========== API INTEGRATION POINT - END ==========
     
     onOpenChat({
-      id: conversation.id,
+      id: conversation.userId,
       name: conversation.name,
       avatar: conversation.avatar,
-      isOnline: conversation.isOnline
+      isOnline: conversation.isOnline,
+      roomId: conversation.id
     })
   }
 
   const handleNewMessageClick = () => {
-    setShowFriendSelection(true)
+    setShowChatPartnerSelection(true)
     setSearchQuery('')
   }
 
   const handleBackToConversations = () => {
-    setShowFriendSelection(false)
+    setShowChatPartnerSelection(false)
     setSearchQuery('')
   }
 
-  const handleStartConversation = (friend: Friend) => {
-    // ========== API INTEGRATION POINT - START ==========
-    // TODO: Replace with actual API call to start new conversation
-    // Example: await startNewConversation(friend.id)
-    console.log(`Starting new conversation with ${friend.name}`)
-    // ========== API INTEGRATION POINT - END ==========
+  const handleStartConversation = async (partner: ChatPartner) => {
+    try {
+      setLoading(true)
+      const roomId = await dmService.getOrCreateRoom(partner.id)
+      console.log(`Starting new conversation with ${partner.name}, room: ${roomId}`)
+      
+      onOpenChat({
+        id: partner.id,
+        name: partner.name,
+        avatar: partner.avatar,
+        isOnline: partner.isOnline,
+        roomId: roomId
+      })
+      
+      // Return to conversations view after starting
+      setShowChatPartnerSelection(false)
+      setSearchQuery('')
+    } catch (error) {
+      console.error('Error starting conversation:', error)
+      setError('대화를 시작할 수 없습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Load DM rooms when component opens
+  useEffect(() => {
+    if (isOpen && currentUserId) {
+      loadDMRooms()
+      loadChatPartners()
+    }
+  }, [isOpen, currentUserId])
+
+  const loadDMRooms = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const rooms = await dmService.getAllRooms()
+      
+      // Convert DM rooms to conversations
+      const conversationList: Conversation[] = rooms.map(room => {
+        const otherUser = room.senderId === currentUserId ? 
+          { id: room.receiverId, name: room.receiverName, avatar: '', isOnline: false } : 
+          { id: room.senderId, name: room.senderName, avatar: '', isOnline: false }
+        const formatTimestamp = (dateString: string) => {
+          const date = new Date(dateString)
+          const now = new Date()
+          const diff = now.getTime() - date.getTime()
+          const minutes = Math.floor(diff / (1000 * 60))
+          const hours = Math.floor(diff / (1000 * 60 * 60))
+          const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+        
+          if (minutes < 1) return '방금 전'
+          if (minutes < 60) return `${minutes}분 전`
+          if (hours < 24) return `${hours}시간 전`
+          if (days === 1) return '어제'
+          return `${days}일 전`
+        }
+        
+        return {
+          id: room.id,
+          userId: otherUser?.id || '',
+          name: otherUser?.name || '알 수 없는 사용자',
+          avatar: otherUser?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
+          lastMessage: room.lastMessage || '아직 메시지가 없습니다',
+          timestamp: room.lastMessage ? formatTimestamp(room.createdAt) : formatTimestamp(room.createdAt),
+          unreadCount: room.newMessageCount || 0,
+          isOnline: otherUser?.isOnline || false
+        }
+      })
+      
+      setConversations(conversationList)
+    } catch (error) {
+      console.error('Error loading DM rooms:', error)
+      setError('대화 목록을 불러올 수 없습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadChatPartners = async () => {
+    if (!currentUserId) return
     
-    onOpenChat({
-      id: friend.id,
-      name: friend.name,
-      avatar: friend.avatar,
-      isOnline: friend.isOnline
-    })
-    
-    // Return to conversations view after starting
-    setShowFriendSelection(false)
-    setSearchQuery('')
+    try {
+      const followList = await dmService.getFollowing(currentUserId)
+      
+      // Convert follow list to chat partners
+      const partnerList: ChatPartner[] = followList.map(follow => ({
+        id: follow.id,
+        name: follow.name || '알 수 없는 사용자',
+        avatar: follow.profileImage || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
+        isOnline: false, // TODO: Get online status from backend
+        mutualFriends: 0 // TODO: Calculate mutual follows if needed
+      }))
+      
+      setChatPartners(partnerList)
+    } catch (error) {
+      console.error('Error loading chat partners:', error)
+      // Don't set error for chat partners loading failure to avoid interference with DM list
+    }
   }
 
   if (!isOpen) return null
@@ -92,7 +186,7 @@ export function DMList({ isOpen, onClose, onOpenChat }: DMListProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-white/10">
           <div className="flex items-center space-x-3">
-            {showFriendSelection && (
+            {showChatPartnerSelection && (
               <Button 
                 variant="ghost" 
                 size="sm" 
@@ -103,7 +197,7 @@ export function DMList({ isOpen, onClose, onOpenChat }: DMListProps) {
               </Button>
             )}
             <h3 className="text-lg gradient-text">
-              {showFriendSelection ? '친구 선택' : '메시지'}
+              {showChatPartnerSelection ? '대화상대 선택' : '메시지'}
             </h3>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose} className="p-2 hover:bg-white/10">
@@ -116,7 +210,7 @@ export function DMList({ isOpen, onClose, onOpenChat }: DMListProps) {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/40 w-5 h-5" />
             <Input
-              placeholder={showFriendSelection ? "친구 검색..." : "대화상대 검색..."}
+              placeholder={showChatPartnerSelection ? "대화상대 검색..." : "대화상대 검색..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 h-12 px-4 text-base bg-white/5 border-white/20 focus:border-[#4ecdc4]"
@@ -126,45 +220,45 @@ export function DMList({ isOpen, onClose, onOpenChat }: DMListProps) {
         
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
-          {showFriendSelection ? (
-            // Friend Selection View
+          {showChatPartnerSelection ? (
+            // Chat Partner Selection View
             <>
-              {filteredFriends.length === 0 ? (
+              {filteredChatPartners.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-white/60">
-                  {searchQuery ? '검색 결과가 없습니다' : '친구가 없습니다'}
+                  {searchQuery ? '검색 결과가 없습니다' : '대화상대가 없습니다'}
                 </div>
               ) : (
                 <div className="space-y-1 p-2">
-                  {filteredFriends.map((friend) => (
+                  {filteredChatPartners.map((partner) => (
                     <div
-                      key={friend.id}
-                      onClick={() => handleStartConversation(friend)}
+                      key={partner.id}
+                      onClick={() => handleStartConversation(partner)}
                       className="flex items-center space-x-3 p-3 rounded-lg hover:bg-white/5 cursor-pointer transition-colors"
                     >
                       {/* Avatar with Online Status */}
                       <div className="relative flex-shrink-0">
                         <Avatar className="h-14 w-14">
-                          <AvatarImage src={friend.avatar} />
+                          <AvatarImage src={partner.avatar} />
                           <AvatarFallback className="bg-[#4ecdc4] text-black">
-                            {friend.name.charAt(0)}
+                            {partner.name.charAt(0)}
                           </AvatarFallback>
                         </Avatar>
-                        {friend.isOnline && (
+                        {partner.isOnline && (
                           <Circle className="absolute -bottom-0.5 -right-0.5 w-5 h-5 text-green-500 fill-current bg-background rounded-full" />
                         )}
                       </div>
                       
-                      {/* Friend Info */}
+                      {/* Partner Info */}
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{friend.name}</p>
+                        <p className="font-medium truncate">{partner.name}</p>
                         <p className="text-sm text-white/60">
-                          공통 친구 {friend.mutualFriends}명
+                          공통 팔로우 {partner.mutualFriends}명
                         </p>
                       </div>
                       
                       {/* Online Status Text */}
                       <div className="text-xs text-white/60 flex-shrink-0">
-                        {friend.isOnline ? '온라인' : '오프라인'}
+                        {partner.isOnline ? '온라인' : '오프라인'}
                       </div>
                     </div>
                   ))}
@@ -174,11 +268,22 @@ export function DMList({ isOpen, onClose, onOpenChat }: DMListProps) {
           ) : (
             // Conversations List View
             <>
-              {filteredConversations.length === 0 ? (
+              {loading && (
+                <div className="flex items-center justify-center h-full text-white/60">
+                  대화 목록을 불러오는 중...
+                </div>
+              )}
+              {error && (
+                <div className="flex items-center justify-center h-full text-red-400">
+                  {error}
+                </div>
+              )}
+              {!loading && !error && filteredConversations.length === 0 && (
                 <div className="flex items-center justify-center h-full text-white/60">
                   {searchQuery ? '검색 결과가 없습니다' : '대화가 없습니다'}
                 </div>
-              ) : (
+              )}
+              {!loading && !error && filteredConversations.length > 0 && (
                 <div className="space-y-1 p-2">
                   {filteredConversations.map((conversation) => (
                     <div
@@ -227,7 +332,7 @@ export function DMList({ isOpen, onClose, onOpenChat }: DMListProps) {
         </div>
         
         {/* Footer */}
-        {!showFriendSelection && (
+        {!showChatPartnerSelection && (
           <div className="p-5 border-t border-white/10">
             <Button 
               onClick={handleNewMessageClick}
