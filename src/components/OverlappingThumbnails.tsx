@@ -14,7 +14,7 @@ interface OverlappingThumbnailsProps {
 }
 
 export function OverlappingThumbnails({ 
-  items, 
+  items = [],  // 기본값 빈 배열 추가
   maxVisible = 4, 
   size = 'md' 
 }: OverlappingThumbnailsProps) {

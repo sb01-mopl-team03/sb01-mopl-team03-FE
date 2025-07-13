@@ -20,6 +20,7 @@ interface UserProfileProps {
   onBack: () => void
   authenticatedFetch: (url: string, options?: RequestInit) => Promise<Response>
   onUserProfileOpen?: (targetUserId: string) => void
+  getPlaylists?: (name?: string) => Promise<any[]>
 }
 
 // Mock 플레이리스트 데이터 (실제로는 API에서 가져와야 함)
@@ -47,12 +48,12 @@ const mockPlaylists = [
   }
 ]
 
-export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch, onUserProfileOpen }: UserProfileProps) {
+export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch, onUserProfileOpen, getPlaylists }: UserProfileProps) {
   
   const [userInfo, setUserInfo] = useState<UserResponse | null>(null)
   const [followers, setFollowers] = useState<UserResponse[]>([])
   const [following, setFollowing] = useState<UserResponse[]>([])
-  const [playlists] = useState(mockPlaylists)
+  const [playlists, setPlaylists] = useState<any[]>([])
   const [isFollowing, setIsFollowing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -101,6 +102,28 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
       setFollowing(followingData)
     } catch (error) {
       console.error('팔로잉 목록 조회 오류:', error)
+    }
+  }
+
+  // 사용자 플레이리스트 조회
+  const fetchUserPlaylists = async () => {
+    try {
+      if (getPlaylists) {
+        // API로 해당 사용자의 플레이리스트만 조회
+        const response = await authenticatedFetch(`/api/users/${userId}/playlists`)
+        if (!response.ok) {
+          throw new Error('플레이리스트를 가져오는데 실패했습니다.')
+        }
+        const playlistsData = await response.json()
+        setPlaylists(playlistsData)
+      } else {
+        // getPlaylists 함수가 없으면 빈 배열
+        setPlaylists([])
+      }
+    } catch (error) {
+      console.error('플레이리스트 조회 오류:', error)
+      // 에러 시 빈 배열로 설정
+      setPlaylists([])
     }
   }
 
@@ -186,7 +209,8 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
         fetchUserInfo(),
         fetchFollowers(),
         fetchFollowing(),
-        checkIsFollowing()
+        checkIsFollowing(),
+        fetchUserPlaylists()
       ])
       
       setIsLoading(false)
@@ -340,14 +364,14 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
               {playlists.map((playlist) => (
                 <div key={playlist.id} className="glass-effect rounded-lg overflow-hidden hover:scale-105 transition-transform">
                   <img 
-                    src={playlist.thumbnail} 
-                    alt={playlist.title}
+                    src={playlist.thumbnail || 'https://images.unsplash.com/photo-1489599735734-79b4169717c8?w=300&h=200&fit=crop'} 
+                    alt={playlist.name || playlist.title}
                     className="w-full h-40 object-cover"
                   />
                   <div className="p-4">
-                    <h3 className="font-semibold mb-2">{playlist.title}</h3>
+                    <h3 className="font-semibold mb-2">{playlist.name || playlist.title}</h3>
                     <p className="text-white/60 text-sm mb-2">{playlist.description}</p>
-                    <p className="text-[#4ecdc4] text-sm">{playlist.itemCount}개 항목</p>
+                    <p className="text-[#4ecdc4] text-sm">{playlist.contents?.length || playlist.itemCount || 0}개 항목</p>
                   </div>
                 </div>
               ))}

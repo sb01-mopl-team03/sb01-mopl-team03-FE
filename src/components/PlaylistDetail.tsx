@@ -1,9 +1,13 @@
-import { useState } from 'react'
-import { ArrowLeft, Play, Shuffle, MoreVertical, Share, Heart, Clock, Calendar, X } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { ArrowLeft, Play, Shuffle, MoreVertical, Share, Heart, Clock, Calendar, X, Search, Plus } from 'lucide-react'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { ImageWithFallback } from './figma/ImageWithFallback'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
+import { Input } from './ui/input'
+import { contentService } from '../services/contentService'
+import { ContentDto } from '../types/content'
 
 interface PlaylistContent {
   id: string
@@ -22,6 +26,12 @@ interface PlaylistDetailProps {
   playlistId: string
   onBack: () => void
   onContentPlay?: (content: { id: string; title: string; thumbnail: string; type: 'movie' | 'tv' | 'sports'; duration: string; description: string }) => void
+  getPlaylists: (name?: string) => Promise<any[]>
+  getPlaylistById: (playlistId: string) => Promise<any>
+  updatePlaylist: (playlistId: string, request: { name?: string; description?: string; isPublic?: boolean }) => Promise<any>
+  deletePlaylist: (playlistId: string) => Promise<void>
+  addPlaylistContents: (playlistId: string, contentIds: string[]) => Promise<any>
+  deletePlaylistContents: (playlistId: string, contentIds: string[]) => Promise<void>
 }
 
 // ========== API INTEGRATION POINT - START ==========
@@ -29,29 +39,103 @@ interface PlaylistDetailProps {
 // Example: const fetchPlaylistDetails = async (playlistId: string) => { ... }
 // ========== API INTEGRATION POINT - END ==========
 
-export function PlaylistDetail({ playlistId, onBack, onContentPlay }: PlaylistDetailProps) {
-  const [playlist] = useState<any>(null)
+export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylists, getPlaylistById, updatePlaylist, deletePlaylist, addPlaylistContents, deletePlaylistContents }: PlaylistDetailProps) {
+  const [playlist, setPlaylist] = useState<any>(null)
   const [contents, setContents] = useState<PlaylistContent[]>([])
   const [isLiked, setIsLiked] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [showAddContentModal, setShowAddContentModal] = useState(false)
+  const [availableContents, setAvailableContents] = useState<ContentDto[]>([])
+  const [selectedContentIds, setSelectedContentIds] = useState<string[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [loadingContents, setLoadingContents] = useState(false)
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false)
+  const [selectedContentForDelete, setSelectedContentForDelete] = useState<string[]>([])
   
-  // ========== API INTEGRATION POINT - START ==========
-  // TODO: Replace with actual API call to fetch playlist details
-  // Example: 
-  // useEffect(() => {
-  //   const fetchPlaylistDetails = async () => {
-  //     const data = await api.getPlaylistDetails(playlistId)
-  //     setPlaylist(data)
-  //     setContents(data.contents)
-  //   }
-  //   fetchPlaylistDetails()
-  // }, [playlistId])
-  // ========== API INTEGRATION POINT - END ==========
+  const loadPlaylistDetails = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      console.log('🔄 플레이리스트 상세 로딩 시작:', playlistId)
+      const playlistData = await getPlaylistById(playlistId)
+      console.log('📋 플레이리스트 데이터 받음:', playlistData)
+      
+      if (!playlistData) {
+        console.error('❌ 플레이리스트 데이터가 없음')
+        setError('플레이리스트를 찾을 수 없습니다.')
+        return
+      }
+      
+      setPlaylist(playlistData)
+      setContents(playlistData.playlistContents || [])
+      console.log('✅ 플레이리스트 상태 업데이트 완료:', {
+        playlist: playlistData,
+        contents: playlistData.playlistContents || []
+      })
+    } catch (error) {
+      console.error('❌ 플레이리스트 상세 로딩 실패:', error)
+      setError('플레이리스트를 불러올 수 없습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }, [playlistId, getPlaylistById])
 
-  if (!playlist) {
+  const loadAvailableContents = useCallback(async () => {
+    try {
+      console.log('🔄 콘텐츠 로딩 시작:', { searchQuery })
+      setLoadingContents(true)
+      const response = await contentService.getContents({
+        size: 20,
+        query: searchQuery || undefined
+      })
+      console.log('📋 콘텐츠 응답 받음:', response)
+      setAvailableContents(response.data || [])
+      console.log('✅ 콘텐츠 상태 업데이트:', response.data || [])
+    } catch (error) {
+      console.error('❌ 콘텐츠 로딩 실패:', error)
+    } finally {
+      setLoadingContents(false)
+    }
+  }, [searchQuery])
+
+  // Load playlist details on component mount
+  useEffect(() => {
+    loadPlaylistDetails()
+  }, [loadPlaylistDetails])
+
+  // 검색어 변경 시 콘텐츠 다시 로드
+  useEffect(() => {
+    let timer: NodeJS.Timeout | undefined
+
+    if (showAddContentModal) {
+      timer = setTimeout(() => {
+        loadAvailableContents()
+      }, 300)
+    }
+    
+    return () => {
+      if (timer) {
+        clearTimeout(timer)
+      }
+    }
+  }, [searchQuery, showAddContentModal, loadAvailableContents])
+
+  if (loading) {
     return (
       <div className="min-h-screen p-6 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl mb-4">플레이리스트를 찾을 수 없습니다</h2>
+          <div className="text-white/60 mb-4">플레이리스트를 불러오는 중...</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !playlist) {
+    return (
+      <div className="min-h-screen p-6 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl mb-4 text-red-400">{error || '플레이리스트를 찾을 수 없습니다'}</h2>
           <Button onClick={onBack} variant="outline">
             돌아가기
           </Button>
@@ -104,6 +188,87 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay }: PlaylistDe
     // ========== API INTEGRATION POINT - END ==========
 
     alert(`"${playlist.title}" 셔플 재생을 시작합니다.`)
+  }
+
+  const handleAddContent = () => {
+    setShowAddContentModal(true)
+    loadAvailableContents()
+  }
+
+  const handleContentToggle = (contentId: string) => {
+    setSelectedContentIds(prev => 
+      prev.includes(contentId)
+        ? prev.filter(id => id !== contentId)
+        : [...prev, contentId]
+    )
+  }
+
+  const handleConfirmAddContent = async () => {
+    if (selectedContentIds.length === 0) {
+      alert('추가할 콘텐츠를 선택해주세요.')
+      return
+    }
+
+    try {
+      console.log(`Adding content to playlist: ${playlistId}`, selectedContentIds)
+      await addPlaylistContents(playlistId, selectedContentIds)
+      
+      // 플레이리스트 다시 로드하여 새로 추가된 콘텐츠 반영
+      await loadPlaylistDetails()
+      
+      // 모달 닫기 및 상태 초기화
+      setShowAddContentModal(false)
+      setSelectedContentIds([])
+      setSearchQuery('')
+      
+      alert(`${selectedContentIds.length}개의 콘텐츠가 플레이리스트에 추가되었습니다.`)
+    } catch (error) {
+      console.error('콘텐츠 추가 실패:', error)
+      alert('콘텐츠 추가에 실패했습니다.')
+    }
+  }
+
+  const toggleMultiSelectMode = () => {
+    console.log('🔄 멀티 선택 모드 토글:', !isMultiSelectMode)
+    setIsMultiSelectMode(!isMultiSelectMode)
+    setSelectedContentForDelete([])
+  }
+
+  const toggleContentSelection = (contentId: string) => {
+    setSelectedContentForDelete(prev => 
+      prev.includes(contentId)
+        ? prev.filter(id => id !== contentId)
+        : [...prev, contentId]
+    )
+  }
+
+  const selectAllContent = () => {
+    if (selectedContentForDelete.length === contents.length) {
+      setSelectedContentForDelete([])
+    } else {
+      setSelectedContentForDelete(contents.map(content => content.id))
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedContentForDelete.length === 0) {
+      alert('삭제할 콘텐츠를 선택해주세요.')
+      return
+    }
+
+    const confirmed = confirm(`선택한 ${selectedContentForDelete.length}개의 콘텐츠를 플레이리스트에서 제거하시겠습니까?`)
+    if (!confirmed) return
+
+    try {
+      await deletePlaylistContents(playlistId, selectedContentForDelete)
+      await loadPlaylistDetails()
+      setSelectedContentForDelete([])
+      setIsMultiSelectMode(false)
+      alert(`${selectedContentForDelete.length}개의 콘텐츠가 제거되었습니다.`)
+    } catch (error) {
+      console.error('콘텐츠 삭제 실패:', error)
+      alert('콘텐츠 삭제에 실패했습니다.')
+    }
   }
 
   const renderPlaylistCover = () => {
@@ -166,21 +331,21 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay }: PlaylistDe
               <div className="flex items-center space-x-4 text-white/60">
                 <div className="flex items-center space-x-2">
                   <Avatar className="h-6 w-6">
-                    <AvatarImage src={playlist.createdByAvatar} />
+                    <AvatarImage src={playlist.user?.profileImage} />
                     <AvatarFallback className="bg-[#4ecdc4] text-black text-xs">
-                      {playlist.createdBy.charAt(0)}
+                      {playlist.user?.name?.charAt(0) || 'U'}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="font-medium text-white">{playlist.createdBy}</span>
+                  <span className="font-medium text-white">{playlist.user?.name || 'Unknown'}</span>
                 </div>
                 <span>•</span>
                 <span>{contents.length}개 콘텐츠</span>
                 <span>•</span>
-                <span>{playlist.totalDuration}</span>
+                <span>{playlist.totalDuration || '0분'}</span>
                 <span>•</span>
                 <div className="flex items-center space-x-1">
                   <Calendar className="w-4 h-4" />
-                  <span>{new Date(playlist.createdDate).toLocaleDateString('ko-KR')}</span>
+                  <span>{playlist.createdDate ? new Date(playlist.createdDate).toLocaleDateString('ko-KR') : '날짜 없음'}</span>
                 </div>
               </div>
 
@@ -204,6 +369,40 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay }: PlaylistDe
                   <Shuffle className="w-5 h-5 mr-2" />
                   셔플
                 </Button>
+
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={toggleMultiSelectMode}
+                  className={`border-white/20 hover:bg-white/10 ${isMultiSelectMode ? 'bg-white/10' : ''}`}
+                >
+                  <X className="w-5 h-5 mr-2" />
+                  {isMultiSelectMode ? '선택 취소' : '다중 선택'}
+                </Button>
+
+                {isMultiSelectMode && (
+                  <>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      onClick={selectAllContent}
+                      className="border-white/20 hover:bg-white/10"
+                    >
+                      {selectedContentForDelete.length === contents.length ? '전체 해제' : '전체 선택'}
+                    </Button>
+                    
+                    {selectedContentForDelete.length > 0 && (
+                      <Button
+                        size="lg"
+                        variant="destructive"
+                        onClick={handleBulkDelete}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        선택 삭제 ({selectedContentForDelete.length})
+                      </Button>
+                    )}
+                  </>
+                )}
 
                 <Button
                   variant="ghost"
@@ -252,21 +451,41 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay }: PlaylistDe
                 className="group px-6 py-4 hover:bg-white/5 transition-colors"
               >
                 <div className="grid grid-cols-12 gap-4 items-center">
-                  {/* Index/Play Button */}
+                  {/* Checkbox (Multi-select mode) or Index/Play Button */}
                   <div className="col-span-1">
-                    <div className="relative">
-                      <span className="group-hover:opacity-0 transition-opacity text-white/60">
-                        {index + 1}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handlePlayContent(content)}
-                        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity p-0 w-8 h-8 text-white hover:text-[#4ecdc4]"
+                    {(() => {
+                      console.log('🎯 렌더링 시점 상태:', { isMultiSelectMode, contentId: content.id })
+                      return isMultiSelectMode
+                    })() ? (
+                      <div 
+                        className="flex items-center justify-center cursor-pointer"
+                        onClick={() => toggleContentSelection(content.id)}
                       >
-                        <Play className="w-4 h-4 fill-current" />
-                      </Button>
-                    </div>
+                        <div className={`w-5 h-5 border-2 rounded ${
+                          selectedContentForDelete.includes(content.id)
+                            ? 'bg-blue-500 border-blue-500'
+                            : 'border-white/40 hover:border-white/60'
+                        } flex items-center justify-center`}>
+                          {selectedContentForDelete.includes(content.id) && (
+                            <Plus className="w-3 h-3 text-white rotate-45" />
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <span className="group-hover:opacity-0 transition-opacity text-white/60">
+                          {index + 1}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handlePlayContent(content)}
+                          className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity p-0 w-8 h-8 text-white hover:text-[#4ecdc4]"
+                        >
+                          <Play className="w-4 h-4 fill-current" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Title & Thumbnail */}
@@ -293,7 +512,7 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay }: PlaylistDe
                   {/* Genre */}
                   <div className="col-span-2">
                     <span className="text-sm text-white/60">
-                      {content.genre.slice(0, 2).join(', ')}
+                      {content.genre && Array.isArray(content.genre) ? content.genre.slice(0, 2).join(', ') : content.genre || '장르 없음'}
                     </span>
                   </div>
 
@@ -331,13 +550,126 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay }: PlaylistDe
           {contents.length === 0 && (
             <div className="p-12 text-center">
               <p className="text-white/60 mb-4">이 플레이리스트에는 콘텐츠가 없습니다</p>
-              <Button variant="outline" className="border-white/20 hover:bg-white/5">
+              <Button 
+                variant="outline" 
+                className="border-white/20 hover:bg-white/5"
+                onClick={handleAddContent}
+              >
                 콘텐츠 추가하기
               </Button>
             </div>
           )}
         </div>
       </div>
+
+      {/* 콘텐츠 추가 모달 */}
+      <Dialog open={showAddContentModal} onOpenChange={setShowAddContentModal}>
+        <DialogContent className="max-w-4xl h-[80vh] bg-gray-900 border-gray-700 flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-white">플레이리스트에 콘텐츠 추가</DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 flex flex-col space-y-4 min-h-0">
+            {/* 검색 입력 */}
+            <div className="relative flex-shrink-0">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="콘텐츠 검색..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 bg-gray-800 border-gray-600 text-white placeholder-gray-400"
+              />
+            </div>
+
+            {/* 선택된 콘텐츠 수 */}
+            {selectedContentIds.length > 0 && (
+              <div className="text-sm text-blue-400 flex-shrink-0">
+                {selectedContentIds.length}개 콘텐츠 선택됨
+              </div>
+            )}
+
+            {/* 콘텐츠 목록 */}
+            <div className="flex-1 overflow-y-auto space-y-2 min-h-0">
+              {loadingContents ? (
+                <div className="text-center py-8">
+                  <div className="text-gray-400">콘텐츠를 불러오는 중...</div>
+                </div>
+              ) : !availableContents || availableContents.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="text-gray-400">콘텐츠가 없습니다</div>
+                </div>
+              ) : (
+                (availableContents || []).map((content) => (
+                  <div
+                    key={content.id}
+                    className={`flex items-center space-x-2 p-2 rounded-md cursor-pointer transition-colors ${
+                      selectedContentIds.includes(content.id)
+                        ? 'bg-blue-600/20 border border-blue-500'
+                        : 'bg-gray-800 hover:bg-gray-700 border border-gray-600'
+                    }`}
+                    onClick={() => handleContentToggle(content.id)}
+                  >
+                    <div className="flex-shrink-0">
+                      <img
+                        src={content.thumbnailImage || '/placeholder-content.jpg'}
+                        alt={content.title}
+                        className="w-12 h-8 object-cover rounded"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-white text-sm font-medium truncate">{content.title}</h4>
+                      <p className="text-gray-400 text-xs truncate leading-tight">{content.description}</p>
+                      <div className="flex items-center space-x-1 mt-0.5">
+                        <Badge variant="secondary" className="text-xs px-1 py-0 h-4">
+                          {content.type}
+                        </Badge>
+                        {content.genre && (
+                          <span className="text-gray-500 text-xs">{content.genre}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex-shrink-0">
+                      {selectedContentIds.includes(content.id) ? (
+                        <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                          <Plus className="w-3 h-3 text-white" />
+                        </div>
+                      ) : (
+                        <div className="w-5 h-5 border-2 border-gray-400 rounded-full" />
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+          </div>
+          
+          {/* 버튼들 */}
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-700 flex-shrink-0 mt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowAddContentModal(false)
+                  setSelectedContentIds([])
+                  setSearchQuery('')
+                }}
+                className="border-gray-600 text-gray-300 hover:bg-gray-800"
+              >
+                취소
+              </Button>
+              <Button
+                onClick={handleConfirmAddContent}
+                disabled={selectedContentIds.length === 0}
+                className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+              >
+                {selectedContentIds.length > 0 
+                  ? `${selectedContentIds.length}개 추가` 
+                  : '추가하기'
+                }
+              </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, Search, Check, Lock, Globe } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -27,6 +27,9 @@ interface AddToPlaylistModalProps {
   isOpen: boolean
   onClose: () => void
   content: ContentItem | null
+  getPlaylists: (name?: string) => Promise<Playlist[]>
+  createPlaylist: (request: { name: string; description?: string; isPublic?: boolean }) => Promise<Playlist>
+  addPlaylistContents: (playlistId: string, contentIds: string[]) => Promise<any>
 }
 
 // ========== API INTEGRATION POINT - START ==========
@@ -34,7 +37,7 @@ interface AddToPlaylistModalProps {
 // Example: const fetchUserPlaylists = async () => { ... }
 // ========== API INTEGRATION POINT - END ==========
 
-export function AddToPlaylistModal({ isOpen, onClose, content }: AddToPlaylistModalProps) {
+export function AddToPlaylistModal({ isOpen, onClose, content, getPlaylists, createPlaylist, addPlaylistContents }: AddToPlaylistModalProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedPlaylists, setSelectedPlaylists] = useState<string[]>([])
   const [showCreateForm, setShowCreateForm] = useState(false)
@@ -42,7 +45,27 @@ export function AddToPlaylistModal({ isOpen, onClose, content }: AddToPlaylistMo
   const [newPlaylistDescription, setNewPlaylistDescription] = useState('')
   const [newPlaylistIsPublic, setNewPlaylistIsPublic] = useState(true)
 
-  const [playlists] = useState<Playlist[]>([])
+  const [playlists, setPlaylists] = useState<Playlist[]>([])
+  const [loading, setLoading] = useState(false)
+  
+  // Load playlists when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      loadPlaylists()
+    }
+  }, [isOpen])
+
+  const loadPlaylists = async () => {
+    try {
+      setLoading(true)
+      const playlistData = await getPlaylists()
+      setPlaylists(playlistData)
+    } catch (error) {
+      console.error('Error loading playlists:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
   
   const filteredPlaylists = playlists.filter(playlist =>
     playlist.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -57,52 +80,57 @@ export function AddToPlaylistModal({ isOpen, onClose, content }: AddToPlaylistMo
     )
   }
 
-  const handleAddToPlaylists = () => {
+  const handleAddToPlaylists = async () => {
     if (!content) return
 
-    // ========== API INTEGRATION POINT - START ==========
-    // TODO: Replace with actual API calls to add content to playlists
-    // Example: await addContentToPlaylists(content.id, selectedPlaylists)
-    console.log(`Adding content ${content.id} to playlists:`, selectedPlaylists)
-    // ========== API INTEGRATION POINT - END ==========
+    try {
+      // API 호출로 각 플레이리스트에 콘텐츠 추가
+      const addPromises = selectedPlaylists.map(playlistId => 
+        addPlaylistContents(playlistId, [content.id])
+      )
+      
+      await Promise.all(addPromises)
 
-    // Show success message
-    alert(`"${content.title}"을(를) ${selectedPlaylists.length}개의 플레이리스트에 추가했습니다.`)
-    
-    // Reset and close
-    setSelectedPlaylists([])
-    setSearchQuery('')
-    onClose()
+      // Show success message
+      alert(`"${content.title}"을(를) ${selectedPlaylists.length}개의 플레이리스트에 추가했습니다.`)
+      
+      // Reset and close
+      setSelectedPlaylists([])
+      setSearchQuery('')
+      onClose()
+    } catch (error) {
+      console.error('플레이리스트에 콘텐츠 추가 실패:', error)
+      alert('플레이리스트에 콘텐츠 추가 중 오류가 발생했습니다.')
+    }
   }
 
-  const handleCreatePlaylist = () => {
+  const handleCreatePlaylist = async () => {
     if (!newPlaylistTitle.trim() || !content) return
 
-    // ========== API INTEGRATION POINT - START ==========
-    // TODO: Replace with actual API call to create new playlist with content
-    // Example: await createPlaylistWithContent({
-    //   title: newPlaylistTitle,
-    //   description: newPlaylistDescription,
-    //   isPublic: newPlaylistIsPublic,
-    //   contentId: content.id
-    // })
-    console.log('Creating new playlist:', {
-      title: newPlaylistTitle,
-      description: newPlaylistDescription,
-      isPublic: newPlaylistIsPublic,
-      contentId: content.id
-    })
-    // ========== API INTEGRATION POINT - END ==========
+    try {
+      // 플레이리스트 생성 (콘텐츠 없이)
+      const newPlaylist = await createPlaylist({
+        name: newPlaylistTitle,
+        description: newPlaylistDescription,
+        isPublic: newPlaylistIsPublic
+      })
 
-    // Show success message
-    alert(`새 플레이리스트 "${newPlaylistTitle}"을(를) 만들고 "${content.title}"을(를) 추가했습니다.`)
-    
-    // Reset and close
-    setNewPlaylistTitle('')
-    setNewPlaylistDescription('')
-    setNewPlaylistIsPublic(true)
-    setShowCreateForm(false)
-    onClose()
+      // 생성된 플레이리스트에 콘텐츠 추가
+      await addPlaylistContents(newPlaylist.id, [content.id])
+
+      // Show success message
+      alert(`새 플레이리스트 "${newPlaylistTitle}"을(를) 만들고 "${content.title}"을(를) 추가했습니다.`)
+      
+      // Reset and close
+      setNewPlaylistTitle('')
+      setNewPlaylistDescription('')
+      setNewPlaylistIsPublic(true)
+      setShowCreateForm(false)
+      onClose()
+    } catch (error) {
+      console.error('Error creating playlist:', error)
+      alert('플레이리스트 생성 중 오류가 발생했습니다.')
+    }
   }
 
   const resetModal = () => {
@@ -172,7 +200,11 @@ export function AddToPlaylistModal({ isOpen, onClose, content }: AddToPlaylistMo
 
               {/* Playlist List */}
               <div className="max-h-64 overflow-y-auto space-y-2">
-                {filteredPlaylists.length === 0 ? (
+                {loading ? (
+                  <div className="text-center py-8 text-white/60">
+                    플레이리스트를 불러오는 중...
+                  </div>
+                ) : filteredPlaylists.length === 0 ? (
                   <div className="text-center py-8 text-white/60">
                     {searchQuery ? '검색 결과가 없습니다' : '플레이리스트가 없습니다'}
                   </div>

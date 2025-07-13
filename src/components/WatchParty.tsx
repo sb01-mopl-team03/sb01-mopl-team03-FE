@@ -42,6 +42,7 @@ interface WatchPartyProps {
   onBack: () => void
   userId: string
   shouldConnect?: boolean // 웹소켓 연결 여부 제어
+  onUserProfileOpen?: (userId: string) => void
 }
 
 interface Participant {
@@ -53,7 +54,7 @@ interface Participant {
   joinedAt: string
 }
 
-export function WatchParty({ roomId, onBack, userId, shouldConnect = false }: WatchPartyProps) {
+export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUserProfileOpen }: WatchPartyProps) {
   // Video State
   const [isMuted, setIsMuted] = useState(false)
   const [volume, setVolume] = useState([80])
@@ -770,13 +771,33 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false }: Wa
                       ) : (
                         participants.map(participant => (
                           <div key={participant.userId + participant.userName} className="flex items-center space-x-2">
-                            <Avatar className="h-6 w-6 flex-shrink-0">
+                            <Avatar 
+                              className="h-6 w-6 flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-[#4ecdc4]/50 transition-all"
+                              onClick={() => {
+                                if (participant.userId !== userId && onUserProfileOpen) {
+                                  onUserProfileOpen(participant.userId)
+                                }
+                              }}
+                            >
                               <AvatarImage src={participant.userAvatar} />
                               <AvatarFallback className="bg-[#4ecdc4] text-black text-xs">
                                 {participant.userName?.charAt(0) || '?'}
                               </AvatarFallback>
                             </Avatar>
-                            <span className="text-sm flex-1 truncate">{participant.userName}</span>
+                            <span 
+                              className={`text-sm flex-1 truncate ${
+                                participant.userId !== userId 
+                                  ? 'cursor-pointer hover:text-[#4ecdc4] transition-colors' 
+                                  : ''
+                              }`}
+                              onClick={() => {
+                                if (participant.userId !== userId && onUserProfileOpen) {
+                                  onUserProfileOpen(participant.userId)
+                                }
+                              }}
+                            >
+                              {participant.userName}
+                            </span>
                             {participant.isHost && (
                               <Badge variant="secondary" className="text-xs flex-shrink-0">
                                 <Crown className="w-3 h-3 mr-1" />

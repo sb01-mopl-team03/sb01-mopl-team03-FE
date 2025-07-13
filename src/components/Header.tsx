@@ -23,13 +23,15 @@ interface HeaderProps {
   authenticatedFetch: (url: string, options?: RequestInit) => Promise<Response> // 인증된 API 호출 함수
   userId: string | null // 사용자 ID 추가 (SSE 연결용)
   refreshUserProfile?: () => void // 사용자 프로필 새로고침 함수 추가
+  deleteNotification: (notificationId: string) => Promise<void> // 개별 알림 삭제 함수
+  deleteAllNotifications: () => Promise<void> // 모든 알림 삭제 함수
 }
 
 // API 응답 타입 정의
 interface NotificationDto {
   id: string
   content: string
-  notificationType: 'ROLE_CHANGED' | 'PLAYLIST_SUBSCRIBED' | 'FOLLOWING_POSTED_PLAYLIST' | 'FOLLOWED' | 'UNFOLLOWED' | 'DM_RECEIVED' | 'NEW_DM_ROOM'
+  notificationType: 'ROLE_CHANGED' | 'PLAYLIST_SUBSCRIBED' | 'FOLLOWING_POSTED_PLAYLIST' | 'FOLLOWED' | 'UNFOLLOWED' | 'DM_RECEIVED' | 'NEW_DM_ROOM' | 'CONNECTED'
   createdAt: string
 }
 
@@ -44,15 +46,11 @@ interface UINotification {
   isRead: boolean
 }
 
-// ========== API INTEGRATION POINT - START ==========
-// Actual user data from API
-// ========== API INTEGRATION POINT - END ==========
-
-export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileClick, onCloseDM, onLogout, authenticatedFetch, userId, refreshUserProfile }: HeaderProps) {
+export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileClick, onCloseDM, onLogout, authenticatedFetch, userId, refreshUserProfile, deleteNotification, deleteAllNotifications }: HeaderProps) {
   const [notifications, setNotifications] = useState<UINotification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
-  const [_eventSources, setEventSources] = useState<EventSource[]>([])
+  const [eventSources, setEventSources] = useState<EventSource[]>([])
   const [user, setUser] = useState<UserResponse | null>(null)
 
   // NotificationDto를 UINotification으로 변환하는 함수
@@ -126,6 +124,17 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
       setUser(userData)
     } catch (error) {
       console.error('유저 정보 조회 오류:', error)
+      
+      // 토큰 만료나 사용자 조회 실패 시 로그아웃 처리
+      if (error instanceof Error && (
+        error.message.includes('not found') || 
+        error.message.includes('401') || 
+        error.message.includes('403')
+      )) {
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('refreshToken')
+        onLogout()
+      }
     }
   }
 
@@ -134,11 +143,16 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
     if (!userId) return
 
     try {
-      // 백엔드에서 userId를 파라미터로 받지 않고 인증 principal로 처리하므로, URL에서 userId를 빼야 함
-      const response = await authenticatedFetch(`/notifications`)
+      const response = await authenticatedFetch(`/api/notifications`)
       
       if (!response.ok) {
-        throw new Error('알림 목록을 가져오는데 실패했습니다.')
+        if (response.status === 401 || response.status === 403) {
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('refreshToken')
+          onLogout()
+          return
+        }
+        throw new Error(`알림 목록을 가져오는데 실패했습니다. (상태: ${response.status})`)
       }
 
       const notificationDtos: NotificationDto[] = await response.json()
@@ -149,8 +163,17 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
       setNotifications(uiNotifications)
     } catch (error) {
       console.error('알림 목록 조회 오류:', error)
+      // 인증 오류인 경우 빈 배열로 설정
+      if (error instanceof Error && (error.message.includes('401') || error.message.includes('403'))) {
+        setNotifications([])
+      }
     }
   }
+
+  // SSE 재연결 관련 상태
+  const [retryCount, setRetryCount] = useState(0)
+  const maxRetries = 5
+  const baseRetryDelay = 2000
 
   // SSE 연결 설정 함수 (토큰 포함)
   const connectSSE = () => {
@@ -162,35 +185,60 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
       return
     }
 
+    // 최대 재시도 횟수 확인
+    if (retryCount >= maxRetries) {
+      console.warn('SSE 연결 최대 재시도 횟수 초과, 연결 중단')
+      return
+    }
+
     // 연결 수 제한 확인 및 처리
     setEventSources(prev => {
-      // 현재 연결 수가 2개 이상이면 새로운 연결 생성하지 않음
-      if (prev.length >= 2) {
-        console.log('최대 SSE 연결 수(2개)에 도달했습니다. 새로운 연결을 생성하지 않습니다.')
+      // 현재 연결 수가 1개 이상이면 새로운 연결 생성하지 않음 (중복 연결 방지)
+      if (prev.length >= 1) {
+        console.log('이미 SSE 연결이 존재합니다.')
         return prev
       }
 
-      // 백엔드에서 userId를 path param으로 받지 않고 인증 principal로 처리하므로, URL에서 userId를 빼야 함
+      console.log(`SSE 연결 시도 중... (${retryCount + 1}/${maxRetries})`)
+      
       const newEventSource = new EventSourcePolyfill(
-        `/notifications/subscribe`,
+        `http://localhost:8080/api/notifications/subscribe`,
         {
           headers: {
             Authorization: `Bearer ${token}`
           },
-          withCredentials: true
+          withCredentials: true,
+          heartbeatTimeout: 45000,
         }
       )
 
       newEventSource.onopen = () => {
-        console.log(`SSE 연결이 설정되었습니다. 현재 연결 수: ${prev.length + 1}`)
+        console.log('SSE 연결이 설정되었습니다.')
+        setRetryCount(0) // 연결 성공 시 재시도 카운트 초기화
       }
 
       newEventSource.onmessage = (event) => {
+        // heartbeat 메시지 처리
+        if (event.data === 'ping') {
+          return
+        }
+        
+        // heartbeat 이벤트 처리 (이름으로 구분)
+        if (event.type === 'heartbeat') {
+          return
+        }
+        
+        // 실제 알림 처리
         try {
           const notificationDto: NotificationDto = JSON.parse(event.data)
+          
+          // CONNECTED 타입 알림은 UI에 표시하지 않음 (연결 확인용)
+          if (notificationDto.notificationType === 'CONNECTED') {
+            return
+          }
+          
           const newNotification = convertToUINotification(notificationDto)
           setNotifications(prev => [newNotification, ...prev])
-          console.log('새로운 알림을 받았습니다:', newNotification)
         } catch (error) {
           console.error('SSE 메시지 파싱 오류:', error)
         }
@@ -198,13 +246,26 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
 
       newEventSource.onerror = (error) => {
         console.error('SSE 연결 오류:', error)
+        
         // 에러 발생한 연결을 배열에서 제거
         setEventSources(prev => prev.filter(source => source !== newEventSource))
         newEventSource.close()
-
-        setTimeout(() => {
-          connectSSE() // 재연결 시도
-        }, 5000)
+        
+        // 재시도 로직
+        if (retryCount < maxRetries) {
+          const delay = baseRetryDelay * Math.pow(2, retryCount) // 지수 백오프
+          console.log(`${delay}ms 후 SSE 재연결 시도... (${retryCount + 1}/${maxRetries})`)
+          
+          setRetryCount(prev => prev + 1)
+          
+          setTimeout(() => {
+            if (userId && localStorage.getItem('accessToken')) {
+              connectSSE()
+            }
+          }, delay)
+        } else {
+          console.error('SSE 연결 최대 재시도 횟수 초과')
+        }
       }
 
       // 새 연결을 배열에 추가
@@ -215,21 +276,31 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
   // 컴포넌트 마운트 시 유저 정보, 알림 목록 조회 및 SSE 연결
   useEffect(() => {
     if (userId) {
+      // 새로운 사용자 로그인 시 재시도 카운트 초기화
+      setRetryCount(0)
+      
       fetchUserInfo()
       fetchNotifications()
-      connectSSE()
-    }
-
-    // 컴포넌트 언마운트 시 모든 SSE 연결 정리
-    return () => {
-      setEventSources(prev => {
-        prev.forEach(source => {
-          if (source.readyState !== EventSource.CLOSED) {
-            source.close()
-          }
+      
+      const connectTimer = setTimeout(() => {
+        connectSSE()
+      }, 2000)
+      
+      // 컴포넌트 언마운트 시 모든 SSE 연결 정리
+      return () => {
+        clearTimeout(connectTimer)
+        setEventSources(prev => {
+          prev.forEach(source => {
+            if (source.readyState !== EventSource.CLOSED) {
+              source.close()
+            }
+          })
+          return []
         })
-        return []
-      })
+      }
+    } else {
+      // 로그아웃 시 재시도 카운트 초기화
+      setRetryCount(0)
     }
   }, [userId])
 
@@ -239,7 +310,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
       // refreshUserProfile 함수 참조를 업데이트
       window.headerRefreshUserProfile = fetchUserInfo
     }
-    
+        
     return () => {
       if (window.headerRefreshUserProfile) {
         delete window.headerRefreshUserProfile
@@ -259,7 +330,6 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
 
   const unreadCount = notifications.filter(n => !n.isRead).length
   
-
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -284,15 +354,17 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
     }
   }
 
-  const handleDeleteNotification = (notificationId: string) => {
-    // 알림 삭제는 UI에서만 처리 (백엔드에 개별 삭제 API가 없음)
-    console.log(`Deleting notification with ID: ${notificationId}`)
-    setNotifications(prev => prev.filter(notification => notification.id !== notificationId))
+  const handleDeleteNotification = async (notificationId: string) => {
+    try {
+      await deleteNotification(notificationId)
+      setNotifications(prev => prev.filter(notification => notification.id !== notificationId))
+    } catch (error) {
+      console.error('알림 삭제 실패:', error)
+    }
   }
 
   const handleNotificationClick = (notificationId: string) => {
     // 알림 클릭 시 읽음 처리 (UI에서만 처리)
-    console.log(`Marking notification as read: ${notificationId}`)
     setNotifications(prev => prev.map(notification => 
       notification.id === notificationId 
         ? { ...notification, isRead: true }
@@ -306,7 +378,6 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
       await fetchNotifications()
       // UI에서도 모든 알림을 읽음으로 표시
       setNotifications(prev => prev.map(notification => ({ ...notification, isRead: true })))
-      console.log('모든 알림을 읽음 처리했습니다.')
     } catch (error) {
       console.error('알림 읽음 처리 오류:', error)
     }
@@ -410,16 +481,33 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-white/10">
                   <h3 className="gradient-text font-medium">알림</h3>
-                  {unreadCount > 0 && (
+                  <div className="flex items-center space-x-2">
+                    {unreadCount > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleMarkAllRead}
+                        className="text-xs text-[#4ecdc4] hover:text-[#26a69a] hover:bg-transparent p-1"
+                      >
+                        모두 읽음
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={handleMarkAllRead}
-                      className="text-xs text-[#4ecdc4] hover:text-[#26a69a] hover:bg-transparent p-1"
+                      onClick={async () => {
+                        try {
+                          await deleteAllNotifications()
+                          setNotifications([])
+                        } catch (error) {
+                          console.error('모든 알림 삭제 실패:', error)
+                        }
+                      }}
+                      className="text-xs text-red-400 hover:text-red-300 hover:bg-transparent p-1"
                     >
-                      모두 읽음
+                      <Trash2 className="w-3 h-3" />
                     </Button>
-                  )}
+                  </div>
                 </div>
                 
                 {/* Notifications List with Scrolling */}
@@ -464,9 +552,9 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={(e) => {
+                            onClick={async (e) => {
                               e.stopPropagation()
-                              handleDeleteNotification(notification.id)
+                              await handleDeleteNotification(notification.id)
                             }}
                             className="absolute bottom-2 right-2 p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/20 hover:text-red-400"
                           >
@@ -544,7 +632,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleLogout}  // 기존 콘솔 로그 대신 handleLogout 함수 연결
+                  onClick={handleLogout}
                   className="w-full justify-start space-x-2 p-3 hover:bg-white/10 text-red-400 hover:text-red-300"
                 >
                   <LogOut className="w-4 h-4" />

@@ -11,9 +11,10 @@ import { watchRoomService } from '../services/watchRoomService'
 interface LiveRoomsProps {
   onJoinRoom?: (room: WatchRoomDto) => void
   onCreateRoom?: () => void
+  onUserProfileOpen?: (userId: string) => void
 }
 
-export function LiveRooms({ onJoinRoom, onCreateRoom }: LiveRoomsProps) {
+export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen }: LiveRoomsProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<'participants' | 'latest' | 'oldest'>('participants')
   const [rooms, setRooms] = useState<WatchRoomDto[]>([])
@@ -270,11 +271,19 @@ export function LiveRooms({ onJoinRoom, onCreateRoom }: LiveRoomsProps) {
                     <p className="text-sm text-white/60 mb-3 line-clamp-1">{room.contentTitle}</p>
                     
                     <div className="flex items-center gap-2">
-                      <Avatar className="w-6 h-6">
+                      <Avatar 
+                        className="w-6 h-6 cursor-pointer hover:ring-2 hover:ring-[#4ecdc4]/50 transition-all"
+                        onClick={() => onUserProfileOpen?.(room.ownerId)}
+                      >
                         <AvatarImage src="" />
                         <AvatarFallback>{room.ownerName[0]}</AvatarFallback>
                       </Avatar>
-                      <span className="text-sm text-white/80">{room.ownerName}</span>
+                      <span 
+                        className="text-sm text-white/80 cursor-pointer hover:text-[#4ecdc4] transition-colors"
+                        onClick={() => onUserProfileOpen?.(room.ownerId)}
+                      >
+                        {room.ownerName}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -343,11 +352,19 @@ export function LiveRooms({ onJoinRoom, onCreateRoom }: LiveRoomsProps) {
                   
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Avatar className="w-5 h-5">
+                      <Avatar 
+                        className="w-5 h-5 cursor-pointer hover:ring-2 hover:ring-[#4ecdc4]/50 transition-all"
+                        onClick={() => onUserProfileOpen?.(room.ownerId)}
+                      >
                         <AvatarImage src="" />
                         <AvatarFallback>{room.ownerName[0]}</AvatarFallback>
                       </Avatar>
-                      <span className="text-xs text-white/80 truncate">{room.ownerName}</span>
+                      <span 
+                        className="text-xs text-white/80 truncate cursor-pointer hover:text-[#4ecdc4] transition-colors"
+                        onClick={() => onUserProfileOpen?.(room.ownerId)}
+                      >
+                        {room.ownerName}
+                      </span>
                     </div>
                     <div className="flex items-center gap-1 text-xs text-white/60">
                       <Clock className="w-3 h-3" />

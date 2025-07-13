@@ -32,10 +32,12 @@ interface ChatRoomProps {
   user: ChatUser | null
   authenticatedFetch: (url: string, options?: RequestInit) => Promise<Response>
   currentUserId: string | null
+  getDmRoom: (roomId: string) => Promise<any>
+  getDmMessages: (roomId: string, pagingDto?: { cursor?: string; size?: number }) => Promise<any>
 }
 
 
-export function ChatRoom({ isOpen, onClose, onBack, user, authenticatedFetch, currentUserId }: ChatRoomProps) {
+export function ChatRoom({ isOpen, onClose, onBack, user, authenticatedFetch, currentUserId, getDmRoom, getDmMessages }: ChatRoomProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [isTyping] = useState(false)
@@ -98,9 +100,9 @@ export function ChatRoom({ isOpen, onClose, onBack, user, authenticatedFetch, cu
     try {
       setLoading(true)
       setError(null)
-      const dmMessages = await dmService.getDmMessages(user.roomId)
+      const response = await getDmMessages(user.roomId)
       
-      const messageList: Message[] = dmMessages.map(dm => ({
+      const messageList: Message[] = response.data.map((dm: any) => ({
         id: dm.id,
         senderId: dm.senderId,
         senderName: dm.senderId === currentUserId ? '나' : user?.name || 'Unknown',
