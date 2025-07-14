@@ -50,7 +50,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
   const [notifications, setNotifications] = useState<UINotification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
-  const [eventSources, setEventSources] = useState<EventSource[]>([])
+  const [, setEventSources] = useState<EventSource[]>([])
   const [user, setUser] = useState<UserResponse | null>(null)
 
   // NotificationDto를 UINotification으로 변환하는 함수

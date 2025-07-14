@@ -23,30 +23,6 @@ interface UserProfileProps {
   getPlaylists?: (name?: string) => Promise<any[]>
 }
 
-// Mock 플레이리스트 데이터 (실제로는 API에서 가져와야 함)
-const mockPlaylists = [
-  {
-    id: 1,
-    title: '액션 영화 모음',
-    description: '스릴 넘치는 액션 영화들',
-    thumbnail: 'https://images.unsplash.com/photo-1489599735734-79b4169717c8?w=300&h=200&fit=crop',
-    itemCount: 12
-  },
-  {
-    id: 2,
-    title: '로맨스 클래식',
-    description: '가슴 따뜻한 로맨스 영화',
-    thumbnail: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=300&h=200&fit=crop',
-    itemCount: 8
-  },
-  {
-    id: 3,
-    title: '넷플릭스 인기작',
-    description: '최근 화제의 넷플릭스 작품들',
-    thumbnail: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=300&h=200&fit=crop',
-    itemCount: 15
-  }
-]
 
 export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch, onUserProfileOpen, getPlaylists }: UserProfileProps) {
   

@@ -26,10 +26,7 @@ interface PlaylistDetailProps {
   playlistId: string
   onBack: () => void
   onContentPlay?: (content: { id: string; title: string; thumbnail: string; type: 'movie' | 'tv' | 'sports'; duration: string; description: string }) => void
-  getPlaylists: (name?: string) => Promise<any[]>
   getPlaylistById: (playlistId: string) => Promise<any>
-  updatePlaylist: (playlistId: string, request: { name?: string; description?: string; isPublic?: boolean }) => Promise<any>
-  deletePlaylist: (playlistId: string) => Promise<void>
   addPlaylistContents: (playlistId: string, contentIds: string[]) => Promise<any>
   deletePlaylistContents: (playlistId: string, contentIds: string[]) => Promise<void>
 }
@@ -39,7 +36,7 @@ interface PlaylistDetailProps {
 // Example: const fetchPlaylistDetails = async (playlistId: string) => { ... }
 // ========== API INTEGRATION POINT - END ==========
 
-export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylists, getPlaylistById, updatePlaylist, deletePlaylist, addPlaylistContents, deletePlaylistContents }: PlaylistDetailProps) {
+export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistById, addPlaylistContents, deletePlaylistContents }: PlaylistDetailProps) {
   const [playlist, setPlaylist] = useState<any>(null)
   const [contents, setContents] = useState<PlaylistContent[]>([])
   const [isLiked, setIsLiked] = useState(false)
@@ -174,20 +171,20 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylists
     // ========== API INTEGRATION POINT - START ==========
     // TODO: Replace with actual API call to play entire playlist
     // Example: await playPlaylist(playlistId)
-    console.log(`Playing playlist: ${playlist.title}`)
+    console.log(`Playing playlist: ${playlist.name}`)
     // ========== API INTEGRATION POINT - END ==========
 
-    alert(`"${playlist.title}" 전체 재생을 시작합니다.`)
+    alert(`"${playlist.name}" 전체 재생을 시작합니다.`)
   }
 
   const handleShuffle = () => {
     // ========== API INTEGRATION POINT - START ==========
     // TODO: Replace with actual API call to shuffle play playlist
     // Example: await shufflePlaylist(playlistId)
-    console.log(`Shuffling playlist: ${playlist.title}`)
+    console.log(`Shuffling playlist: ${playlist.name}`)
     // ========== API INTEGRATION POINT - END ==========
 
-    alert(`"${playlist.title}" 셔플 재생을 시작합니다.`)
+    alert(`"${playlist.name}" 셔플 재생을 시작합니다.`)
   }
 
   const handleAddContent = () => {
@@ -276,7 +273,7 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylists
       return (
         <div className="w-full h-full teal-gradient flex items-center justify-center">
           <div className="text-center text-black/80">
-            <h3 className="text-4xl font-bold mb-2">{playlist.title.charAt(0)}</h3>
+            <h3 className="text-4xl font-bold mb-2">{playlist.name.charAt(0)}</h3>
             <p className="text-sm font-medium">플레이리스트</p>
           </div>
         </div>
@@ -286,7 +283,7 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylists
     return (
       <ImageWithFallback
         src={playlist.coverImage}
-        alt={playlist.title}
+        alt={playlist.name}
         className="w-full h-full object-cover"
       />
     )
@@ -323,7 +320,7 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylists
                 플레이리스트
               </Badge>
               
-              <h1 className="text-5xl font-bold leading-tight">{playlist.title}</h1>
+              <h1 className="text-5xl font-bold leading-tight">{playlist.name}</h1>
               
               <p className="text-lg text-white/80 max-w-2xl">{playlist.description}</p>
 
@@ -333,10 +330,10 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylists
                   <Avatar className="h-6 w-6">
                     <AvatarImage src={playlist.user?.profileImage} />
                     <AvatarFallback className="bg-[#4ecdc4] text-black text-xs">
-                      {playlist.user?.name?.charAt(0) || 'U'}
+                      {playlist.username?.charAt(0) || 'U'}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="font-medium text-white">{playlist.user?.name || 'Unknown'}</span>
+                  <span className="font-medium text-white">{playlist.username || 'Unknown'}</span>
                 </div>
                 <span>•</span>
                 <span>{contents.length}개 콘텐츠</span>
@@ -345,7 +342,7 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylists
                 <span>•</span>
                 <div className="flex items-center space-x-1">
                   <Calendar className="w-4 h-4" />
-                  <span>{playlist.createdDate ? new Date(playlist.createdDate).toLocaleDateString('ko-KR') : '날짜 없음'}</span>
+                  <span>{playlist.createdAt ? new Date(playlist.createdAt).toLocaleDateString('ko-KR') : '날짜 없음'}</span>
                 </div>
               </div>
 
@@ -611,7 +608,7 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylists
                   >
                     <div className="flex-shrink-0">
                       <img
-                        src={content.thumbnailImage || '/placeholder-content.jpg'}
+                        src={content.thumbnail || '/placeholder-content.jpg'}
                         alt={content.title}
                         className="w-12 h-8 object-cover rounded"
                       />
@@ -621,7 +618,7 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylists
                       <p className="text-gray-400 text-xs truncate leading-tight">{content.description}</p>
                       <div className="flex items-center space-x-1 mt-0.5">
                         <Badge variant="secondary" className="text-xs px-1 py-0 h-4">
-                          {content.type}
+                          {content.contentType}
                         </Badge>
                         {content.genre && (
                           <span className="text-gray-500 text-xs">{content.genre}</span>

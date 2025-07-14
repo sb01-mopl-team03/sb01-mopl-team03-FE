@@ -16,7 +16,7 @@ interface PlaylistItem {
   createdAt: string
   isPublic: boolean
   userId: string // 백엔드 UUID를 문자열로 받음
-  userName?: string // 플레이리스트 작성자 이름
+  username?: string // 플레이리스트 작성자 이름
   contents: Array<{
     id: string
     title: string
@@ -29,19 +29,18 @@ interface PlaylistItem {
     thumbnail: string
     type: 'movie' | 'tv' | 'sports'
   }>
+  subscriptions?: Array<{
+    id: string
+    userId: string
+  }>
 }
 
 interface PlaylistProps {
   onPlaylistOpen?: (playlistId: string) => void
   getPlaylists: (name?: string) => Promise<PlaylistItem[]>
   createPlaylist: (request: { name: string; description?: string; isPublic?: boolean }) => Promise<PlaylistItem>
-  updatePlaylist: (playlistId: string, request: { name?: string; description?: string; isPublic?: boolean }) => Promise<PlaylistItem>
-  deletePlaylist: (playlistId: string) => Promise<void>
-  addPlaylistContents: (playlistId: string, contentIds: string[]) => Promise<any>
-  deletePlaylistContents: (playlistId: string, contentIds: string[]) => Promise<void>
   subscribePlaylist?: (playlistId: string) => Promise<void>
-  unsubscribePlaylist?: (playlistId: string) => Promise<void>
-  checkPlaylistSubscription?: (playlistId: string) => Promise<boolean>
+  unsubscribePlaylist?: (subscriptionId: string) => Promise<void>
   currentUserId?: string
   onUserProfileOpen?: (userId: string) => void
 }
@@ -55,20 +54,14 @@ export function Playlist({
   onPlaylistOpen, 
   getPlaylists, 
   createPlaylist, 
-  updatePlaylist, 
-  deletePlaylist, 
-  addPlaylistContents, 
-  deletePlaylistContents,
   subscribePlaylist,
   unsubscribePlaylist,
-  checkPlaylistSubscription,
   currentUserId,
   onUserProfileOpen
 }: PlaylistProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [playlists, setPlaylists] = useState<PlaylistItem[]>([])
   const [showCreationModal, setShowCreationModal] = useState(false)
-  const [subscriptions, setSubscriptions] = useState<{[playlistId: string]: boolean}>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -101,21 +94,6 @@ export function Playlist({
       console.log('📋 플레이리스트 데이터 받음:', playlistData)
       setPlaylists(playlistData)
       
-      // 구독 상태 확인
-      if (checkPlaylistSubscription) {
-        const subscriptionStates: {[playlistId: string]: boolean} = {}
-        await Promise.all(
-          playlistData.map(async (playlist) => {
-            try {
-              subscriptionStates[playlist.id] = await checkPlaylistSubscription(playlist.id)
-            } catch (error) {
-              console.error(`구독 상태 확인 실패 (${playlist.id}):`, error)
-              subscriptionStates[playlist.id] = false
-            }
-          })
-        )
-        setSubscriptions(subscriptionStates)
-      }
     } catch (error) {
       console.error('Error loading playlists:', error)
       setError('플레이리스트를 불러올 수 없습니다.')
@@ -167,19 +145,50 @@ export function Playlist({
     }
   }
 
+  // 구독 상태 확인 함수
+  const isPlaylistSubscribed = (playlist: PlaylistItem): boolean => {
+    if (!playlist.subscriptions || !currentUserId) return false
+    return playlist.subscriptions.some(sub => sub.userId === currentUserId)
+  }
+
+  // 현재 사용자의 subscription 찾는 함수
+  const getCurrentUserSubscription = (playlist: PlaylistItem) => {
+    if (!playlist.subscriptions || !currentUserId) return null
+    return playlist.subscriptions.find(sub => sub.userId === currentUserId)
+  }
+
   const handleSubscribeToggle = async (playlistId: string) => {
-    if (!subscribePlaylist || !unsubscribePlaylist) return
+    console.log('🎯 구독 토글 버튼 클릭됨:', { playlistId, currentUserId })
     
-    const isSubscribed = subscriptions[playlistId]
+    if (!subscribePlaylist || !unsubscribePlaylist || !currentUserId) {
+      console.error('구독 함수 또는 사용자 ID가 없습니다:', { subscribePlaylist: !!subscribePlaylist, unsubscribePlaylist: !!unsubscribePlaylist, currentUserId })
+      return
+    }
+    
+    const playlist = playlists.find(p => p.id === playlistId)
+    if (!playlist) {
+      console.error('플레이리스트를 찾을 수 없습니다:', playlistId)
+      return
+    }
+    
+    const isSubscribed = isPlaylistSubscribed(playlist)
+    console.log('현재 구독 상태:', { isSubscribed, subscriptions: playlist.subscriptions })
     
     try {
       if (isSubscribed) {
-        await unsubscribePlaylist(playlistId)
-        setSubscriptions(prev => ({ ...prev, [playlistId]: false }))
+        const subscription = getCurrentUserSubscription(playlist)
+        if (!subscription) {
+          console.error('구독 정보를 찾을 수 없습니다')
+          return
+        }
+        console.log('구독 취소 실행:', subscription.id)
+        await unsubscribePlaylist(subscription.id)
       } else {
+        console.log('구독 실행:', playlistId)
         await subscribePlaylist(playlistId)
-        setSubscriptions(prev => ({ ...prev, [playlistId]: true }))
       }
+      // 구독 상태 변경 후 다시 로드
+      await loadPlaylists()
     } catch (error) {
       console.error('구독 상태 변경 실패:', error)
     }
@@ -214,8 +223,8 @@ export function Playlist({
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-3xl font-bold mb-2">내 플레이리스트</h1>
-              <p className="text-white/60">저장한 콘텐츠를 재생목록으로 관리하세요</p>
+              <h1 className="text-3xl font-bold mb-2">플레이리스트</h1>
+              <p className="text-white/60">다양한 플레이리스트를 탐색하고 관리하세요</p>
             </div>
             
             <Button 
@@ -349,7 +358,7 @@ export function Playlist({
                         variant="ghost"
                         size="sm"
                         className={`absolute bottom-3 right-3 p-2 rounded-full transition-all ${
-                          subscriptions[playlist.id]
+                          isPlaylistSubscribed(playlist)
                             ? 'bg-red-500/80 hover:bg-red-500 text-white'
                             : 'bg-black/50 hover:bg-black/70 text-white/80 hover:text-red-400'
                         }`}
@@ -358,7 +367,7 @@ export function Playlist({
                           handleSubscribeToggle(playlist.id)
                         }}
                       >
-                        <Heart className={`w-4 h-4 ${subscriptions[playlist.id] ? 'fill-current' : ''}`} />
+                        <Heart className={`w-4 h-4 ${isPlaylistSubscribed(playlist) ? 'fill-current' : ''}`} />
                       </Button>
                     )}
 
@@ -401,19 +410,13 @@ export function Playlist({
                           }}
                         >
                           <div className="w-6 h-6 rounded-full bg-[#4ecdc4] flex items-center justify-center text-black text-xs font-medium">
-                            {playlist.userName ? playlist.userName.charAt(0).toUpperCase() : '?'}
+                            {playlist.username ? playlist.username.charAt(0).toUpperCase() : '?'}
                           </div>
-                          <span className="text-sm">{playlist.userName || '플레이리스트 작성자'}</span>
+                          <span className="text-sm">{playlist.username || '플레이리스트 작성자'}</span>
                         </div>
                       </div>
                     )}
 
-                    {/* Debug: Show playlist owner info if available */}
-                    {process.env.NODE_ENV === 'development' && (
-                      <div className="mb-2 text-xs text-yellow-400">
-                        Debug: userId={playlist.userId}, currentUserId={currentUserId}
-                      </div>
-                    )}
 
                     {/* Metadata */}
                     <div className="flex items-center justify-between text-xs text-white/60">
