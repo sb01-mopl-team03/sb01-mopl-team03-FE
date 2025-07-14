@@ -27,7 +27,7 @@ interface AddToPlaylistModalProps {
   isOpen: boolean
   onClose: () => void
   content: ContentItem | null
-  getPlaylists: (name?: string) => Promise<Playlist[]>
+  getPlaylists: (keyword?: string) => Promise<Playlist[]>
   createPlaylist: (request: { name: string; description?: string; isPublic?: boolean }) => Promise<Playlist>
   addPlaylistContents: (playlistId: string, contentIds: string[]) => Promise<any>
 }

@@ -109,7 +109,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
       type: getTypeFromNotificationType(dto.notificationType),
       title: getTitleFromNotificationType(dto.notificationType),
       content: dto.content,
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150', // 기본 아바타
+      avatar: '', // 기본 아바타 제거
       timestamp: formatTimestamp(dto.createdAt),
       isRead: false // 새로 받은 알림은 읽지 않음으로 표시
     }
