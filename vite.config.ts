@@ -18,23 +18,23 @@ export default defineConfig({
     global: 'globalThis',
   },
   
-  // 주석 해제: Spring Boot 백엔드 연결
+  // Spring Boot 백엔드 연결 - 환경변수 사용
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8080', // Spring Boot 서버
+        target: process.env.VITE_BACKEND_URL || 'http://localhost:8080',
         changeOrigin: true,
-        secure: false,
+        secure: true,
       },
       '/ws': {
-        target: 'http://localhost:8080',
+        target: process.env.VITE_BACKEND_URL || 'http://localhost:8080',
         changeOrigin: true,
         ws: true, // WebSocket 지원
       },
       '/notifications': {
-        target: 'http://localhost:8080', // 알림 API 프록시
+        target: process.env.VITE_BACKEND_URL || 'http://localhost:8080',
         changeOrigin: true,
-        secure: false,
+        secure: true,
       }
     }
   },
@@ -45,19 +45,19 @@ export default defineConfig({
     host: '0.0.0.0',
     proxy: {
       '/api': {
-        target: 'http://localhost:8080', // Spring Boot 서버
+        target: process.env.VITE_BACKEND_URL || 'http://localhost:8080',
         changeOrigin: true,
-        secure: false,
+        secure: true,
       },
       '/ws': {
-        target: 'http://localhost:8080',
+        target: process.env.VITE_BACKEND_URL || 'http://localhost:8080',
         changeOrigin: true,
         ws: true, // WebSocket 지원
       },
       '/notifications': {
-        target: 'http://localhost:8080', // 알림 API 프록시
+        target: process.env.VITE_BACKEND_URL || 'http://localhost:8080',
         changeOrigin: true,
-        secure: false,
+        secure: true,
       }
     }
   },

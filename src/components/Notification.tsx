@@ -28,7 +28,7 @@ const useSSENotifications = () => {
 
     // EventSource는 Authorization 헤더를 직접 설정할 수 없으므로 URL에 토큰을 포함
     // 또는 쿠키를 사용해야 합니다
-    const url = `http://localhost:8080/api/notifications/subscribe`;
+    const url = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/notifications/subscribe`;
     
     try {
       const eventSource = new EventSource(url, {

@@ -60,12 +60,12 @@ export function useWatchRoomWebSocket({
 
     setConnectionStatus('connecting')
     console.log('WebSocket 연결 시작:', {
-      url: 'http://localhost:8080/ws',
+      url: `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/ws`,
       token: token ? `${token.substring(0, 10)}...` : 'null'
     })
     
     const client = new Client({
-      webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+      webSocketFactory: () => new SockJS(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/ws`),
       connectHeaders: token ? {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json'
