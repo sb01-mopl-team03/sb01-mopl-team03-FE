@@ -32,11 +32,10 @@ interface DMListProps {
   currentUserId: string | null
   getDmRooms: () => Promise<any>
   getOrCreateDmRoom: (userBId: string) => Promise<string>
-  deleteDmRoom: (roomId: string) => Promise<void>
 }
 
 
-export function DMList({ isOpen, onClose, onOpenChat, authenticatedFetch, currentUserId, getDmRooms, getOrCreateDmRoom, deleteDmRoom }: DMListProps) {
+export function DMList({ isOpen, onClose, onOpenChat, authenticatedFetch, currentUserId, getDmRooms, getOrCreateDmRoom }: DMListProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [showChatPartnerSelection, setShowChatPartnerSelection] = useState(false)
   const [conversations, setConversations] = useState<Conversation[]>([])

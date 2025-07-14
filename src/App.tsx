@@ -323,29 +323,7 @@ export default function App() {
     }
   }
 
-  const getDmRoom = async (roomId: string) => {
-    try {
-      const response = await authenticatedFetch(`/api/dmRooms/${roomId}`)
-      if (!response.ok) {
-        throw new Error('DM 룸 조회 실패')
-      }
-      return await response.json()
-    } catch (error) {
-      console.error('DM 룸 조회 실패:', error)
-      throw error
-    }
-  }
 
-  const deleteDmRoom = async (roomId: string) => {
-    try {
-      await authenticatedFetch(`/api/dmRooms/${roomId}`, {
-        method: 'DELETE'
-      })
-    } catch (error) {
-      console.error('DM 룸 삭제 실패:', error)
-      throw error
-    }
-  }
 
   const getDmMessages = async (roomId: string, pagingDto?: { cursor?: string; size?: number }) => {
     try {
@@ -367,16 +345,11 @@ export default function App() {
   // Playlist 관련 API 호출 함수들
   const getPlaylists = async (name?: string) => {
     try {
-      let url
-      
-      // name이 제공된 경우 검색 엔드포인트 사용, 아니면 전체 조회 엔드포인트 사용
-      if (name && name.trim() !== '') {
-        const queryParams = new URLSearchParams()
-        queryParams.append('name', name)
-        url = `/api/playlists/search?${queryParams}`
-      } else {
-        url = '/api/playlists'
-      }
+      // 항상 검색 엔드포인트 사용. name이 없으면 빈 문자열로 모든 플레이리스트 조회
+      const searchName = name && name.trim() !== '' ? name.trim() : ''
+      const queryParams = new URLSearchParams()
+      queryParams.append('name', searchName)
+      const url = `/api/playlists/search?${queryParams}`
       
       console.log('🚀 API 호출:', url)
       
@@ -496,53 +469,7 @@ export default function App() {
     }
   }
 
-  const updatePlaylist = async (playlistId: string, request: { name?: string; description?: string; isPublic?: boolean }) => {
-    try {
-      // PlaylistUpdateRequest DTO에 맞게 요청 데이터 구성 (contentIds 제외)
-      const playlistUpdateRequest: any = {}
-      
-      if (request.name !== undefined) {
-        playlistUpdateRequest.name = request.name.trim()
-      }
-      if (request.description !== undefined) {
-        playlistUpdateRequest.description = request.description
-      }
-      if (request.isPublic !== undefined) {
-        playlistUpdateRequest.isPublic = request.isPublic
-      }
 
-      const response = await authenticatedFetch(`/api/playlists/${playlistId}`, {
-        method: 'PATCH',
-        body: JSON.stringify(playlistUpdateRequest)
-      })
-      
-      if (!response.ok) {
-        let errorMessage = '플레이리스트 수정 실패'
-        try {
-          const errorData = await response.json()
-          errorMessage = errorData.message || errorMessage
-        } catch (parseError) {
-          console.error('Error parsing error response:', parseError)
-        }
-        throw new Error(errorMessage)
-      }
-      return await response.json()
-    } catch (error) {
-      console.error('플레이리스트 수정 실패:', error)
-      throw error
-    }
-  }
-
-  const deletePlaylist = async (playlistId: string) => {
-    try {
-      await authenticatedFetch(`/api/playlists/${playlistId}`, {
-        method: 'DELETE'
-      })
-    } catch (error) {
-      console.error('플레이리스트 삭제 실패:', error)
-      throw error
-    }
-  }
 
   // 플레이리스트 콘텐츠 추가 함수
   const addPlaylistContents = async (playlistId: string, contentIds: string[]) => {
@@ -622,9 +549,28 @@ export default function App() {
   // 플레이리스트 구독 관련 API 함수들
   const subscribePlaylist = async (playlistId: string) => {
     try {
-      const response = await authenticatedFetch(`/api/playlists/${playlistId}/subscribe`, {
-        method: 'POST'
+      if (!userId) {
+        throw new Error('로그인이 필요합니다')
+      }
+
+      console.log('🔔 구독 요청 시작:', { userId, playlistId })
+
+      const requestBody = {
+        userId: userId,
+        playlistId: playlistId
+      }
+
+      console.log('📤 구독 요청 데이터:', requestBody)
+
+      const response = await authenticatedFetch('/api/subscriptions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
       })
+
+      console.log('📡 구독 응답 상태:', response.status, response.statusText)
       
       if (!response.ok) {
         let errorMessage = '플레이리스트 구독 실패'
@@ -644,11 +590,15 @@ export default function App() {
     }
   }
 
-  const unsubscribePlaylist = async (playlistId: string) => {
+  const unsubscribePlaylist = async (subscriptionId: string) => {
     try {
-      const response = await authenticatedFetch(`/api/playlists/${playlistId}/unsubscribe`, {
+      console.log('🔕 구독 취소 요청 시작:', { subscriptionId })
+
+      const response = await authenticatedFetch(`/api/subscriptions/${subscriptionId}`, {
         method: 'DELETE'
       })
+
+      console.log('📡 구독 취소 응답 상태:', response.status, response.statusText)
       
       if (!response.ok) {
         let errorMessage = '플레이리스트 구독 취소 실패'
@@ -668,20 +618,6 @@ export default function App() {
     }
   }
 
-  const checkPlaylistSubscription = async (playlistId: string): Promise<boolean> => {
-    try {
-      const response = await authenticatedFetch(`/api/playlists/${playlistId}/is-subscribed`)
-      
-      if (!response.ok) {
-        throw new Error('구독 상태 확인 실패')
-      }
-      
-      return await response.json()
-    } catch (error) {
-      console.error('구독 상태 확인 실패:', error)
-      return false
-    }
-  }
 
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null)
   const [selectedContentDetail, setSelectedContentDetail] = useState<ContentItem | null>(null)
@@ -1178,13 +1114,8 @@ export default function App() {
           onPlaylistOpen={handlePlaylistDetailOpen} 
           getPlaylists={getPlaylists}
           createPlaylist={createPlaylist}
-          updatePlaylist={updatePlaylist}
-          deletePlaylist={deletePlaylist}
-          addPlaylistContents={addPlaylistContents}
-          deletePlaylistContents={deletePlaylistContents}
           subscribePlaylist={subscribePlaylist}
           unsubscribePlaylist={unsubscribePlaylist}
-          checkPlaylistSubscription={checkPlaylistSubscription}
           currentUserId={userId || undefined}
           onUserProfileOpen={handleUserProfileOpen}
         />
@@ -1194,10 +1125,7 @@ export default function App() {
             playlistId={selectedPlaylistId} 
             onBack={handleBackToPlaylists}
             onContentPlay={handleContentPlay}
-            getPlaylists={getPlaylists}
             getPlaylistById={getPlaylistById}
-            updatePlaylist={updatePlaylist}
-            deletePlaylist={deletePlaylist}
             addPlaylistContents={addPlaylistContents}
             deletePlaylistContents={deletePlaylistContents}
           />
@@ -1206,10 +1134,6 @@ export default function App() {
             onPlaylistOpen={handlePlaylistDetailOpen} 
             getPlaylists={getPlaylists}
             createPlaylist={createPlaylist}
-            updatePlaylist={updatePlaylist}
-            deletePlaylist={deletePlaylist}
-            addPlaylistContents={addPlaylistContents}
-            deletePlaylistContents={deletePlaylistContents}
           />
         )
       case 'content-detail':
@@ -1339,7 +1263,6 @@ export default function App() {
         currentUserId={userId}
         getDmRooms={getDmRooms}
         getOrCreateDmRoom={getOrCreateDmRoom}
-        deleteDmRoom={deleteDmRoom}
       />
 
       <ChatRoom
@@ -1347,9 +1270,7 @@ export default function App() {
         onClose={handleCloseChatRoom}
         onBack={handleBackToDMList}
         user={currentChatUser}
-        authenticatedFetch={authenticatedFetch}
         currentUserId={userId}
-        getDmRoom={getDmRoom}
         getDmMessages={getDmMessages}
       />
 
