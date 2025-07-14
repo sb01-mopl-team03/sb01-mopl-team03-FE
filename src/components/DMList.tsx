@@ -138,7 +138,7 @@ export function DMList({ isOpen, onClose, onOpenChat, authenticatedFetch, curren
           id: room.id,
           userId: otherUser?.id || '',
           name: otherUser?.name || '알 수 없는 사용자',
-          avatar: otherUser?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
+          avatar: otherUser?.avatar || '',
           lastMessage: room.lastMessage || '아직 메시지가 없습니다',
           timestamp: room.lastMessage ? formatTimestamp(room.createdAt) : formatTimestamp(room.createdAt),
           unreadCount: room.newMessageCount || 0,
@@ -165,7 +165,7 @@ export function DMList({ isOpen, onClose, onOpenChat, authenticatedFetch, curren
       const partnerList: ChatPartner[] = followList.map(follow => ({
         id: follow.id,
         name: follow.name || '알 수 없는 사용자',
-        avatar: follow.profileImage || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
+        avatar: follow.profileImage || '',
         isOnline: false, // TODO: Get online status from backend
         mutualFriends: 0 // TODO: Calculate mutual follows if needed
       }))

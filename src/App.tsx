@@ -343,12 +343,12 @@ export default function App() {
   }
 
   // Playlist 관련 API 호출 함수들
-  const getPlaylists = async (name?: string) => {
+  const getPlaylists = async (keyword?: string) => {
     try {
-      // 항상 검색 엔드포인트 사용. name이 없으면 빈 문자열로 모든 플레이리스트 조회
-      const searchName = name && name.trim() !== '' ? name.trim() : ''
+      // 항상 검색 엔드포인트 사용. keyword가 없으면 빈 문자열로 모든 플레이리스트 조회
+      const searchKeyword = keyword && keyword.trim() !== '' ? keyword.trim() : ''
       const queryParams = new URLSearchParams()
-      queryParams.append('name', searchName)
+      queryParams.append('keyword', searchKeyword)
       const url = `/api/playlists/search?${queryParams}`
       
       console.log('🚀 API 호출:', url)

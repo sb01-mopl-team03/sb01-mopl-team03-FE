@@ -85,12 +85,12 @@ export function Playlist({
     return () => clearTimeout(delayTimer)
   }, [searchQuery])
 
-  const loadPlaylists = async (searchName?: string) => {
+  const loadPlaylists = async (searchKeyword?: string) => {
     try {
       setLoading(true)
       setError(null)
-      console.log('🔄 플레이리스트 로딩 시작:', { searchName })
-      const playlistData = await getPlaylists(searchName)
+      console.log('🔄 플레이리스트 로딩 시작:', { searchKeyword })
+      const playlistData = await getPlaylists(searchKeyword)
       console.log('📋 플레이리스트 데이터 받음:', playlistData)
       setPlaylists(playlistData)
       

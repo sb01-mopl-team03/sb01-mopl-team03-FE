@@ -68,20 +68,6 @@ const StarRating = ({
 }
 
 
-// 썸네일 URL 생성 함수
-const generateThumbnailUrl = (contentType: string): string => {
-  const baseUrl = 'https://images.unsplash.com/photo-'
-  switch (contentType) {
-    case 'movie':
-      return `${baseUrl}1489599538883-17dd35352ad5?w=600&h=800&fit=crop&crop=face&auto=format&q=80`
-    case 'tv':
-      return `${baseUrl}1536440136628-849c177e76a1?w=600&h=800&fit=crop&crop=face&auto=format&q=80`
-    case 'sports':
-      return `${baseUrl}1578662996442-48f60103fc96?w=600&h=800&fit=crop&crop=face&auto=format&q=80`
-    default:
-      return `${baseUrl}1489599538883-17dd35352ad5?w=600&h=800&fit=crop&crop=face&auto=format&q=80`
-  }
-}
 
 export function ContentDetail({ content, onBack, onPlay, currentUser }: ContentDetailProps) {
   const [reviewText, setReviewText] = useState('')
@@ -267,18 +253,13 @@ export function ContentDetail({ content, onBack, onPlay, currentUser }: ContentD
       <div className="max-w-7xl mx-auto p-6">
         {/* Content Info Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-          {/* Left: Large Image */}
+          {/* Left: Placeholder */}
           <div className="lg:col-span-1">
-            <div className="aspect-[3/4] rounded-lg overflow-hidden bg-card border border-white/10">
-              <img
-                src={content.thumbnail || generateThumbnailUrl(content.type)}
-                alt={content.title}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement
-                  target.src = generateThumbnailUrl(content.type)
-                }}
-              />
+            <div className="aspect-[3/4] rounded-lg overflow-hidden bg-gradient-to-br from-[#4ecdc4] to-[#44b3a7] border border-white/10 flex items-center justify-center">
+              <div className="text-center text-black">
+                <div className="text-4xl font-bold opacity-60">MOPL</div>
+                <div className="text-sm opacity-40 mt-2">{getTypeLabel(content.type)}</div>
+              </div>
             </div>
           </div>
 
