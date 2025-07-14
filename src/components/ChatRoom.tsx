@@ -4,7 +4,7 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { ScrollArea } from './ui/scroll-area'
-import { DmService, DmDto } from '../services/dmService'
+import { DmDto } from '../services/dmService'
 import { useDmWebSocket } from '../hooks/useDmWebSocket'
 
 interface Message {
@@ -30,12 +30,12 @@ interface ChatRoomProps {
   onClose: () => void
   onBack: () => void
   user: ChatUser | null
-  authenticatedFetch: (url: string, options?: RequestInit) => Promise<Response>
   currentUserId: string | null
+  getDmMessages: (roomId: string, pagingDto?: { cursor?: string; size?: number }) => Promise<any>
 }
 
 
-export function ChatRoom({ isOpen, onClose, onBack, user, authenticatedFetch, currentUserId }: ChatRoomProps) {
+export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMessages }: ChatRoomProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [isTyping] = useState(false)
@@ -44,7 +44,6 @@ export function ChatRoom({ isOpen, onClose, onBack, user, authenticatedFetch, cu
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   
-  const dmService = new DmService(authenticatedFetch)
   
   // WebSocket connection
   const { isConnected, sendMessage } = useDmWebSocket({
@@ -98,9 +97,9 @@ export function ChatRoom({ isOpen, onClose, onBack, user, authenticatedFetch, cu
     try {
       setLoading(true)
       setError(null)
-      const dmMessages = await dmService.getDmMessages(user.roomId)
+      const response = await getDmMessages(user.roomId)
       
-      const messageList: Message[] = dmMessages.map(dm => ({
+      const messageList: Message[] = response.data.map((dm: any) => ({
         id: dm.id,
         senderId: dm.senderId,
         senderName: dm.senderId === currentUserId ? '나' : user?.name || 'Unknown',

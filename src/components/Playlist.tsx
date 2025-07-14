@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Play, MoreVertical, Plus, Search, Clock, Calendar, Palette } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Play, MoreVertical, Plus, Search, Clock, Calendar, Palette, Heart } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { ImageWithFallback } from './figma/ImageWithFallback'
@@ -8,23 +8,41 @@ import { PlaylistCreationModal } from './PlaylistCreationModal'
 
 interface PlaylistItem {
   id: string
-  title: string
-  description: string
+  name: string  // 백엔드 PlaylistDto와 일치
+  description?: string
   thumbnail: string | null
-  contentCount: number
-  totalDuration: string
+  contentCount?: number
+  totalDuration?: string
   createdAt: string
   isPublic: boolean
+  userId: string // 백엔드 UUID를 문자열로 받음
+  username?: string // 플레이리스트 작성자 이름
   contents: Array<{
     id: string
     title: string
     thumbnail: string
     type: 'movie' | 'tv' | 'sports'
   }>
+  playlistContents?: Array<{
+    id: string
+    title: string
+    thumbnail: string
+    type: 'movie' | 'tv' | 'sports'
+  }>
+  subscriptions?: Array<{
+    id: string
+    userId: string
+  }>
 }
 
 interface PlaylistProps {
   onPlaylistOpen?: (playlistId: string) => void
+  getPlaylists: (name?: string) => Promise<PlaylistItem[]>
+  createPlaylist: (request: { name: string; description?: string; isPublic?: boolean }) => Promise<PlaylistItem>
+  subscribePlaylist?: (playlistId: string) => Promise<void>
+  unsubscribePlaylist?: (subscriptionId: string) => Promise<void>
+  currentUserId?: string
+  onUserProfileOpen?: (userId: string) => void
 }
 
 // ========== API INTEGRATION POINT - START ==========
@@ -32,15 +50,60 @@ interface PlaylistProps {
 // Example: const fetchUserPlaylists = async () => { ... }
 // ========== API INTEGRATION POINT - END ==========
 
-export function Playlist({ onPlaylistOpen }: PlaylistProps) {
+export function Playlist({ 
+  onPlaylistOpen, 
+  getPlaylists, 
+  createPlaylist, 
+  subscribePlaylist,
+  unsubscribePlaylist,
+  currentUserId,
+  onUserProfileOpen
+}: PlaylistProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [playlists, setPlaylists] = useState<PlaylistItem[]>([])
   const [showCreationModal, setShowCreationModal] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const filteredPlaylists = playlists.filter(playlist =>
-    playlist.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    playlist.description.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  // UUID 유효성 검사 함수
+  const isValidUUID = (str: string): boolean => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    return uuidRegex.test(str)
+  }
+
+  // Load playlists on component mount
+  useEffect(() => {
+    loadPlaylists()
+  }, [])
+
+  // 검색어 변경 시 검색 실행
+  useEffect(() => {
+    const delayTimer = setTimeout(() => {
+      loadPlaylists(searchQuery.trim() || undefined)
+    }, 300) // 300ms 디바운스
+
+    return () => clearTimeout(delayTimer)
+  }, [searchQuery])
+
+  const loadPlaylists = async (searchName?: string) => {
+    try {
+      setLoading(true)
+      setError(null)
+      console.log('🔄 플레이리스트 로딩 시작:', { searchName })
+      const playlistData = await getPlaylists(searchName)
+      console.log('📋 플레이리스트 데이터 받음:', playlistData)
+      setPlaylists(playlistData)
+      
+    } catch (error) {
+      console.error('Error loading playlists:', error)
+      setError('플레이리스트를 불러올 수 없습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 검색은 서버에서 처리하므로 클라이언트 필터링 제거
+  const filteredPlaylists = playlists
 
   const handlePlayPlaylist = (playlistId: string) => {
     // ========== API INTEGRATION POINT - START ==========
@@ -60,28 +123,75 @@ export function Playlist({ onPlaylistOpen }: PlaylistProps) {
     }
   }
 
-  const handlePlaylistCreated = (playlistData: {
+  const handlePlaylistCreated = async (playlistData: {
     title: string
     description: string
     isPublic: boolean
     coverImage: string | null
   }) => {
-    // ========== TEMPORARY PLAYLIST CREATION - START ==========
-    // In a real app, this would be handled by the API
-    const newPlaylist: PlaylistItem = {
-      id: `playlist-${playlists.length + 1}`,
-      title: playlistData.title,
-      description: playlistData.description,
-      thumbnail: playlistData.coverImage,
-      contentCount: 0,
-      totalDuration: '0분',
-      createdAt: new Date().toISOString().split('T')[0],
-      isPublic: playlistData.isPublic,
-      contents: []
+    try {
+      await createPlaylist({
+        name: playlistData.title,
+        description: playlistData.description,
+        isPublic: playlistData.isPublic
+      })
+      
+      // Refresh the playlists list - 검색어가 있으면 검색 결과, 없으면 전체 목록
+      console.log('🔄 플레이리스트 생성 후 목록 새로고침')
+      await loadPlaylists(searchQuery.trim() || undefined)
+    } catch (error) {
+      console.error('Error creating playlist:', error)
+      setError('플레이리스트를 생성할 수 없습니다.')
+    }
+  }
+
+  // 구독 상태 확인 함수
+  const isPlaylistSubscribed = (playlist: PlaylistItem): boolean => {
+    if (!playlist.subscriptions || !currentUserId) return false
+    return playlist.subscriptions.some(sub => sub.userId === currentUserId)
+  }
+
+  // 현재 사용자의 subscription 찾는 함수
+  const getCurrentUserSubscription = (playlist: PlaylistItem) => {
+    if (!playlist.subscriptions || !currentUserId) return null
+    return playlist.subscriptions.find(sub => sub.userId === currentUserId)
+  }
+
+  const handleSubscribeToggle = async (playlistId: string) => {
+    console.log('🎯 구독 토글 버튼 클릭됨:', { playlistId, currentUserId })
+    
+    if (!subscribePlaylist || !unsubscribePlaylist || !currentUserId) {
+      console.error('구독 함수 또는 사용자 ID가 없습니다:', { subscribePlaylist: !!subscribePlaylist, unsubscribePlaylist: !!unsubscribePlaylist, currentUserId })
+      return
     }
     
-    setPlaylists(prev => [newPlaylist, ...prev])
-    // ========== TEMPORARY PLAYLIST CREATION - END ==========
+    const playlist = playlists.find(p => p.id === playlistId)
+    if (!playlist) {
+      console.error('플레이리스트를 찾을 수 없습니다:', playlistId)
+      return
+    }
+    
+    const isSubscribed = isPlaylistSubscribed(playlist)
+    console.log('현재 구독 상태:', { isSubscribed, subscriptions: playlist.subscriptions })
+    
+    try {
+      if (isSubscribed) {
+        const subscription = getCurrentUserSubscription(playlist)
+        if (!subscription) {
+          console.error('구독 정보를 찾을 수 없습니다')
+          return
+        }
+        console.log('구독 취소 실행:', subscription.id)
+        await unsubscribePlaylist(subscription.id)
+      } else {
+        console.log('구독 실행:', playlistId)
+        await subscribePlaylist(playlistId)
+      }
+      // 구독 상태 변경 후 다시 로드
+      await loadPlaylists()
+    } catch (error) {
+      console.error('구독 상태 변경 실패:', error)
+    }
   }
 
   const renderPlaylistThumbnail = (playlist: PlaylistItem) => {
@@ -91,7 +201,7 @@ export function Playlist({ onPlaylistOpen }: PlaylistProps) {
         <div className="w-full h-full teal-gradient flex items-center justify-center">
           <div className="text-center text-black/80">
             <Palette className="w-8 h-8 mx-auto mb-2" />
-            <p className="text-sm font-medium">{playlist.title.charAt(0)}</p>
+            <p className="text-sm font-medium">{playlist.name.charAt(0)}</p>
           </div>
         </div>
       )
@@ -100,7 +210,7 @@ export function Playlist({ onPlaylistOpen }: PlaylistProps) {
     return (
       <ImageWithFallback
         src={playlist.thumbnail}
-        alt={playlist.title}
+        alt={playlist.name}
         className="w-full h-full object-cover"
       />
     )
@@ -113,8 +223,8 @@ export function Playlist({ onPlaylistOpen }: PlaylistProps) {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-3xl font-bold mb-2">내 플레이리스트</h1>
-              <p className="text-white/60">저장한 콘텐츠를 재생목록으로 관리하세요</p>
+              <h1 className="text-3xl font-bold mb-2">플레이리스트</h1>
+              <p className="text-white/60">다양한 플레이리스트를 탐색하고 관리하세요</p>
             </div>
             
             <Button 
@@ -146,7 +256,7 @@ export function Playlist({ onPlaylistOpen }: PlaylistProps) {
           </div>
           <div className="glass-effect rounded-lg p-4">
             <div className="text-2xl font-bold gradient-text">
-              {playlists.reduce((sum, playlist) => sum + playlist.contentCount, 0)}
+              {playlists.reduce((sum, playlist) => sum + (playlist.contentCount || playlist.playlistContents?.length || 0), 0)}
             </div>
             <p className="text-white/60 text-sm">총 콘텐츠</p>
           </div>
@@ -159,102 +269,172 @@ export function Playlist({ onPlaylistOpen }: PlaylistProps) {
         </div>
 
         {/* Playlists Grid */}
-        {filteredPlaylists.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-white/40 mb-4">
-              {searchQuery ? '검색 결과가 없습니다' : '플레이리스트가 없습니다'}
-            </div>
-            {!searchQuery && (
-              <Button 
-                onClick={handleCreatePlaylist}
-                variant="outline"
-                className="border-white/20 hover:bg-white/5"
-              >
-                첫 플레이리스트 만들기
-              </Button>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredPlaylists.map((playlist) => (
-              <div
-                key={playlist.id}
-                className="glass-effect rounded-xl overflow-hidden hover:bg-white/5 transition-all duration-200 group cursor-pointer"
-                onClick={() => handlePlaylistClick(playlist.id)}
-              >
-                {/* Thumbnail */}
-                <div className="relative aspect-video">
-                  {renderPlaylistThumbnail(playlist)}
-                  
-                  {/* Play Button Overlay */}
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+        {(() => {
+          console.log('🎯 Playlist 렌더링 상태:', { loading, error, playlistsLength: playlists.length, filteredLength: filteredPlaylists.length })
+          
+          if (loading) {
+            return (
+              <div className="text-center py-12">
+                <div className="text-white/60">플레이리스트를 불러오는 중...</div>
+              </div>
+            )
+          }
+          
+          if (error) {
+            return (
+              <div className="text-center py-12">
+                <div className="text-red-400 mb-4">{error}</div>
+                <Button 
+                  onClick={() => loadPlaylists(searchQuery.trim() || undefined)}
+                  variant="outline"
+                  className="border-white/20 hover:bg-white/5"
+                >
+                  다시 시도
+                </Button>
+              </div>
+            )
+          }
+          
+          if (filteredPlaylists.length === 0) {
+            return (
+              <div className="text-center py-12">
+                <div className="text-white/40 mb-4">
+                  {searchQuery ? '검색 결과가 없습니다' : '플레이리스트가 없습니다'}
+                </div>
+                {!searchQuery && (
+                  <Button 
+                    onClick={handleCreatePlaylist}
+                    variant="outline"
+                    className="border-white/20 hover:bg-white/5"
+                  >
+                    첫 플레이리스트 만들기
+                  </Button>
+                )}
+              </div>
+            )
+          }
+          
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {filteredPlaylists.map((playlist) => (
+                <div
+                  key={playlist.id}
+                  className="glass-effect rounded-xl overflow-hidden hover:bg-white/5 transition-all duration-200 group cursor-pointer"
+                  onClick={() => handlePlaylistClick(playlist.id)}
+                >
+                  {/* Thumbnail */}
+                  <div className="relative aspect-video">
+                    {renderPlaylistThumbnail(playlist)}
+                    
+                    {/* Play Button Overlay */}
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Button
+                        size="lg"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handlePlayPlaylist(playlist.id)
+                        }}
+                        className="rounded-full w-16 h-16 teal-gradient hover:opacity-80 text-black"
+                      >
+                        <Play className="w-8 h-8 fill-current" />
+                      </Button>
+                    </div>
+
+                    {/* Privacy Badge */}
+                    <div className="absolute top-3 right-3">
+                      <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        playlist.isPublic 
+                          ? 'bg-green-500/20 text-green-400' 
+                          : 'bg-gray-500/20 text-gray-400'
+                      }`}>
+                        {playlist.isPublic ? '공개' : '비공개'}
+                      </div>
+                    </div>
+
+                    {/* Subscribe Button - only show for other users' playlists */}
+                    {playlist.userId && playlist.userId !== currentUserId && isValidUUID(playlist.userId) && 
+                     subscribePlaylist && unsubscribePlaylist && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={`absolute bottom-3 right-3 p-2 rounded-full transition-all ${
+                          isPlaylistSubscribed(playlist)
+                            ? 'bg-red-500/80 hover:bg-red-500 text-white'
+                            : 'bg-black/50 hover:bg-black/70 text-white/80 hover:text-red-400'
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleSubscribeToggle(playlist.id)
+                        }}
+                      >
+                        <Heart className={`w-4 h-4 ${isPlaylistSubscribed(playlist) ? 'fill-current' : ''}`} />
+                      </Button>
+                    )}
+
+                    {/* More Options */}
                     <Button
-                      size="lg"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handlePlayPlaylist(playlist.id)
-                      }}
-                      className="rounded-full w-16 h-16 teal-gradient hover:opacity-80 text-black"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-3 left-3 p-2 bg-black/50 hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      <Play className="w-8 h-8 fill-current" />
+                      <MoreVertical className="w-4 h-4" />
                     </Button>
                   </div>
 
-                  {/* Privacy Badge */}
-                  <div className="absolute top-3 right-3">
-                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      playlist.isPublic 
-                        ? 'bg-green-500/20 text-green-400' 
-                        : 'bg-gray-500/20 text-gray-400'
-                    }`}>
-                      {playlist.isPublic ? '공개' : '비공개'}
+                  {/* Content */}
+                  <div className="p-4">
+                    <h3 className="font-medium mb-2 line-clamp-2">{playlist.name}</h3>
+                    <p className="text-sm text-white/60 mb-3 line-clamp-2">{playlist.description}</p>
+                    
+                    {/* Content Preview */}
+                    <div className="flex items-center justify-between mb-3">
+                      <OverlappingThumbnails 
+                        items={playlist.contents} 
+                        maxVisible={4}
+                        size="sm"
+                      />
+                      <span className="text-xs text-white/60">
+                        {playlist.contentCount || playlist.playlistContents?.length || 0}개 콘텐츠
+                      </span>
                     </div>
-                  </div>
 
-                  {/* More Options */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute top-3 left-3 p-2 bg-black/50 hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <MoreVertical className="w-4 h-4" />
-                  </Button>
-                </div>
+                    {/* User Info - show for other users' playlists */}
+                    {playlist.userId && playlist.userId !== currentUserId && isValidUUID(playlist.userId) && (
+                      <div className="mb-3 pb-3 border-b border-white/10">
+                        <div 
+                          className="flex items-center space-x-2 cursor-pointer hover:text-[#4ecdc4] transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onUserProfileOpen?.(playlist.userId!)
+                          }}
+                        >
+                          <div className="w-6 h-6 rounded-full bg-[#4ecdc4] flex items-center justify-center text-black text-xs font-medium">
+                            {playlist.username ? playlist.username.charAt(0).toUpperCase() : '?'}
+                          </div>
+                          <span className="text-sm">{playlist.username || '플레이리스트 작성자'}</span>
+                        </div>
+                      </div>
+                    )}
 
-                {/* Content */}
-                <div className="p-4">
-                  <h3 className="font-medium mb-2 line-clamp-2">{playlist.title}</h3>
-                  <p className="text-sm text-white/60 mb-3 line-clamp-2">{playlist.description}</p>
-                  
-                  {/* Content Preview */}
-                  <div className="flex items-center justify-between mb-3">
-                    <OverlappingThumbnails 
-                      items={playlist.contents} 
-                      maxVisible={4}
-                      size="sm"
-                    />
-                    <span className="text-xs text-white/60">
-                      {playlist.contentCount}개 콘텐츠
-                    </span>
-                  </div>
 
-                  {/* Metadata */}
-                  <div className="flex items-center justify-between text-xs text-white/60">
-                    <div className="flex items-center space-x-1">
-                      <Clock className="w-3 h-3" />
-                      <span>{playlist.totalDuration}</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Calendar className="w-3 h-3" />
-                      <span>{new Date(playlist.createdAt).toLocaleDateString('ko-KR')}</span>
+                    {/* Metadata */}
+                    <div className="flex items-center justify-between text-xs text-white/60">
+                      <div className="flex items-center space-x-1">
+                        <Clock className="w-3 h-3" />
+                        <span>{playlist.totalDuration || '0분'}</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <Calendar className="w-3 h-3" />
+                        <span>{playlist.createdAt ? new Date(playlist.createdAt).toLocaleDateString('ko-KR') : '날짜 없음'}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )
+        })()}
       </div>
 
       {/* Playlist Creation Modal */}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Camera, UserPlus, UserMinus, Users, Heart } from 'lucide-react'
+import { X, Camera, UserPlus, UserMinus, Users, Heart, List } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
@@ -23,10 +23,12 @@ interface ProfileModalProps {
   authenticatedFetch: (url: string, options?: RequestInit) => Promise<Response> // 인증된 API 호출 함수
   onUserProfileOpen?: (targetUserId: string) => void // 사용자 프로필 열기 함수
   refreshUserProfile?: () => void // 사용자 프로필 새로고침 함수
+  getPlaylists?: (name?: string) => Promise<any[]> // 플레이리스트 조회 함수
+  onPlaylistOpen?: (playlistId: string) => void // 플레이리스트 열기 함수
 }
 
 
-export function ProfileModal({ isOpen, onClose, userId, targetUserId, authenticatedFetch, onUserProfileOpen, refreshUserProfile }: ProfileModalProps) {
+export function ProfileModal({ isOpen, onClose, userId, targetUserId, authenticatedFetch, onUserProfileOpen, refreshUserProfile, getPlaylists, onPlaylistOpen }: ProfileModalProps) {
   const [name, setName] = useState('김모플')
   const [email, setEmail] = useState('user@moplay.kr')
   const [showProfileSelector, setShowProfileSelector] = useState(false)
@@ -39,7 +41,8 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
   const [following, setFollowing] = useState<UserData[]>([]) // 팔로잉 목록
   const [isFollowing, setIsFollowing] = useState(false) // 팔로우 상태
   const [followLoading, setFollowLoading] = useState(false) // 팔로우 로딩 상태
-  const [activeTab, setActiveTab] = useState<'profile' | 'followers' | 'following'>('profile') // 활성 탭
+  const [activeTab, setActiveTab] = useState<'profile' | 'followers' | 'following' | 'playlists'>('profile') // 활성 탭
+  const [playlists, setPlaylists] = useState<any[]>([]) // 플레이리스트 목록
 
   // 현재 보고 있는 사용자 ID (본인 또는 다른 사용자)
   const currentViewingUserId = targetUserId || userId
@@ -53,6 +56,7 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
         fetchUserData()
         fetchFollowers()
         fetchFollowing()
+        fetchPlaylists()
         if (isViewingOtherUser) {
           checkIsFollowing()
         }
@@ -183,6 +187,18 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
       alert(error instanceof Error ? error.message : '팔로우 처리 중 오류가 발생했습니다.')
     } finally {
       setFollowLoading(false)
+    }
+  }
+
+  // 플레이리스트 목록 조회
+  const fetchPlaylists = async () => {
+    if (!getPlaylists) return
+    
+    try {
+      const playlistsData = await getPlaylists()
+      setPlaylists(playlistsData)
+    } catch (error) {
+      console.error('플레이리스트 목록 조회 오류:', error)
     }
   }
 
@@ -420,6 +436,15 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
               <Heart className="w-4 h-4" />
               <span>팔로잉</span>
             </Button>
+            <Button
+              variant={activeTab === 'playlists' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setActiveTab('playlists')}
+              className={`${activeTab === 'playlists' ? 'teal-gradient text-black' : 'hover:bg-white/10'} flex items-center space-x-1`}
+            >
+              <List className="w-4 h-4" />
+              <span>플레이리스트</span>
+            </Button>
           </div>
         </div>
         
@@ -522,6 +547,50 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
                 <div className="text-center py-8">
                   <Heart className="w-12 h-12 text-white/30 mx-auto mb-4" />
                   <p className="text-white/60">팔로잉이 없습니다.</p>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {activeTab === 'playlists' && (
+            <div className="space-y-3 max-h-60 overflow-y-auto">
+              {playlists.map((playlist) => (
+                <div 
+                  key={playlist.id} 
+                  className="glass-effect rounded-lg p-4 flex items-center space-x-4 hover:bg-white/5 transition-colors cursor-pointer"
+                  onClick={() => {
+                    if (onPlaylistOpen) {
+                      onClose()
+                      onPlaylistOpen(playlist.id)
+                    }
+                  }}
+                >
+                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-[#4ecdc4]/20 flex items-center justify-center">
+                    {playlist.thumbnail ? (
+                      <img 
+                        src={playlist.thumbnail} 
+                        alt={playlist.title || playlist.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <List className="w-6 h-6 text-[#4ecdc4]" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold">{playlist.title || playlist.name}</h4>
+                    <p className="text-white/60 text-sm">
+                      {playlist.contentCount || playlist.playlistContents?.length || 0}개 콘텐츠
+                      {playlist.isPublic ? ' • 공개' : ' • 비공개'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              {playlists.length === 0 && (
+                <div className="text-center py-8">
+                  <List className="w-12 h-12 text-white/30 mx-auto mb-4" />
+                  <p className="text-white/60">
+                    {isViewingOtherUser ? '플레이리스트가 없습니다.' : '아직 만든 플레이리스트가 없습니다.'}
+                  </p>
                 </div>
               )}
             </div>

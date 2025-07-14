@@ -30,10 +30,12 @@ interface DMListProps {
   onOpenChat: (user: { id: string; name: string; avatar: string; isOnline: boolean; roomId: string }) => void
   authenticatedFetch: (url: string, options?: RequestInit) => Promise<Response>
   currentUserId: string | null
+  getDmRooms: () => Promise<any>
+  getOrCreateDmRoom: (userBId: string) => Promise<string>
 }
 
 
-export function DMList({ isOpen, onClose, onOpenChat, authenticatedFetch, currentUserId }: DMListProps) {
+export function DMList({ isOpen, onClose, onOpenChat, authenticatedFetch, currentUserId, getDmRooms, getOrCreateDmRoom }: DMListProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [showChatPartnerSelection, setShowChatPartnerSelection] = useState(false)
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -76,7 +78,7 @@ export function DMList({ isOpen, onClose, onOpenChat, authenticatedFetch, curren
   const handleStartConversation = async (partner: ChatPartner) => {
     try {
       setLoading(true)
-      const roomId = await dmService.getOrCreateRoom(partner.id)
+      const roomId = await getOrCreateDmRoom(partner.id)
       console.log(`Starting new conversation with ${partner.name}, room: ${roomId}`)
       
       onOpenChat({
@@ -110,10 +112,10 @@ export function DMList({ isOpen, onClose, onOpenChat, authenticatedFetch, curren
     try {
       setLoading(true)
       setError(null)
-      const rooms = await dmService.getAllRooms()
+      const rooms = await getDmRooms()
       
       // Convert DM rooms to conversations
-      const conversationList: Conversation[] = rooms.map(room => {
+      const conversationList: Conversation[] = rooms.map((room: any) => {
         const otherUser = room.senderId === currentUserId ? 
           { id: room.receiverId, name: room.receiverName, avatar: '', isOnline: false } : 
           { id: room.senderId, name: room.senderName, avatar: '', isOnline: false }
