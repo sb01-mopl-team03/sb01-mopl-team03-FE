@@ -16,16 +16,9 @@ interface PlaylistCreationModalProps {
   }) => void
 }
 
-// Cover image options - null represents no image (gradient)
+// Cover image options - null represents default gradient
 const coverImageOptions: (string | null)[] = [
-  null, // No image - use gradient
-  'https://images.unsplash.com/photo-1489599856621-6c0e9b89c2e4?w=400&h=225&fit=crop',
-  'https://images.unsplash.com/photo-1605728515502-13b52fd77e03?w=400&h=225&fit=crop',
-  'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=400&h=225&fit=crop',
-  'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&h=225&fit=crop',
-  'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=400&h=225&fit=crop',
-  'https://images.unsplash.com/photo-1509347528160-9a9e33742cdb?w=400&h=225&fit=crop',
-  'https://images.unsplash.com/photo-1518676590629-3dcbd9c5a5c9?w=400&h=225&fit=crop'
+  null // Only gradient option - use MOPL service colors
 ]
 
 export function PlaylistCreationModal({ isOpen, onClose, onCreatePlaylist }: PlaylistCreationModalProps) {

@@ -120,7 +120,7 @@ export function CategoryPage({ category, onContentPlay, onContentDetail, onAddTo
   const convertToContentItem = (content: ContentDto): ContentItem => ({
     id: content.id, // UUID 원본 문자열 사용
     title: content.title,
-    thumbnail: content.thumbnail || generateThumbnailUrl(content.contentType),
+    thumbnail: content.thumbnail || '',
     type: content.contentType.toLowerCase() as 'movie' | 'tv' | 'sports',
     duration: content.duration || '120분',
     description: content.description || '',
@@ -129,20 +129,6 @@ export function CategoryPage({ category, onContentPlay, onContentDetail, onAddTo
     year: content.year || new Date(content.releaseDate).getFullYear()
   })
 
-  // 썸네일 URL 생성 함수
-  const generateThumbnailUrl = (contentType: string): string => {
-    const baseUrl = 'https://images.unsplash.com/photo-'
-    switch (contentType) {
-      case 'MOVIE':
-        return `${baseUrl}1489599538883-17dd35352ad5?w=400&h=600&fit=crop&crop=face`
-      case 'TV':
-        return `${baseUrl}1536440136628-849c177e76a1?w=400&h=600&fit=crop&crop=face`
-      case 'SPORTS':
-        return `${baseUrl}1578662996442-48f60103fc96?w=400&h=600&fit=crop&crop=face`
-      default:
-        return `${baseUrl}1489599538883-17dd35352ad5?w=400&h=600&fit=crop&crop=face`
-    }
-  }
 
   const handleAddToPlaylist = (content: ContentDto) => {
     onAddToPlaylist?.(convertToContentItem(content))
@@ -231,17 +217,12 @@ export function CategoryPage({ category, onContentPlay, onContentDetail, onAddTo
                   className="bg-card rounded-lg overflow-hidden border border-white/10 hover:border-[#4ecdc4]/30 transition-all duration-300 group cursor-pointer"
                   onClick={() => handleContentDetail(content)}
                 >
-                  {/* Thumbnail */}
-                  <div className="aspect-[3/4] relative overflow-hidden">
-                    <img
-                      src={content.thumbnail || generateThumbnailUrl(content.contentType)}
-                      alt={content.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement
-                        target.src = generateThumbnailUrl(content.contentType)
-                      }}
-                    />
+                  {/* Thumbnail Placeholder */}
+                  <div className="aspect-[3/4] relative overflow-hidden bg-gradient-to-br from-[#4ecdc4] to-[#44b3a7] group-hover:scale-105 transition-transform duration-300 flex items-center justify-center">
+                    <div className="text-center text-black">
+                      <div className="text-2xl font-bold opacity-60">MOPL</div>
+                      <div className="text-xs opacity-40 mt-1">{content.contentType}</div>
+                    </div>
                     
                     {/* Overlay */}
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">

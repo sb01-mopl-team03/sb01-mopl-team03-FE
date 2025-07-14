@@ -23,7 +23,7 @@ interface ProfileModalProps {
   authenticatedFetch: (url: string, options?: RequestInit) => Promise<Response> // 인증된 API 호출 함수
   onUserProfileOpen?: (targetUserId: string) => void // 사용자 프로필 열기 함수
   refreshUserProfile?: () => void // 사용자 프로필 새로고침 함수
-  getPlaylists?: (name?: string) => Promise<any[]> // 플레이리스트 조회 함수
+  getPlaylists?: (keyword?: string) => Promise<any[]> // 플레이리스트 조회 함수
   onPlaylistOpen?: (playlistId: string) => void // 플레이리스트 열기 함수
 }
 
