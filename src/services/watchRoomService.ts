@@ -130,17 +130,16 @@ export class WatchRoomService {
       // 여기서는 시청방 정보만 조회하고 실제 입장은 WebSocket 연결 후 처리
       const room = await this.getWatchRoom(roomId)
       
-      // 기본적인 정보만 반환하고, 실제 참여자 정보와 비디오 상태는 WebSocket을 통해 업데이트
+      // 새로운 WatchRoomInfoDto 구조에 맞춰 반환
       return {
-        room,
-        participants: [],
-        videoStatus: {
-          videoControlAction: 'PAUSE' as any,
-          currentTime: 0,
-          isPlaying: false,
-          timestamp: Date.now()
-        },
-        chatMessages: []
+        id: room.id,
+        title: room.title,
+        newUserId: '', // WebSocket에서 업데이트됨
+        contentTitle: room.contentTitle,
+        participantsInfoDto: {
+          participantDtoList: [],
+          participantsCount: 0
+        }
       }
     } catch (error) {
       console.error('시청방 입장 오류:', error)
@@ -185,6 +184,7 @@ export class WatchRoomService {
     
     const lowerQuery = query.toLowerCase()
     return rooms.filter(room => 
+      room.title.toLowerCase().includes(lowerQuery) ||
       room.contentTitle.toLowerCase().includes(lowerQuery) ||
       room.ownerName.toLowerCase().includes(lowerQuery)
     )

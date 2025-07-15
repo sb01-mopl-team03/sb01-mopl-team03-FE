@@ -12,11 +12,9 @@ interface DashboardProps {
   onPageChange?: (page: string) => void
   onPlaylistOpen?: (playlistId: string) => void
   onContentPlay?: (content: { id: string; title: string; thumbnail: string; type: 'movie' | 'tv' | 'sports'; duration: string; description: string }) => void
-  getPlaylists?: (keyword?: string) => Promise<PlaylistDto[]>
-  currentUserId?: string
 }
 
-export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay, getPlaylists, currentUserId }: DashboardProps) {
+export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: DashboardProps) {
   const [liveRooms, setLiveRooms] = useState<WatchRoomDto[]>([])
   const [featuredContent, setFeaturedContent] = useState<ContentDto[]>([])
   const [myPlaylists, setMyPlaylists] = useState<PlaylistDto[]>([])

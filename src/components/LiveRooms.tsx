@@ -267,7 +267,7 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen }: LiveR
                       <span className="text-xs text-white/60">방금 전</span>
                     </div>
                     
-                    <h3 className="font-medium mb-2 line-clamp-1">{room.contentTitle}</h3>
+                    <h3 className="font-medium mb-2 line-clamp-1">{room.title}</h3>
                     <p className="text-sm text-white/60 mb-3 line-clamp-1">{room.contentTitle}</p>
                     
                     <div className="flex items-center gap-2">
@@ -347,7 +347,7 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen }: LiveR
                     )}
                   </div>
                   
-                  <h3 className="font-medium mb-1 line-clamp-1 text-sm">{room.contentTitle}</h3>
+                  <h3 className="font-medium mb-1 line-clamp-1 text-sm">{room.title}</h3>
                   <p className="text-xs text-white/60 mb-2 line-clamp-1">{room.contentTitle}</p>
                   
                   <div className="flex items-center justify-between">

@@ -1392,7 +1392,7 @@ export default function App() {
             } : undefined}
           />
         ) : (
-          <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} getPlaylists={getPlaylists} currentUserId={userId || undefined} />
+          <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
         )
       case 'watch-party':
         return currentWatchRoomId && userId ? (
@@ -1404,7 +1404,7 @@ export default function App() {
             onUserProfileOpen={handleUserProfileOpen}
           />
         ) : (
-          <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} getPlaylists={getPlaylists} currentUserId={userId || undefined} />
+          <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
         )
       case 'user-profile':
         return selectedUserId ? (
@@ -1418,12 +1418,12 @@ export default function App() {
             getPlaylists={getPlaylists}
           />
         ) : (
-          <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} getPlaylists={getPlaylists} currentUserId={userId || undefined} />
+          <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
         )
       case 'live':
         return <LiveRooms onJoinRoom={handleJoinRoom} onCreateRoom={handleCreateRoomModal} onUserProfileOpen={handleUserProfileOpen} />
       default:
-        return <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} getPlaylists={getPlaylists} />
+        return <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
     }
   }
 
