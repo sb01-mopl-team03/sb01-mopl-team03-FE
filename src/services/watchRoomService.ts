@@ -6,7 +6,7 @@ import {
 } from '../types/watchRoom'
 
 export class WatchRoomService {
-  private baseUrl = '/api/rooms'
+  private baseUrl = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/rooms`
 
   private async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
     const accessToken = localStorage.getItem('accessToken')

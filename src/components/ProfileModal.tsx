@@ -69,7 +69,7 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
   const fetchUserData = async () => {
     try {
       //실제 구현에서는 사용자 정보를 가져오는 API 호출
-      const response = await fetch(`/api/users/${currentViewingUserId}`, {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/users/${currentViewingUserId}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         }
@@ -93,7 +93,7 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
   // 팔로워 목록 조회
   const fetchFollowers = async () => {
     try {
-      const response = await authenticatedFetch(`/api/follows/${currentViewingUserId}/followers`)
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/${currentViewingUserId}/followers`)
       if (!response.ok) {
         throw new Error('팔로워 목록을 가져오는데 실패했습니다.')
       }
@@ -107,7 +107,7 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
   // 팔로잉 목록 조회
   const fetchFollowing = async () => {
     try {
-      const response = await authenticatedFetch(`/api/follows/${currentViewingUserId}/following`)
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/${currentViewingUserId}/following`)
       if (!response.ok) {
         throw new Error('팔로잉 목록을 가져오는데 실패했습니다.')
       }
@@ -123,7 +123,7 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
     if (!userId || !currentViewingUserId) return
 
     try {
-      const response = await authenticatedFetch(`/api/follows/${userId}/is-following/${currentViewingUserId}`)
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/${userId}/is-following/${currentViewingUserId}`)
       if (!response.ok) {
         throw new Error('팔로우 상태를 확인하는데 실패했습니다.')
       }
@@ -142,7 +142,7 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
     try {
       if (isFollowing) {
         // 언팔로우
-        const response = await authenticatedFetch('/api/follows/unfollow', {
+        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/unfollow`, {
           method: 'DELETE',
           body: JSON.stringify({
             followerId: userId,
@@ -159,7 +159,7 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
         setFollowers(prev => prev.filter(follower => follower.id !== userId))
       } else {
         // 팔로우
-        const response = await authenticatedFetch('/api/follows/follow', {
+        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/follow`, {
           method: 'POST',
           body: JSON.stringify({
             followerId: userId,
@@ -259,7 +259,7 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
       }
 
       // API 호출
-      const response = await fetch(`/api/users/${userId}`, {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/users/${userId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`

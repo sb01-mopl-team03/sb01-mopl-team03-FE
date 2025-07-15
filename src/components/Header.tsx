@@ -143,7 +143,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
     if (!userId) return
 
     try {
-      const response = await authenticatedFetch(`/api/notifications`)
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/notifications`)
       
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
@@ -202,7 +202,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
       console.log(`SSE 연결 시도 중... (${retryCount + 1}/${maxRetries})`)
       
       const newEventSource = new EventSourcePolyfill(
-        `http://localhost:8080/api/notifications/subscribe`,
+        `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/notifications/subscribe`,
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -404,7 +404,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
   const handleLogout = async () => {
     try {
       // 로그아웃 API 호출
-      const response = await authenticatedFetch('/api/auth/logout', {
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/auth/logout`, {
         method: 'POST'
       })
 

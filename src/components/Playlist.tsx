@@ -249,16 +249,10 @@ export function Playlist({
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <div className="glass-effect rounded-lg p-4">
             <div className="text-2xl font-bold gradient-text">{playlists.length}</div>
             <p className="text-white/60 text-sm">총 플레이리스트</p>
-          </div>
-          <div className="glass-effect rounded-lg p-4">
-            <div className="text-2xl font-bold gradient-text">
-              {playlists.reduce((sum, playlist) => sum + (playlist.contentCount || playlist.playlistContents?.length || 0), 0)}
-            </div>
-            <p className="text-white/60 text-sm">총 콘텐츠</p>
           </div>
           <div className="glass-effect rounded-lg p-4">
             <div className="text-2xl font-bold gradient-text">
