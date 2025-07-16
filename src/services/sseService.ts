@@ -28,6 +28,8 @@ export class SSEManager {
   private reconnectTimeout: NodeJS.Timeout | null = null
   private tokenRefreshTimeout: NodeJS.Timeout | null = null
   private isManualDisconnect: boolean = false
+  private lastHeartbeat: number = Date.now()
+  private heartbeatCheckInterval: NodeJS.Timeout | null = null
   
   private onNotification?: (notification: SSENotification) => void
   private onAuthRequired?: () => void
@@ -95,6 +97,8 @@ export class SSEManager {
     this.eventSource.onopen = () => {
       console.log('SSE 연결 성공')
       this.reconnectAttempts = 0
+      this.lastHeartbeat = Date.now()
+      this.startHeartbeatCheck()
       this.onConnectionOpen?.()
     }
 
@@ -117,11 +121,20 @@ export class SSEManager {
     this.eventSource.onerror = (event: any) => {
       console.error('SSE 연결 오류:', event)
       this.onConnectionError?.(event)
-      this.handleReconnect()
+      
+      if (this.eventSource?.readyState === EventSourcePolyfill.CLOSED) {
+        console.log('SSE 연결이 닫혔습니다. 재연결을 시도합니다.')
+        this.eventSource = null
+        this.handleReconnect()
+      } else if (this.eventSource?.readyState === EventSourcePolyfill.CONNECTING) {
+        console.log('SSE 연결 중...')
+      }
     }
   }
 
   private handleMessage(event: any): void {
+    this.lastHeartbeat = Date.now()
+    
     if (event.data === 'ping') {
       return
     }
@@ -143,16 +156,43 @@ export class SSEManager {
     }
   }
 
+  private startHeartbeatCheck(): void {
+    this.clearHeartbeatCheck()
+    
+    this.heartbeatCheckInterval = setInterval(() => {
+      const timeSinceLastHeartbeat = Date.now() - this.lastHeartbeat
+      
+      if (timeSinceLastHeartbeat > 60000) {
+        console.warn('Heartbeat 타임아웃 - 연결 상태를 확인합니다.')
+        
+        if (this.eventSource?.readyState !== EventSourcePolyfill.OPEN) {
+          console.error('SSE 연결이 끊어졌습니다. 재연결을 시도합니다.')
+          this.handleReconnect()
+        }
+      }
+    }, 30000)
+  }
+
+  private clearHeartbeatCheck(): void {
+    if (this.heartbeatCheckInterval) {
+      clearInterval(this.heartbeatCheckInterval)
+      this.heartbeatCheckInterval = null
+    }
+  }
+
   private async refreshTokenAndConnect(): Promise<void> {
     try {
+      console.log('토큰 갱신 및 재연결 시도 중...')
       const newToken = await this.refreshToken()
       if (newToken) {
+        console.log('토큰 갱신 성공, SSE 재연결 중...')
         this.connect()
       } else {
+        console.error('토큰 갱신 실패 - 인증 필요')
         this.handleAuthRequired()
       }
     } catch (error) {
-      console.error('토큰 갱신 실패:', error)
+      console.error('토큰 갱신 중 예외 발생:', error)
       this.handleAuthRequired()
     }
   }
@@ -174,21 +214,36 @@ export class SSEManager {
 
   private handleReconnect(): void {
     if (this.isManualDisconnect) {
+      console.log('수동 연결 해제 상태이므로 재연결하지 않습니다.')
       return
     }
 
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++
-      const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000)
+      
+      let delay: number
+      if (this.reconnectAttempts === 1) {
+        delay = 1000
+      } else {
+        delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000)
+      }
       
       console.log(`${delay}ms 후 재연결 시도 (${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
       
       this.clearReconnectTimeout()
-      this.reconnectTimeout = setTimeout(() => {
-        this.connect()
+      this.reconnectTimeout = setTimeout(async () => {
+        console.log('재연결 시도 중...')
+        
+        const token = this.getValidToken()
+        if (!token || this.getTokenExpiry(token)! <= Date.now()) {
+          console.log('토큰이 유효하지 않습니다. 토큰 갱신 후 재연결합니다.')
+          await this.refreshTokenAndConnect()
+        } else {
+          this.connect()
+        }
       }, delay)
     } else {
-      console.error('최대 재연결 시도 횟수 초과')
+      console.error('최대 재연결 시도 횟수 초과. 인증이 필요합니다.')
       this.handleAuthRequired()
     }
   }
@@ -208,28 +263,47 @@ export class SSEManager {
 
   private async refreshToken(): Promise<string | null> {
     if (this.onTokenRefresh) {
-      return await this.onTokenRefresh()
+      try {
+        return await this.onTokenRefresh()
+      } catch (error) {
+        console.error('커스텀 토큰 갱신 실패:', error)
+        return null
+      }
     }
 
-    const refreshToken = localStorage.getItem('refreshToken')
-    if (!refreshToken) return null
-
     try {
+      console.log('토큰 갱신 시도 중...')
       const response = await fetch(`${this.apiBaseUrl}/api/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       })
 
       if (response.ok) {
         const newToken = await response.text()
         const cleanToken = newToken.replace(/"/g, '')
-        localStorage.setItem('accessToken', cleanToken)
-        return cleanToken
+        
+        if (cleanToken && cleanToken !== 'null') {
+          localStorage.setItem('accessToken', cleanToken)
+          console.log('토큰 갱신 성공')
+          return cleanToken
+        } else {
+          console.error('유효하지 않은 토큰 응답:', newToken)
+          return null
+        }
+      } else {
+        console.error(`토큰 갱신 실패: ${response.status} ${response.statusText}`)
+        if (response.status === 401) {
+          console.log('Refresh token이 만료되었습니다.')
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('refreshToken')
+        }
+        return null
       }
-      
-      return null
     } catch (error) {
-      console.error('토큰 갱신 오류:', error)
+      console.error('토큰 갱신 네트워크 오류:', error)
       return null
     }
   }
@@ -256,6 +330,7 @@ export class SSEManager {
     this.isManualDisconnect = true
     this.clearReconnectTimeout()
     this.clearTokenRefreshTimeout()
+    this.clearHeartbeatCheck()
     
     if (this.eventSource) {
       this.eventSource.close()
@@ -267,6 +342,26 @@ export class SSEManager {
     this.isManualDisconnect = false
     this.reconnectAttempts = 0
     this.connect()
+  }
+
+  public forceReconnect(): void {
+    console.log('강제 재연결 시도 중...')
+    this.isManualDisconnect = false
+    this.reconnectAttempts = 0
+    this.clearReconnectTimeout()
+    this.clearTokenRefreshTimeout()
+    this.disconnect()
+    
+    setTimeout(async () => {
+      const token = this.getValidToken()
+      if (!token || this.getTokenExpiry(token)! <= Date.now()) {
+        console.log('강제 재연결: 토큰 갱신 후 연결')
+        await this.refreshTokenAndConnect()
+      } else {
+        console.log('강제 재연결: 기존 토큰으로 연결')
+        this.connect()
+      }
+    }, 500)
   }
 
   public isConnected(): boolean {

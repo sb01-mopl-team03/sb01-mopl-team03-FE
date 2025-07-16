@@ -19,6 +19,7 @@ export interface UseSSEReturn {
   connect: () => void
   disconnect: () => void
   reconnect: () => void
+  forceReconnect: () => void
 }
 
 export const useSSE = (options: UseSSEOptions): UseSSEReturn => {
@@ -96,6 +97,12 @@ export const useSSE = (options: UseSSEOptions): UseSSEReturn => {
     }
   }, [])
 
+  const forceReconnect = useCallback(() => {
+    if (sseManagerRef.current) {
+      sseManagerRef.current.forceReconnect()
+    }
+  }, [])
+
   useEffect(() => {
     if (userId) {
       const config: SSEManagerConfig = {
@@ -157,6 +164,7 @@ export const useSSE = (options: UseSSEOptions): UseSSEReturn => {
     reconnectAttempts,
     connect,
     disconnect,
-    reconnect
+    reconnect,
+    forceReconnect
   }
 }

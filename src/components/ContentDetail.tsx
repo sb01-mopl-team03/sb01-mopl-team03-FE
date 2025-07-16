@@ -48,21 +48,66 @@ const StarRating = ({
     lg: 'w-6 h-6'
   }
 
+  const handleStarClick = (starNumber: number, event: React.MouseEvent) => {
+    if (!editable || !onChange) return
+    
+    const rect = event.currentTarget.getBoundingClientRect()
+    const clickX = event.clientX - rect.left
+    const starWidth = rect.width
+    const isLeftHalf = clickX < starWidth / 2
+    
+    const newRating = isLeftHalf ? starNumber - 0.5 : starNumber
+    onChange(newRating)
+  }
+
+  const handleStarHover = (starNumber: number, event: React.MouseEvent) => {
+    if (!editable) return
+    
+    const rect = event.currentTarget.getBoundingClientRect()
+    const hoverX = event.clientX - rect.left
+    const starWidth = rect.width
+    const isLeftHalf = hoverX < starWidth / 2
+    
+    const newHoverRating = isLeftHalf ? starNumber - 0.5 : starNumber
+    setHoverRating(newHoverRating)
+  }
+
+
   return (
-    <div className="star-rating">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <Star
-          key={star}
-          className={`${sizeClasses[size]} ${
-            star <= (hoverRating || rating)
-              ? 'star filled'
-              : 'star'
-          } ${editable ? 'cursor-pointer' : 'cursor-default'}`}
-          onClick={editable ? () => onChange?.(star) : undefined}
-          onMouseEnter={editable ? () => setHoverRating(star) : undefined}
-          onMouseLeave={editable ? () => setHoverRating(0) : undefined}
-        />
-      ))}
+    <div className="star-rating flex items-center">
+      {[1, 2, 3, 4, 5].map((star) => {
+        const currentRating = hoverRating || rating
+        const isHalfFilled = star - 0.5 <= currentRating && star > currentRating
+        const isFilled = star <= currentRating
+        
+        return (
+          <div key={star} className="relative inline-block">
+            {/* Background star (empty) */}
+            <Star
+              className={`${sizeClasses[size]} text-gray-600 ${
+                editable ? 'cursor-pointer' : 'cursor-default'
+              }`}
+              onClick={editable ? (e) => handleStarClick(star, e) : undefined}
+              onMouseMove={editable ? (e) => handleStarHover(star, e) : undefined}
+              onMouseLeave={editable ? () => setHoverRating(0) : undefined}
+            />
+            
+            {/* Filled portion */}
+            {(isFilled || isHalfFilled) && (
+              <div 
+                className={`absolute top-0 left-0 overflow-hidden ${
+                  isHalfFilled ? 'w-1/2' : 'w-full'
+                }`}
+                style={{ pointerEvents: 'none' }}
+              >
+                <Star
+                  className={`${sizeClasses[size]} text-yellow-400 fill-yellow-400`}
+                />
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -279,7 +324,7 @@ export function ContentDetail({ content, onBack, onPlay, currentUser }: ContentD
               <div className="flex items-center gap-4 mb-6">
                 <div className="flex items-center gap-2">
                   <StarRating rating={averageRating} size="lg" />
-                  <span className="text-xl">{averageRating.toFixed(1)}</span>
+                  <span className="text-xl">{averageRating % 1 === 0 ? averageRating.toFixed(0) : averageRating.toFixed(1)}</span>
                   <span className="text-white/60">({reviews.length}개 리뷰)</span>
                 </div>
               </div>
