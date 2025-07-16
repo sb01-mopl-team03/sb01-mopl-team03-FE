@@ -133,7 +133,7 @@ export default function App() {
         console.log('토큰 재발급 시작')
         
         // refreshToken은 쿠키에 저장되어 있으므로 별도 헤더 필요 없음
-        const response = await fetch('/api/auth/refresh', {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/auth/refresh`, {
           method: 'POST',
           credentials: 'include', // 쿠키 포함
         })
@@ -210,11 +210,11 @@ export default function App() {
     // Authorization 헤더 추가
     // 인증이 필요 없는 경로 예외 처리
     const authFreeUrls = [
-      '/api/auth/login',
-      '/api/auth/refresh',
-      '/api/auth/change-password',
-      '/api/auth/temp-password',
-      '/api/users'
+      `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/auth/login`,
+      `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/auth/refresh`,
+      `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/auth/change-password`,
+      `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/auth/temp-password`,
+      `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/users`
     ]
 
     const isAuthFree = authFreeUrls.some(authUrl => url.startsWith(authUrl))
@@ -276,7 +276,7 @@ export default function App() {
   // 알림 삭제 API 호출 함수들
   const deleteNotification = async (notificationId: string) => {
     try {
-      await authenticatedFetch(`/api/notifications/${notificationId}`, {
+      await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/notifications/${notificationId}`, {
         method: 'DELETE'
       })
     } catch (error) {
@@ -287,7 +287,7 @@ export default function App() {
 
   const deleteAllNotifications = async () => {
     try {
-      await authenticatedFetch('/api/notifications', {
+      await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/notifications`, {
         method: 'DELETE'
       })
     } catch (error) {
@@ -299,7 +299,7 @@ export default function App() {
   // DM 관련 API 호출 함수들
   const getDmRooms = async () => {
     try {
-      const response = await authenticatedFetch('/api/dmRooms/')
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/dmRooms/`)
       if (!response.ok) {
         throw new Error('DM 룸 목록 조회 실패')
       }
@@ -312,7 +312,7 @@ export default function App() {
 
   const getOrCreateDmRoom = async (userBId: string) => {
     try {
-      const response = await authenticatedFetch(`/api/dmRooms/userRoom?userB=${userBId}`)
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/dmRooms/userRoom?userB=${userBId}`)
       if (!response.ok) {
         throw new Error('DM 룸 생성/조회 실패')
       }
@@ -331,7 +331,7 @@ export default function App() {
       if (pagingDto?.cursor) queryParams.append('cursor', pagingDto.cursor)
       if (pagingDto?.size) queryParams.append('size', pagingDto.size.toString())
       
-      const response = await authenticatedFetch(`/api/dm/${roomId}?${queryParams}`)
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/dm/${roomId}?${queryParams}`)
       if (!response.ok) {
         throw new Error('DM 메시지 목록 조회 실패')
       }
@@ -349,7 +349,7 @@ export default function App() {
       const searchKeyword = keyword && keyword.trim() !== '' ? keyword.trim() : ''
       const queryParams = new URLSearchParams()
       queryParams.append('keyword', searchKeyword)
-      const url = `/api/playlists/search?${queryParams}`
+      const url = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists/search?${queryParams}`
       
       console.log('🚀 API 호출:', url)
       
@@ -385,7 +385,7 @@ export default function App() {
 
   const getPlaylistById = async (playlistId: string) => {
     try {
-      const url = `/api/playlists/${playlistId}`
+      const url = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists/${playlistId}`
       console.log('🚀 플레이리스트 조회 API 호출:', url)
       
       const response = await authenticatedFetch(url)
@@ -436,7 +436,7 @@ export default function App() {
 
       console.log('🚀 플레이리스트 생성 요청:', playlistCreateRequest)
       
-      const response = await authenticatedFetch('/api/playlists', {
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists`, {
         method: 'POST',
         body: JSON.stringify(playlistCreateRequest)
       })
@@ -482,7 +482,7 @@ export default function App() {
         contentIds: contentIds
       }
 
-      const response = await authenticatedFetch(`/api/playlists/${playlistId}/contents`, {
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists/${playlistId}/contents`, {
         method: 'POST',
         body: JSON.stringify(addContentsRequest)
       })
@@ -523,7 +523,7 @@ export default function App() {
         contentIds: contentIds
       }
 
-      const response = await authenticatedFetch(`/api/playlists/${playlistId}/contents`, {
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists/${playlistId}/contents`, {
         method: 'DELETE',
         body: JSON.stringify(deleteContentsRequest)
       })
@@ -562,7 +562,7 @@ export default function App() {
 
       console.log('📤 구독 요청 데이터:', requestBody)
 
-      const response = await authenticatedFetch('/api/subscriptions', {
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/subscriptions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -594,7 +594,7 @@ export default function App() {
     try {
       console.log('🔕 구독 취소 요청 시작:', { subscriptionId })
 
-      const response = await authenticatedFetch(`/api/subscriptions/${subscriptionId}`, {
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/subscriptions/${subscriptionId}`, {
         method: 'DELETE'
       })
 
@@ -774,7 +774,7 @@ export default function App() {
     setIsLoggedIn(true)
   }
 
-  // 페이지 변경 시 localStorage에 저장
+  // 페이지 변경 시 localStorage에 저장 및 브라우저 히스토리 업데이트
   const handlePageChange = (page: string) => {
     console.log('🔄 페이지 변경:', page) // 디버깅용
     if (page === 'create-room') {
@@ -783,6 +783,20 @@ export default function App() {
     }
     setCurrentPage(page)
     localStorage.setItem('currentPage', page)
+    
+    // 브라우저 히스토리에 상태 저장
+    const stateData = {
+      page,
+      selectedPlaylistId,
+      selectedContentDetail,
+      selectedUserId,
+      currentWatchRoomId
+    }
+    
+    // 새로운 히스토리 엔트리 생성
+    window.history.pushState(stateData, '', window.location.pathname)
+    console.log('🔄 브라우저 히스토리 업데이트:', stateData) // 디버깅용
+    
     // Reset selections when changing pages
     if (page !== 'playlist-detail') {
       setSelectedPlaylistId(null)
@@ -802,6 +816,126 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('currentPage', currentPage)
   }, [currentPage])
+
+  // 브라우저 네비게이션(뒤로가기/앞으로가기) 처리
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      console.log('🔍 popstate 이벤트 발생:', event.state) // 디버깅용
+      
+      // 상태 복원
+      if (event.state) {
+        // 브라우저에 저장된 상태가 있으면 그것을 사용
+        console.log('🔄 브라우저 히스토리 상태로 복원:', event.state) // 디버깅용
+        
+        const targetPage = event.state.page || 'home'
+        
+        // 헤더를 숨기는 페이지들에 대한 안전장치
+        // 메인 페이지에서 뒤로가기 시 이런 페이지들로 가지 않도록 보장
+        const headerHiddenPages = ['watch-party', 'content-detail', 'user-profile']
+        
+        if (headerHiddenPages.includes(targetPage)) {
+          // 헤더를 숨기는 페이지의 경우, 관련 데이터가 있는지 확인
+          if (targetPage === 'watch-party' && !event.state.currentWatchRoomId) {
+            // 시청방 페이지인데 룸 ID가 없으면 라이브 페이지로
+            console.log('⚠️ 시청방 페이지이지만 룸 ID가 없어서 라이브 페이지로 이동')
+            setCurrentPage('live')
+            localStorage.setItem('currentPage', 'live')
+          } else if (targetPage === 'content-detail' && !event.state.selectedContentDetail) {
+            // 콘텐츠 상세 페이지인데 콘텐츠가 없으면 홈으로
+            console.log('⚠️ 콘텐츠 상세 페이지이지만 콘텐츠가 없어서 홈으로 이동')
+            setCurrentPage('home')
+            localStorage.setItem('currentPage', 'home')
+          } else if (targetPage === 'user-profile' && !event.state.selectedUserId) {
+            // 사용자 프로필 페이지인데 사용자 ID가 없으면 홈으로
+            console.log('⚠️ 사용자 프로필 페이지이지만 사용자 ID가 없어서 홈으로 이동')
+            setCurrentPage('home')
+            localStorage.setItem('currentPage', 'home')
+          } else {
+            // 데이터가 있으면 정상적으로 복원
+            setCurrentPage(targetPage)
+            localStorage.setItem('currentPage', targetPage)
+          }
+        } else {
+          // 일반 페이지는 그대로 복원
+          setCurrentPage(targetPage)
+          localStorage.setItem('currentPage', targetPage)
+        }
+        
+        // 관련 상태들 복원
+        setSelectedPlaylistId(event.state.selectedPlaylistId || null)
+        setSelectedContentDetail(event.state.selectedContentDetail || null)
+        setSelectedUserId(event.state.selectedUserId || null)
+        setCurrentWatchRoomId(event.state.currentWatchRoomId || null)
+      } else {
+        // 상태가 없으면 localStorage에서 복원하되, 헤더 숨김 페이지는 홈으로
+        const savedPage = localStorage.getItem('currentPage') || 'home'
+        console.log('🔄 localStorage에서 페이지 복원:', savedPage) // 디버깅용
+        
+        const headerHiddenPages = ['watch-party', 'content-detail', 'user-profile']
+        
+        if (headerHiddenPages.includes(savedPage)) {
+          // 헤더를 숨기는 페이지가 저장되어 있으면 홈으로
+          console.log('⚠️ 헤더 숨김 페이지가 저장되어 있어서 홈으로 이동')
+          setCurrentPage('home')
+          localStorage.setItem('currentPage', 'home')
+        } else {
+          setCurrentPage(savedPage)
+        }
+        
+        // 상세 페이지 상태들은 초기화 (localStorage에 저장되지 않으므로)
+        setSelectedPlaylistId(null)
+        setSelectedContentDetail(null)
+        setSelectedUserId(null)
+        setCurrentWatchRoomId(null)
+      }
+    }
+
+    // 초기 페이지 로드 시 브라우저 히스토리에 현재 상태 저장
+    const initializeHistory = () => {
+      // 헤더를 숨기는 페이지들은 초기 상태에서 안전한 페이지로 변경
+      const headerHiddenPages = ['watch-party', 'content-detail', 'user-profile']
+      let safePage = currentPage
+      
+      // 현재 페이지가 헤더 숨김 페이지인데 필요한 데이터가 없으면 홈으로
+      if (headerHiddenPages.includes(currentPage)) {
+        if (currentPage === 'watch-party' && !currentWatchRoomId) {
+          safePage = 'home'
+        } else if (currentPage === 'content-detail' && !selectedContentDetail) {
+          safePage = 'home'
+        } else if (currentPage === 'user-profile' && !selectedUserId) {
+          safePage = 'home'
+        }
+      }
+      
+      const initialState = {
+        page: safePage,
+        selectedPlaylistId,
+        selectedContentDetail,
+        selectedUserId,
+        currentWatchRoomId
+      }
+      
+      // 페이지가 변경되었다면 상태도 업데이트
+      if (safePage !== currentPage) {
+        setCurrentPage(safePage)
+        localStorage.setItem('currentPage', safePage)
+        console.log('⚠️ 초기 페이지를 안전한 페이지로 변경:', currentPage, '->', safePage)
+      }
+      
+      // 현재 히스토리 엔트리를 초기 상태로 교체
+      window.history.replaceState(initialState, '', window.location.pathname)
+      console.log('🔄 초기 히스토리 상태 설정:', initialState) // 디버깅용
+    }
+
+    // 컴포넌트 마운트 시 히스토리 초기화
+    initializeHistory()
+
+    window.addEventListener('popstate', handlePopState)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, []) // 빈 의존성 배열로 한 번만 실행
 
   // 로그아웃 시 페이지 상태 초기화
   const handleLogout = () => {
@@ -833,7 +967,7 @@ export default function App() {
     
     try {
       // 임시 비밀번호 발급 API 호출 (TempPasswordRequest 스펙에 맞춤)
-      const response = await fetch('/api/auth/temp-password', {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/auth/temp-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -868,32 +1002,81 @@ export default function App() {
   const handlePlaylistDetailOpen = (playlistId: string) => {
     setSelectedPlaylistId(playlistId)
     setCurrentPage('playlist-detail')
+    localStorage.setItem('currentPage', 'playlist-detail')
+    
+    // 브라우저 히스토리에 상태 저장
+    const stateData = {
+      page: 'playlist-detail',
+      selectedPlaylistId: playlistId,
+      selectedContentDetail,
+      selectedUserId,
+      currentWatchRoomId
+    }
+    window.history.pushState(stateData, '', window.location.pathname)
+    console.log('🔄 플레이리스트 상세 페이지 히스토리 업데이트:', stateData) // 디버깅용
   }
 
   const handleBackToPlaylists = () => {
     setSelectedPlaylistId(null)
     setCurrentPage('playlist')
+    localStorage.setItem('currentPage', 'playlist')
+    
+    // 브라우저 히스토리에 상태 저장
+    const stateData = {
+      page: 'playlist',
+      selectedPlaylistId: null,
+      selectedContentDetail,
+      selectedUserId,
+      currentWatchRoomId
+    }
+    window.history.pushState(stateData, '', window.location.pathname)
+    console.log('🔄 플레이리스트 목록 히스토리 업데이트:', stateData) // 디버깅용
   }
 
   // Content Detail Handlers
   const handleContentDetail = (content: ContentItem) => {
     setSelectedContentDetail(content)
     setCurrentPage('content-detail')
+    localStorage.setItem('currentPage', 'content-detail')
+    
+    // 브라우저 히스토리에 상태 저장
+    const stateData = {
+      page: 'content-detail',
+      selectedPlaylistId,
+      selectedContentDetail: content,
+      selectedUserId,
+      currentWatchRoomId
+    }
+    window.history.pushState(stateData, '', window.location.pathname)
+    console.log('🔄 콘텐츠 상세 페이지 히스토리 업데이트:', stateData) // 디버깅용
   }
 
   const handleBackFromContentDetail = () => {
-    setSelectedContentDetail(null)
     // Go back to the appropriate category page
+    let targetPage = 'home'
     if (selectedContentDetail) {
       const typeToPage = {
         movie: 'movies',
         tv: 'tv',
         sports: 'sports'
       }
-      setCurrentPage(typeToPage[selectedContentDetail.type] || 'home')
-    } else {
-      setCurrentPage('home')
+      targetPage = typeToPage[selectedContentDetail.type] || 'home'
     }
+    
+    setSelectedContentDetail(null)
+    setCurrentPage(targetPage)
+    localStorage.setItem('currentPage', targetPage)
+    
+    // 브라우저 히스토리에 상태 저장
+    const stateData = {
+      page: targetPage,
+      selectedPlaylistId,
+      selectedContentDetail: null,
+      selectedUserId,
+      currentWatchRoomId
+    }
+    window.history.pushState(stateData, '', window.location.pathname)
+    console.log('🔄 콘텐츠 상세에서 뒤로가기 히스토리 업데이트:', stateData) // 디버깅용
   }
 
   // Playlist Handlers
@@ -981,6 +1164,18 @@ export default function App() {
     setCurrentWatchRoomId(room.id)
     setWatchRoomAutoConnect(false) // 참여 시에는 수동 연결
     setCurrentPage('watch-party')
+    localStorage.setItem('currentPage', 'watch-party')
+    
+    // 브라우저 히스토리에 상태 저장
+    const stateData = {
+      page: 'watch-party',
+      selectedPlaylistId,
+      selectedContentDetail,
+      selectedUserId,
+      currentWatchRoomId: room.id
+    }
+    window.history.pushState(stateData, '', window.location.pathname)
+    console.log('🔄 시청방 참여 히스토리 업데이트:', stateData) // 디버깅용
   }
 
   const handleCreateRoom = (room: WatchRoomDto) => {
@@ -988,12 +1183,36 @@ export default function App() {
     setWatchRoomAutoConnect(true) // 방 생성 시에는 자동 연결
     setShowCreateRoomModal(false)
     setCurrentPage('watch-party')
+    localStorage.setItem('currentPage', 'watch-party')
+    
+    // 브라우저 히스토리에 상태 저장
+    const stateData = {
+      page: 'watch-party',
+      selectedPlaylistId,
+      selectedContentDetail,
+      selectedUserId,
+      currentWatchRoomId: room.id
+    }
+    window.history.pushState(stateData, '', window.location.pathname)
+    console.log('🔄 시청방 생성 히스토리 업데이트:', stateData) // 디버깅용
   }
 
   const handleBackFromWatchRoom = () => {
     setCurrentWatchRoomId(null)
     setWatchRoomAutoConnect(false) // 상태 리셋
     setCurrentPage('live')
+    localStorage.setItem('currentPage', 'live')
+    
+    // 브라우저 히스토리에 상태 저장
+    const stateData = {
+      page: 'live',
+      selectedPlaylistId,
+      selectedContentDetail,
+      selectedUserId,
+      currentWatchRoomId: null
+    }
+    window.history.pushState(stateData, '', window.location.pathname)
+    console.log('🔄 시청방에서 뒤로가기 히스토리 업데이트:', stateData) // 디버깅용
   }
 
   const handleCreateRoomModal = () => {
@@ -1030,6 +1249,18 @@ export default function App() {
   const handleUserProfileOpen = (targetUserId: string) => {
     setSelectedUserId(targetUserId)
     setCurrentPage('user-profile')
+    localStorage.setItem('currentPage', 'user-profile')
+    
+    // 브라우저 히스토리에 상태 저장
+    const stateData = {
+      page: 'user-profile',
+      selectedPlaylistId,
+      selectedContentDetail,
+      selectedUserId: targetUserId,
+      currentWatchRoomId
+    }
+    window.history.pushState(stateData, '', window.location.pathname)
+    console.log('🔄 사용자 프로필 페이지 히스토리 업데이트:', stateData) // 디버깅용
   }
 
   const handleMyProfileOpen = () => {
@@ -1041,6 +1272,18 @@ export default function App() {
   const handleBackFromUserProfile = () => {
     setSelectedUserId(null)
     setCurrentPage('home')
+    localStorage.setItem('currentPage', 'home')
+    
+    // 브라우저 히스토리에 상태 저장
+    const stateData = {
+      page: 'home',
+      selectedPlaylistId,
+      selectedContentDetail,
+      selectedUserId: null,
+      currentWatchRoomId
+    }
+    window.history.pushState(stateData, '', window.location.pathname)
+    console.log('🔄 사용자 프로필에서 뒤로가기 히스토리 업데이트:', stateData) // 디버깅용
   }
 
   const handleMessageClick = () => {

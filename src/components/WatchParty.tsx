@@ -153,18 +153,20 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
       }
     },
     onRoomSync: (roomInfo: WatchRoomInfoDto) => {
-      if (roomInfo.room) {
-        setRoomData(roomInfo.room)
+      // 새로운 WatchRoomInfoDto 구조에 맞춰 방 정보 업데이트
+      const roomData: WatchRoomDto = {
+        id: roomInfo.id,
+        title: roomInfo.title,
+        contentTitle: roomInfo.contentTitle,
+        ownerId: '', // WebSocket에서는 제공하지 않음
+        ownerName: '', // WebSocket에서는 제공하지 않음
+        createdAt: '', // WebSocket에서는 제공하지 않음
+        headCount: roomInfo.participantsInfoDto.participantsCount
       }
+      setRoomData(roomData)
 
-      // participantsInfoDto 대신 participants 또는 participantDtoList로 유연하게 처리
-      let participantList: any[] = []
-      if ('participants' in roomInfo && Array.isArray((roomInfo as any).participants)) {
-        participantList = (roomInfo as any).participants
-      } else if ('participantDtoList' in roomInfo && Array.isArray((roomInfo as any).participantDtoList)) {
-        participantList = (roomInfo as any).participantDtoList
-      }
-
+      // participantsInfoDto에서 참여자 정보 추출
+      const participantList = roomInfo.participantsInfoDto.participantDtoList || []
       const mappedParticipants = participantList.map((p: any) => ({
         userId: p.userId ?? p.username ?? '',
         userName: p.userName ?? p.username ?? '',
@@ -174,12 +176,6 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
         joinedAt: p.joinedAt ?? ''
       }))
       setParticipants(mappedParticipants)
-
-      // 초기 비디오 상태 설정
-      if (roomInfo.videoStatus) {
-        setIsPlaying(roomInfo.videoStatus.isPlaying)
-        setCurrentTime(roomInfo.videoStatus.currentTime)
-      }
       
       // YouTube API 토큰 받은 후 활성화
       // if (youtubePlayer && roomInfo.videoStatus) {
@@ -214,18 +210,26 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
       try {
         // Load room data
         const roomInfo = await watchRoomService.joinWatchRoom(roomId)
-        setRoomData(roomInfo.room)
+        const roomData: WatchRoomDto = {
+          id: roomInfo.id,
+          title: roomInfo.title,
+          contentTitle: roomInfo.contentTitle,
+          ownerId: '', // WebSocket에서 업데이트됨
+          ownerName: '', // WebSocket에서 업데이트됨
+          createdAt: '', // WebSocket에서 업데이트됨
+          headCount: roomInfo.participantsInfoDto.participantsCount
+        }
+        setRoomData(roomData)
         
-        // Check if current user is host
-        const currentUserParticipant = roomInfo.participants.find(p => p.userId === userId)
-        setIsHost(currentUserParticipant?.isHost || false)
+        // Check if current user is host - 초기에는 확인 불가, WebSocket에서 업데이트됨
+        setIsHost(false)
         
-        // Set initial video state
-        setIsPlaying(roomInfo.videoStatus.isPlaying)
-        setCurrentTime(roomInfo.videoStatus.currentTime)
+        // Set initial video state - 초기 상태는 정지
+        setIsPlaying(false)
+        setCurrentTime(0)
         
-        // Set initial chat messages
-        setChatMessages(roomInfo.chatMessages)
+        // Set initial chat messages - 초기에는 빈 배열
+        setChatMessages([])
         
         // Connect to WebSocket if shouldConnect is true
         if (shouldConnect) {
@@ -314,8 +318,7 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
     // Send video control to other users
     sendVideoControl({
       videoControlAction: newIsPlaying ? VideoControlAction.PLAY : VideoControlAction.PAUSE,
-      currentTime,
-      isPlaying: newIsPlaying
+      currentTime
     })
   }
   
@@ -339,8 +342,7 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
   //     if (isHost && isConnected) {
   //       sendVideoControl({
   //         videoControlAction: newIsPlaying ? VideoControlAction.PLAY : VideoControlAction.PAUSE,
-  //         currentTime: newCurrentTime,
-  //         isPlaying: newIsPlaying
+  //         currentTime: newCurrentTime
   //       })
   //     }
   //   }

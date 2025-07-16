@@ -2,12 +2,12 @@
 
 export interface WatchRoomDto {
   id: string
+  title: string
+  contentTitle: string
   ownerId: string
   ownerName: string
-  contentTitle: string
-  headCount: number
   createdAt: string
-  videoStatus?: VideoSyncDto
+  headCount: number
 }
 
 export interface WatchRoomCreateRequest {
@@ -16,12 +16,11 @@ export interface WatchRoomCreateRequest {
 }
 
 export interface WatchRoomInfoDto {
-  room: WatchRoomDto
-  participants: ParticipantDto[]
-  videoStatus: VideoSyncDto
-  chatMessages: WatchRoomMessageDto[]
-  // 백엔드 WebSocket 동기화 메시지 대응 (옵셔널)
-  participantsInfoDto?: ParticipantsInfoDto
+  id: string
+  title: string
+  newUserId: string
+  contentTitle: string
+  participantsInfoDto: ParticipantsInfoDto
 }
 
 export interface ParticipantDto {
@@ -62,7 +61,6 @@ export interface VideoSyncDto {
 export interface VideoControlRequest {
   videoControlAction: VideoControlAction
   currentTime: number
-  isPlaying: boolean
 }
 
 export enum VideoControlAction {
@@ -99,4 +97,12 @@ export interface BackendWatchRoomSyncDto {
   newUserId: string
   contentTitle: string
   participantsInfoDto: BackendParticipantsInfoDto
+}
+
+// 전체 시청방 정보 (WebSocket 없이 조회할 때 사용)
+export interface WatchRoomDetailDto {
+  room: WatchRoomDto
+  participants: ParticipantDto[]
+  videoStatus: VideoSyncDto
+  chatMessages: WatchRoomMessageDto[]
 }

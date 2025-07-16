@@ -175,7 +175,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
     if (!userId) return
 
     try {
-      const response = await authenticatedFetch(`/api/notifications`)
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/notifications`)
       
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
@@ -311,7 +311,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
   const handleLogout = async () => {
     try {
       // 로그아웃 API 호출
-      const response = await authenticatedFetch('/api/auth/logout', {
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/auth/logout`, {
         method: 'POST'
       })
 
