@@ -736,9 +736,18 @@ export default function App() {
     const checkTokenExpiration = async () => {
       const accessToken = localStorage.getItem('accessToken')
       if (accessToken && isTokenExpired(accessToken)) {
-        // 백엔드 연결 실패로 인해 바로 로그아웃 처리
-        console.log('토큰 만료됨, 백엔드 연결 실패로 인해 로그아웃 처리')
-        handleTokenExpiration()
+        console.log('토큰 만료 감지, 재발급 시도')
+        // 토큰 재발급 시도
+        const newAccessToken = await refreshAccessToken()
+        if (newAccessToken) {
+          localStorage.setItem('accessToken', newAccessToken)
+          const userId = extractUserIdFromToken(newAccessToken)
+          if (userId) setUserId(userId)
+          console.log('토큰 재발급 성공')
+        } else {
+          console.log('토큰 재발급 실패, 자동 로그아웃')
+          handleTokenExpiration()
+        }
       }
     }
 
