@@ -1,9 +1,11 @@
 // 시청방 관련 타입 정의
+import { ContentDto } from './content'
 
 export interface WatchRoomDto {
   id: string
   title: string
   contentTitle: string
+  contentId?: string // 백엔드에서 contentId 제공 시 사용
   ownerId: string
   ownerName: string
   createdAt: string
@@ -12,15 +14,16 @@ export interface WatchRoomDto {
 
 export interface WatchRoomCreateRequest {
   contentId: string
-  ownerId: string // 생성자 uuid 추가
+  ownerId: string
+  title: string
 }
 
 export interface WatchRoomInfoDto {
   id: string
   title: string
   newUserId: string
-  contentTitle: string
   participantsInfoDto: ParticipantsInfoDto
+  content: ContentDto
 }
 
 export interface ParticipantDto {
@@ -34,7 +37,8 @@ export interface ParticipantDto {
 
 export interface ParticipantsInfoDto {
   participantDtoList: ParticipantDto[]
-  participantsCount: number
+  participantCount: number
+  participantsCount?: number // 기존 코드와의 호환성을 위해 추가
 }
 
 export interface WatchRoomMessageDto {
@@ -70,7 +74,7 @@ export enum VideoControlAction {
 }
 
 export interface WatchRoomSortOptions {
-  sortBy: 'participants' | 'latest' | 'oldest'
+  sortBy: 'createdAt' | 'title' | 'participantCount'
 }
 
 export interface WatchRoomSearchOptions {
@@ -89,7 +93,7 @@ export interface BackendParticipantDto {
 
 export interface BackendParticipantsInfoDto {
   participantDtoList: BackendParticipantDto[]
-  participantsCount: number
+  participantCount: number
 }
 
 export interface BackendWatchRoomSyncDto {

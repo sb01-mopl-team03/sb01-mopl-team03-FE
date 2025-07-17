@@ -3,17 +3,11 @@ import {
   ArrowLeft, 
   Play, 
   Pause, 
-  Volume2, 
-  VolumeX, 
-  Volume1,
-  Maximize, 
-  Minimize,
   MessageCircle, 
   Users, 
   Send, 
   ChevronRight,
   ChevronLeft,
-  Settings,
   Wifi,
   WifiOff,
   Crown,
@@ -23,10 +17,10 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Badge } from './ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
-import { Slider } from './ui/slider'
-// YouTube API 토큰 받은 후 활성화
-// import { YouTubePlayer } from './YouTubePlayer'
 import { useWatchRoomWebSocket } from '../hooks/useWatchRoomWebSocket'
+import { useYouTubeApi } from '../hooks/useYouTubeApi'
+import { useYouTubePlayer } from '../hooks/useYouTubePlayer'
+import { VideoControls } from './VideoControls'
 import { 
   WatchRoomDto, 
   WatchRoomMessageDto, 
@@ -35,6 +29,7 @@ import {
   WatchRoomInfoDto,
   VideoControlAction
 } from '../types/watchRoom'
+import { ContentDto } from '../types/content'
 import { watchRoomService } from '../services/watchRoomService'
 
 interface WatchPartyProps {
@@ -54,17 +49,32 @@ interface Participant {
   joinedAt: string
 }
 
+// YouTube URL에서 비디오 ID 추출하는 함수
+function extractYouTubeVideoId(url: string): string | null {
+  if (!url) return null
+  
+  // 다양한 YouTube URL 형식 처리
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/watch\?.*v=([a-zA-Z0-9_-]{11})/
+  ]
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern)
+    if (match) {
+      return match[1]
+    }
+  }
+  
+  return null
+}
+
 export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUserProfileOpen }: WatchPartyProps) {
   // Video State
-  const [isMuted, setIsMuted] = useState(false)
-  const [volume, setVolume] = useState([80])
-  const [showVolumeSlider, setShowVolumeSlider] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  // lastSyncTime 제거 (useYouTubeSync에서 관리)
-  // YouTube API 토큰 받은 후 활성화
-  // const [youtubePlayer, setYoutubePlayer] = useState<YT.Player | null>(null)
-  // const youtubeVideoId = 'ZnR0JiQGxRE' // https://www.youtube.com/watch?v=ZnR0JiQGxRE&t=131s
-  // const startTime = 131 // 시작 시간 (초)
+  
+  // YouTube API 로드
+  const { isLoaded: apiLoaded } = useYouTubeApi(true)
 
   // UI State
   const [isChatOpen, setIsChatOpen] = useState(true)
@@ -73,25 +83,57 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
 
   // Data State
   const [roomData, setRoomData] = useState<WatchRoomDto | null>(null)
+  const [contentData, setContentData] = useState<ContentDto | null>(null)
   const [participants, setParticipants] = useState<Participant[]>([])
   const [chatMessages, setChatMessages] = useState<WatchRoomMessageDto[]>([])
   const [isHost, setIsHost] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [youtubeUrl, setYoutubeUrl] = useState<string | null>(null)
 
   // Refs
   const chatEndRef = useRef<HTMLDivElement>(null)
-  const volumeTimeoutRef = useRef<NodeJS.Timeout>()
 
   // ========== API INTEGRATION POINT - START ==========
-  // TODO: Replace with actual video duration from content data
-  // Example: const totalDuration = roomData?.contentDuration || 0
-  const totalDuration = 7200 // 2 hours for demo - should come from content data
+  // YouTube API에서 동영상 길이를 가져오므로 임시값 사용
+  // TODO: YouTube API getDuration() 사용 또는 contentData에서 duration 정보 활용
+  const totalDuration = contentData?.duration ? parseInt(contentData.duration) : 7200 // 콘텐츠 데이터에서 가져오거나 2시간 기본값
   // ========== API INTEGRATION POINT - END ==========
   
   // 비디오 상태 관리
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
+  
+  // YouTube 비디오 ID 추출
+  const youtubeVideoId = youtubeUrl ? extractYouTubeVideoId(youtubeUrl) : null
+  
+  // YouTube 플레이어 훅 (비디오 ID가 있을 때만 초기화)
+  const playerController = useYouTubePlayer({
+    videoId: youtubeVideoId || '',
+    containerId: 'youtube-player-container',
+    isHost,
+    onStateChange: (isPlaying, currentTime, action) => {
+      console.log('🎵 Video state changed:', { isPlaying, currentTime, action, isHost, isConnected })
+      setIsPlaying(isPlaying)
+      setCurrentTime(currentTime)
+      
+      // 호스트만 다른 사용자에게 동기화 신호 전송
+      if (isHost && isConnected) {
+        console.log('🚀 Sending video control to server:', { action, currentTime })
+        sendVideoControl({
+          videoControlAction: action,
+          currentTime
+        })
+      }
+    },
+    onError: (error) => {
+      console.error('YouTube Player Error:', error)
+      setError(error)
+    }
+  })
+  
+  // 비디오 ID가 없으면 플레이어 사용 불가
+  const canUsePlayer = Boolean(youtubeVideoId && apiLoaded)
 
   // WebSocket connection
   const {
@@ -109,6 +151,8 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
       setChatMessages(prev => [...prev, message])
     },
     onParticipantsUpdate: (participantsInfo: ParticipantsInfoDto) => {
+      console.log('👥 Participants updated:', participantsInfo)
+      
       // 방어적으로 participantDtoList가 undefined/null일 때 빈 배열 처리
       const mappedParticipants = (participantsInfo.participantDtoList ?? []).map((p: any) => ({
         userId: p.userId ?? p.username ?? '', // 백엔드 필드명이 username일 수도 있으니 보완
@@ -122,7 +166,16 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
       
       // Check if current user is host
       const currentUserParticipant = mappedParticipants.find(p => p.userId === userId)
-      setIsHost(currentUserParticipant?.isHost || false)
+      const newIsHost = currentUserParticipant?.isHost || false
+      
+      console.log('🔑 Host status check:', { 
+        currentUserId: userId, 
+        currentUserParticipant,
+        newIsHost,
+        allParticipants: mappedParticipants
+      })
+      
+      setIsHost(newIsHost)
 
       // 동적으로 참여: 아직 연결 안되어 있으면 자동 참여
       if (!isConnected && typeof connect === 'function') {
@@ -132,38 +185,39 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
     onVideoSync: (syncData: VideoSyncDto) => {
       // Only sync if not too old and not host
       if (Date.now() - syncData.timestamp < 5000 && !isHost) {
-        // YouTube API 토큰 받은 후 활성화
-        // const latency = Date.now() - syncData.timestamp
-        // const adjustedTime = syncData.currentTime + (latency / 1000)
-        // 
-        // try {
-        //   if (syncData.isPlaying) {
-        //     youtubePlayer.seekTo(adjustedTime, true)
-        //     youtubePlayer.playVideo()
-        //   } else {
-        //     youtubePlayer.pauseVideo()
-        //   }
-        // } catch (error) {
-        //   console.error('YouTube sync error:', error)
-        // }
+        console.log('Video sync received:', syncData)
         
-        // 임시로 상태만 동기화
+        // YouTube 플레이어 동기화
+        if (playerController.syncVideo) {
+          playerController.syncVideo({
+            action: syncData.videoControlAction,
+            currentTime: syncData.currentTime,
+            isPlaying: syncData.isPlaying
+          })
+        }
+        
+        // 상태 동기화
         setIsPlaying(syncData.isPlaying)
         setCurrentTime(syncData.currentTime)
       }
     },
     onRoomSync: (roomInfo: WatchRoomInfoDto) => {
+      console.log('🏠 Room sync received:', roomInfo)
+      
       // 새로운 WatchRoomInfoDto 구조에 맞춰 방 정보 업데이트
       const roomData: WatchRoomDto = {
         id: roomInfo.id,
         title: roomInfo.title,
-        contentTitle: roomInfo.contentTitle,
+        contentTitle: roomInfo.content.title,
         ownerId: '', // WebSocket에서는 제공하지 않음
         ownerName: '', // WebSocket에서는 제공하지 않음
         createdAt: '', // WebSocket에서는 제공하지 않음
-        headCount: roomInfo.participantsInfoDto.participantsCount
+        headCount: roomInfo.participantsInfoDto.participantsCount || roomInfo.participantsInfoDto.participantCount
       }
       setRoomData(roomData)
+
+      // 전체 콘텐츠 데이터 설정
+      setContentData(roomInfo.content)
 
       // participantsInfoDto에서 참여자 정보 추출
       const participantList = roomInfo.participantsInfoDto.participantDtoList || []
@@ -177,23 +231,28 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
       }))
       setParticipants(mappedParticipants)
       
-      // YouTube API 토큰 받은 후 활성화
-      // if (youtubePlayer && roomInfo.videoStatus) {
-      //   try {
-      //     youtubePlayer.seekTo(roomInfo.videoStatus.currentTime, true)
-      //     if (roomInfo.videoStatus.isPlaying) {
-      //       youtubePlayer.playVideo()
-      //     } else {
-      //       youtubePlayer.pauseVideo()
-      //     }
-      //   } catch (error) {
-      //     console.error('Initial video state sync error:', error)
-      //   }
-      // }
       setChatMessages((roomInfo as any).chatMessages ?? [])
 
       const currentUserParticipant = mappedParticipants.find((p: any) => p.userId === userId)
-      setIsHost(currentUserParticipant?.isHost || false)
+      const newIsHost = currentUserParticipant?.isHost || false
+      
+      console.log('🔑 Host status check (room sync):', { 
+        currentUserId: userId, 
+        currentUserParticipant,
+        newIsHost,
+        allParticipants: mappedParticipants
+      })
+      
+      setIsHost(newIsHost)
+
+      // 백엔드에서 제공하는 content.youtubeUrl 사용
+      if (roomInfo.content?.youtubeUrl) {
+        console.log('🎬 Setting YouTube URL from content.youtubeUrl:', roomInfo.content.youtubeUrl)
+        setYoutubeUrl(roomInfo.content.youtubeUrl)
+      } else {
+        console.warn('⚠️ No content.youtubeUrl provided, using fallback')
+        setYoutubeUrl('https://www.youtube.com/watch?v=ZnR0JiQGxRE&t=131s')
+      }
 
       setLoading(false)
     },
@@ -213,15 +272,19 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
         const roomData: WatchRoomDto = {
           id: roomInfo.id,
           title: roomInfo.title,
-          contentTitle: roomInfo.contentTitle,
+          contentTitle: roomInfo.content.title,
           ownerId: '', // WebSocket에서 업데이트됨
           ownerName: '', // WebSocket에서 업데이트됨
           createdAt: '', // WebSocket에서 업데이트됨
-          headCount: roomInfo.participantsInfoDto.participantsCount
+          headCount: roomInfo.participantsInfoDto.participantsCount || roomInfo.participantsInfoDto.participantCount
         }
         setRoomData(roomData)
         
+        // 전체 콘텐츠 데이터 설정
+        setContentData(roomInfo.content)
+        
         // Check if current user is host - 초기에는 확인 불가, WebSocket에서 업데이트됨
+        console.log('🔑 Initial host status set to false (will be updated via WebSocket)')
         setIsHost(false)
         
         // Set initial video state - 초기 상태는 정지
@@ -230,6 +293,15 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
         
         // Set initial chat messages - 초기에는 빈 배열
         setChatMessages([])
+        
+        // 백엔드에서 제공하는 content.youtubeUrl 사용
+        if (roomInfo.content?.youtubeUrl) {
+          console.log('🎬 Initial: Setting YouTube URL from content.youtubeUrl:', roomInfo.content.youtubeUrl)
+          setYoutubeUrl(roomInfo.content.youtubeUrl)
+        } else {
+          console.warn('⚠️ Initial: No content.youtubeUrl provided, using fallback')
+          setYoutubeUrl('https://www.youtube.com/watch?v=ZnR0JiQGxRE&t=131s')
+        }
         
         // Connect to WebSocket if shouldConnect is true
         if (shouldConnect) {
@@ -258,138 +330,65 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages])
 
-  // 비디오 시간 업데이트 (임시 타이머)
-  useEffect(() => {
-    if (!isPlaying) return
-    
-    const interval = setInterval(() => {
-      setCurrentTime(prev => prev + 1)
-    }, 1000)
-    
-    return () => clearInterval(interval)
-  }, [isPlaying])
-  
-  // YouTube API 토큰 받은 후 활성화
-  // useEffect(() => {
-  //   if (!youtubePlayer || !isPlaying) return
-  //   
-  //   const interval = setInterval(() => {
-  //     const time = Math.floor(youtubePlayer.getCurrentTime())
-  //     setCurrentTime(time)
-  //   }, 1000)
-  //   
-  //   return () => clearInterval(interval)
-  // }, [youtubePlayer, isPlaying])
-
-  // Auto-hide volume slider
-  useEffect(() => {
-    if (showVolumeSlider) {
-      if (volumeTimeoutRef.current) {
-        clearTimeout(volumeTimeoutRef.current)
-      }
-      volumeTimeoutRef.current = setTimeout(() => {
-        setShowVolumeSlider(false)
-      }, 3000)
-    }
-    return () => {
-      if (volumeTimeoutRef.current) {
-        clearTimeout(volumeTimeoutRef.current)
-      }
-    }
-  }, [showVolumeSlider, volume])
+  // 비디오 시간 업데이트는 YouTube 플레이어에서 자동으로 처리됨
 
   const handlePlayPause = () => {
+    console.log('🎮 Play/Pause button clicked:', { isHost, isPlaying, isConnected, canUsePlayer })
+    
     // Only host can control video
     if (!isHost) {
+      console.log('❌ Not host, cannot control video')
       return
     }
 
-    // YouTube API 토큰 받은 후 활성화
-    // if (isPlaying) {
-    //   youtubePlayer.pauseVideo()
-    // } else {
-    //   youtubePlayer.playVideo()
-    // }
+    if (!canUsePlayer) {
+      console.log('❌ Player not ready, cannot control video')
+      return
+    }
+
+    // YouTube 플레이어 제어
+    if (isPlaying) {
+      console.log('⏸️ Pausing video')
+      playerController.pause()
+    } else {
+      console.log('▶️ Playing video')
+      playerController.play()
+    }
     
-    // 임시로 상태만 토글
-    const newIsPlaying = !isPlaying
-    setIsPlaying(newIsPlaying)
-    
-    // Send video control to other users
-    sendVideoControl({
-      videoControlAction: newIsPlaying ? VideoControlAction.PLAY : VideoControlAction.PAUSE,
-      currentTime
-    })
+    // 상태는 onStateChange에서 자동으로 업데이트되고
+    // 다른 사용자에게 동기화 신호도 자동으로 전송됨
   }
   
-  // YouTube API 토큰 받은 후 활성화
-  // const handleYouTubeReady = (player: YT.Player) => {
-  //   setYoutubePlayer(player)
-  //   
-  //   // 초기 시간 설정
-  //   player.seekTo(startTime, true)
-  //   
-  //   // 플레이어 상태 변경 감지
-  //   const handleStateChange = (event: YT.OnStateChangeEvent) => {
-  //     const state = event.data
-  //     const newIsPlaying = state === window.YT.PlayerState.PLAYING
-  //     const newCurrentTime = Math.floor(player.getCurrentTime())
-  //     
-  //     setIsPlaying(newIsPlaying)
-  //     setCurrentTime(newCurrentTime)
-  //     
-  //     // 호스트만 다른 사용자에게 동기화 신호 전송
-  //     if (isHost && isConnected) {
-  //       sendVideoControl({
-  //         videoControlAction: newIsPlaying ? VideoControlAction.PLAY : VideoControlAction.PAUSE,
-  //         currentTime: newCurrentTime
-  //       })
-  //     }
-  //   }
-  //   
-  //   player.addEventListener('onStateChange', handleStateChange)
-  //   
-  //   // 방 정보가 이미 로드되었다면 초기 상태 적용
-  //   if (roomData?.videoStatus) {
-  //     try {
-  //       player.seekTo(roomData.videoStatus.currentTime, true)
-  //       if (roomData.videoStatus.isPlaying) {
-  //         player.playVideo()
-  //       }
-  //       setIsPlaying(roomData.videoStatus.isPlaying)
-  //       setCurrentTime(roomData.videoStatus.currentTime)
-  //     } catch (error) {
-  //       console.error('Initial state apply error:', error)
-  //     }
-  //   }
-  // }
-
-  const handleVolumeClick = () => {
-    if (showVolumeSlider) {
-      setIsMuted(!isMuted)
-    } else {
-      setShowVolumeSlider(true)
-    }
-  }
-
-  const handleVolumeChange = (newVolume: number[]) => {
-    setVolume(newVolume)
-    setIsMuted(newVolume[0] === 0)
+  const handleSeek = (seconds: number) => {
+    console.log('🎯 Seek requested:', { isHost, seconds, isConnected, canUsePlayer })
     
-    // ========== API INTEGRATION POINT - START ==========
-    // TODO: Sync volume with other participants or save user preference
-    console.log(`Volume changed to: ${newVolume[0]}%`)
-    // ========== API INTEGRATION POINT - END ==========
+    // Only host can control video
+    if (!isHost) {
+      console.log('❌ Not host, cannot seek video')
+      return
+    }
+
+    if (!canUsePlayer) {
+      console.log('❌ Player not ready, cannot seek video')
+      return
+    }
+    
+    // YouTube 플레이어 제어
+    console.log('⏩ Seeking to:', seconds)
+    playerController.seekTo(seconds)
+    
+    // 현재 재생 상태를 유지하면서 시간을 이동
+    sendVideoControl({
+      videoControlAction: VideoControlAction.SEEK,
+      currentTime: seconds
+    })
   }
 
-  const getVolumeIcon = () => {
-    if (isMuted || volume[0] === 0) {
-      return <VolumeX className="w-5 h-5" />
-    } else if (volume[0] < 50) {
-      return <Volume1 className="w-5 h-5" />
-    } else {
-      return <Volume2 className="w-5 h-5" />
-    }
+  const handleVolumeChange = (volume: number) => {
+    // YouTube 플레이어 볼륨 제어
+    playerController.setVolume(volume)
+    
+    console.log(`Volume changed to: ${volume}%`)
   }
 
   const handleFullscreenToggle = () => {
@@ -410,15 +409,6 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
     setNewMessage('')
   }
 
-  const formatTime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600)
-    const minutes = Math.floor((seconds % 3600) / 60)
-    const secs = seconds % 60
-    if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-    }
-    return `${minutes}:${secs.toString().padStart(2, '0')}`
-  }
 
   const formatMessageTime = (timestamp: string) => {
     return new Date(timestamp).toLocaleTimeString('ko-KR', { 
@@ -427,7 +417,6 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
     })
   }
 
-  const progress = (currentTime / totalDuration) * 100
 
   // Loading state
   if (loading) {
@@ -528,7 +517,9 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
             
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <h1 className="text-lg font-medium">{roomData.contentTitle}</h1>
+                <h1 className="text-lg font-medium">
+                  {roomData.title}
+                </h1>
                 {isHost && (
                   <Badge variant="secondary" className="text-xs">
                     <Crown className="w-3 h-3 mr-1" />
@@ -537,7 +528,15 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
                 )}
               </div>
               <div className="flex items-center space-x-2 text-sm text-white/60">
-                <span>콘텐츠: {roomData.contentTitle}</span>
+                <span>
+                  {contentData ? contentData.title : roomData.contentTitle}
+                </span>
+                {contentData && contentData.contentType && (
+                  <>
+                    <span>•</span>
+                    <span>{contentData.contentType}</span>
+                  </>
+                )}
                 <span>•</span>
                 <div className="flex items-center space-x-1">
                   <Users className="w-4 h-4" />
@@ -591,21 +590,59 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
       <div className="flex-1 flex min-h-0">
         {/* Video Player */}
         <div className={`flex-1 bg-black relative`}>
-          {/* Video Placeholder */}
+          {/* YouTube Player */}
           <div className="relative w-full h-full flex items-center justify-center bg-black">
-            {/* YouTube API 토큰 받은 후 활성화 */}
-            {/* <YouTubePlayer
-              videoId={youtubeVideoId}
-              onReady={handleYouTubeReady}
-              autoplay={false}
-              controls={false}
-              startTime={startTime}
-            /> */}
+            {/* YouTube API 로딩 상태 */}
+            {!apiLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black">
+                <div className="text-center">
+                  <Loader2 className="w-8 h-8 animate-spin text-[#4ecdc4] mx-auto mb-4" />
+                  <p className="text-white/60">YouTube API 로딩 중...</p>
+                </div>
+              </div>
+            )}
             
-            {/* 임시 비디오 placeholder */}
-            <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-white text-4xl font-bold">
-              {roomData?.contentTitle?.charAt(0).toUpperCase() || 'V'}
-            </div>
+            {/* 비디오 ID가 없을 때 */}
+            {apiLoaded && !youtubeVideoId && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black">
+                <div className="text-center">
+                  {contentData && contentData.thumbnailUrl ? (
+                    <div className="w-32 h-48 mx-auto mb-4 rounded-lg overflow-hidden">
+                      <img 
+                        src={contentData.thumbnailUrl} 
+                        alt={contentData.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement
+                          target.style.display = 'none'
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 bg-gray-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Play className="w-8 h-8 text-white" />
+                    </div>
+                  )}
+                  <p className="text-white/60">
+                    {contentData ? `${contentData.title} 준비 중...` : '비디오 정보를 불러오는 중...'}
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {/* YouTube Player Container */}
+            <div 
+              id="youtube-player-container" 
+              className="w-full h-full"
+              style={{ display: canUsePlayer ? 'block' : 'none' }}
+            />
+            
+            {/* Fallback placeholder */}
+            {!canUsePlayer && (
+              <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-white text-4xl font-bold">
+                {roomData?.contentTitle?.charAt(0).toUpperCase() || 'V'}
+              </div>
+            )}
             
             {/* Video Overlay Controls */}
             <div className="absolute inset-0 bg-black/30 flex items-center justify-center group">
@@ -633,101 +670,20 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
               )}
             </div>
 
-            {/* Bottom Controls */}
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
-              {/* Progress Bar */}
-              <div className="mb-4">
-                <div className="w-full bg-white/20 rounded-full h-1 mb-2">
-                  <div 
-                    className="bg-[#4ecdc4] h-1 rounded-full transition-all duration-300"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-between text-sm text-white/80">
-                  <span>{formatTime(currentTime)}</span>
-                  <span>{formatTime(totalDuration)}</span>
-                </div>
-              </div>
-
-              {/* Control Buttons */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handlePlayPause}
-                    className="hover:bg-white/10"
-                  >
-                    {isPlaying ? 
-                      <Pause className="w-5 h-5" /> : 
-                      <Play className="w-5 h-5" />
-                    }
-                  </Button>
-                  
-                  {/* Volume Control */}
-                  <div className="relative flex items-center">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleVolumeClick}
-                      className="hover:bg-white/10"
-                    >
-                      {getVolumeIcon()}
-                    </Button>
-                    
-                    {/* Volume Slider */}
-                    {showVolumeSlider && (
-                      <div className="absolute left-12 bottom-0 flex items-center rounded-lg px-3 py-2">
-                        <Slider
-                          value={volume}
-                          onValueChange={handleVolumeChange}
-                          max={100}
-                          step={1}
-                          className="w-20"
-                        />
-                        <span className="ml-2 text-xs text-white/80 min-w-[2rem]">
-                          {volume[0]}%
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="hover:bg-white/10"
-                  >
-                    <Settings className="w-5 h-5" />
-                  </Button>
-                  
-                  {/* Chat toggle in fullscreen mode */}
-                  {isFullscreen && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setIsChatOpen(!isChatOpen)}
-                      className="hover:bg-white/10"
-                    >
-                      <MessageCircle className="w-5 h-5" />
-                    </Button>
-                  )}
-                  
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleFullscreenToggle}
-                    className="hover:bg-white/10"
-                  >
-                    {isFullscreen ? 
-                      <Minimize className="w-5 h-5" /> : 
-                      <Maximize className="w-5 h-5" />
-                    }
-                  </Button>
-                </div>
-              </div>
-            </div>
+            {/* Video Controls */}
+            <VideoControls
+              playerController={playerController}
+              isHost={isHost}
+              isPlaying={isPlaying}
+              currentTime={currentTime}
+              totalDuration={totalDuration}
+              onPlayPause={handlePlayPause}
+              onSeek={handleSeek}
+              onVolumeChange={handleVolumeChange}
+              onFullscreenToggle={handleFullscreenToggle}
+              isFullscreen={isFullscreen}
+              disabled={!isConnected || !canUsePlayer}
+            />
 
             {/* Fullscreen Exit Hint */}
             {isFullscreen && (

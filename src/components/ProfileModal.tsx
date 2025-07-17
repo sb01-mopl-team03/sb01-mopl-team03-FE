@@ -23,12 +23,11 @@ interface ProfileModalProps {
   authenticatedFetch: (url: string, options?: RequestInit) => Promise<Response> // 인증된 API 호출 함수
   onUserProfileOpen?: (targetUserId: string) => void // 사용자 프로필 열기 함수
   refreshUserProfile?: () => void // 사용자 프로필 새로고침 함수
-  getPlaylists?: (keyword?: string) => Promise<any[]> // 플레이리스트 조회 함수
   onPlaylistOpen?: (playlistId: string) => void // 플레이리스트 열기 함수
 }
 
 
-export function ProfileModal({ isOpen, onClose, userId, targetUserId, authenticatedFetch, onUserProfileOpen, refreshUserProfile, getPlaylists, onPlaylistOpen }: ProfileModalProps) {
+export function ProfileModal({ isOpen, onClose, userId, targetUserId, authenticatedFetch, onUserProfileOpen, refreshUserProfile, onPlaylistOpen }: ProfileModalProps) {
   const [name, setName] = useState('김모플')
   const [email, setEmail] = useState('user@moplay.kr')
   const [showProfileSelector, setShowProfileSelector] = useState(false)
@@ -69,11 +68,7 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
   const fetchUserData = async () => {
     try {
       //실제 구현에서는 사용자 정보를 가져오는 API 호출
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/users/${currentViewingUserId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-        }
-      })
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/users/${currentViewingUserId}`)
       if (!response.ok) throw new Error('사용자 정보를 가져오는데 실패했습니다.')
       const data = await response.json()
       setUserData(data)
@@ -101,6 +96,7 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
       setFollowers(followersData)
     } catch (error) {
       console.error('팔로워 목록 조회 오류:', error)
+      setFollowers([]) // 오류 시 빈 배열로 설정
     }
   }
 
@@ -115,6 +111,7 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
       setFollowing(followingData)
     } catch (error) {
       console.error('팔로잉 목록 조회 오류:', error)
+      setFollowing([]) // 오류 시 빈 배열로 설정
     }
   }
 
@@ -131,6 +128,7 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
       setIsFollowing(isFollowingData)
     } catch (error) {
       console.error('팔로우 상태 확인 오류:', error)
+      setIsFollowing(false) // 오류 시 false로 설정
     }
   }
 
@@ -144,6 +142,9 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
         // 언팔로우
         const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/unfollow`, {
           method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          },
           body: JSON.stringify({
             followerId: userId,
             followingId: currentViewingUserId
@@ -161,6 +162,9 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
         // 팔로우
         const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/follow`, {
           method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
           body: JSON.stringify({
             followerId: userId,
             followingId: currentViewingUserId
@@ -192,13 +196,21 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
 
   // 플레이리스트 목록 조회
   const fetchPlaylists = async () => {
-    if (!getPlaylists) return
+    if (!currentViewingUserId) return
     
     try {
-      const playlistsData = await getPlaylists()
+      // 특정 사용자의 플레이리스트 조회 API 사용
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/users/${currentViewingUserId}/playlists`)
+      
+      if (!response.ok) {
+        throw new Error('플레이리스트 목록을 가져오는데 실패했습니다.')
+      }
+      
+      const playlistsData = await response.json()
       setPlaylists(playlistsData)
     } catch (error) {
       console.error('플레이리스트 목록 조회 오류:', error)
+      setPlaylists([]) // 오류 시 빈 배열로 설정
     }
   }
 
@@ -264,6 +276,7 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
         },
+        credentials: 'include', // 쿠키 포함
         body: formData
       })
       

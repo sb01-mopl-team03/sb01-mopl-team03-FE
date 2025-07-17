@@ -97,7 +97,21 @@ export default function App() {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]))
       const currentTime = Date.now() / 1000 // 현재 시간을 초 단위로 변환
-      return payload.exp < currentTime
+      const expTime = payload.exp
+      const bufferTime = 5 // 5초 버퍼 시간 (토큰이 5초 내에 만료될 예정이면 재발급)
+      
+      const isExpired = expTime < (currentTime + bufferTime)
+      
+      console.log('토큰 만료 체크:', {
+        currentTime,
+        expTime,
+        bufferTime,
+        isExpired,
+        timeUntilExpiry: expTime - currentTime,
+        payload: { ...payload, userId: payload.userId || payload.sub || payload.id }
+      })
+      
+      return isExpired
     } catch (error) {
       console.error('토큰 만료 체크 오류:', error)
       return true // 에러 발생 시 만료된 것으로 처리
@@ -114,6 +128,21 @@ export default function App() {
     setCurrentPage('home')
     // 조용한 로그아웃을 원하면 alert 제거
     // alert('로그인 세션이 만료되었습니다. 다시 로그인해주세요.')
+  }
+
+  // 토큰이 최근에 발급되었는지 확인 (로그인 직후 불필요한 refresh 방지)
+  const isTokenRecentlyIssued = (token: string, threshold: number = 300): boolean => {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      const currentTime = Date.now() / 1000
+      const issuedAt = payload.iat
+      
+      // 토큰이 5분(300초) 내에 발급되었으면 최근 발급으로 간주
+      return issuedAt && (currentTime - issuedAt) < threshold
+    } catch (error) {
+      console.error('토큰 발급 시간 확인 오류:', error)
+      return false
+    }
   }
 
   // 토큰 재발급 Promise (중복 요청 방지)
@@ -190,8 +219,11 @@ export default function App() {
       throw new Error('인증 토큰이 없습니다.')
     }
     
-    // 토큰 만료 체크
-    if (isTokenExpired(accessToken)) {
+    // 토큰 만료 체크 (최근에 발급된 토큰이면 좀 더 엄격하게 체크)
+    const shouldRefreshToken = isTokenExpired(accessToken) && !isTokenRecentlyIssued(accessToken)
+    
+    if (shouldRefreshToken) {
+      console.log('토큰이 만료되어 재발급을 시도합니다.')
       // accessToken 재발급 시도
       const newAccessToken = await refreshAccessToken()
       if (newAccessToken) {
@@ -205,6 +237,8 @@ export default function App() {
         handleTokenExpiration()
         throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.')
       }
+    } else if (isTokenExpired(accessToken) && isTokenRecentlyIssued(accessToken)) {
+      console.log('토큰이 최근에 발급되어 재발급을 스킵합니다.')
     }
     
     // Authorization 헤더 추가
@@ -227,7 +261,8 @@ export default function App() {
     
     const response = await fetch(url, {
       ...options,
-      headers
+      headers,
+      credentials: 'include' // 모든 API 요청에 쿠키 포함
     })
     
     // 401 에러 시 accessToken 재발급 시도 (만료로 인한 401일 수 있음)
@@ -250,7 +285,8 @@ export default function App() {
         }
         return fetch(url, {
           ...options,
-          headers: retryHeaders
+          headers: retryHeaders,
+          credentials: 'include' // 재시도 요청에도 쿠키 포함
         })
       } else {
         console.log('토큰 재발급 실패, 로그아웃 처리')
@@ -972,6 +1008,7 @@ export default function App() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // 쿠키 포함
         body: JSON.stringify({ 
           email: email.trim() 
         }),
@@ -1430,7 +1467,7 @@ export default function App() {
           <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
         )
       case 'live':
-        return <LiveRooms onJoinRoom={handleJoinRoom} onCreateRoom={handleCreateRoomModal} onUserProfileOpen={handleUserProfileOpen} />
+        return <LiveRooms onJoinRoom={handleJoinRoom} onCreateRoom={handleCreateRoomModal} onUserProfileOpen={handleUserProfileOpen} currentUserId={userId} />
       default:
         return <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
     }
@@ -1503,7 +1540,6 @@ export default function App() {
         authenticatedFetch={authenticatedFetch} // 인증된 API 호출 함수 전달
         onUserProfileOpen={handleUserProfileOpen} // 사용자 프로필 열기 함수 전달
         refreshUserProfile={refreshUserProfile} // 사용자 프로필 새로고침 함수 전달
-        getPlaylists={getPlaylists} // 플레이리스트 조회 함수 전달
         onPlaylistOpen={handlePlaylistDetailOpen} // 플레이리스트 열기 함수 전달
       />
 

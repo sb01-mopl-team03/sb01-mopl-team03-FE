@@ -397,10 +397,18 @@ export function Playlist({
                     {playlist.userId && playlist.userId !== currentUserId && isValidUUID(playlist.userId) && (
                       <div className="mb-3 pb-3 border-b border-white/10">
                         <div 
-                          className="flex items-center space-x-2 cursor-pointer hover:text-[#4ecdc4] transition-colors"
+                          className={`flex items-center space-x-2 transition-colors ${
+                            currentUserId 
+                              ? 'cursor-pointer hover:text-[#4ecdc4]' 
+                              : 'cursor-default text-white/60'
+                          }`}
                           onClick={(e) => {
                             e.stopPropagation()
-                            onUserProfileOpen?.(playlist.userId!)
+                            if (currentUserId) {
+                              onUserProfileOpen?.(playlist.userId!)
+                            } else {
+                              alert('로그인이 필요한 기능입니다. 로그인 후 이용해주세요.')
+                            }
                           }}
                         >
                           <div className="w-6 h-6 rounded-full bg-[#4ecdc4] flex items-center justify-center text-black text-xs font-medium">

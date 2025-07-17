@@ -1,19 +1,31 @@
 // 콘텐츠 관련 타입 정의
 
+export enum ContentType {
+  MOVIE = 'MOVIE',
+  TV_SERIES = 'TV_SERIES',
+  DOCUMENTARY = 'DOCUMENTARY',
+  ANIMATION = 'ANIMATION',
+  TV = 'TV',
+  SPORTS = 'SPORTS'
+}
+
 export interface ContentDto {
   id: string
   createdAt: string
   title: string
   titleNormalized: string
   description: string
-  contentType: 'MOVIE' | 'TV' | 'SPORTS'
+  contentType: ContentType
   releaseDate: string
-  url: string
-  // 추가 필드들 (UI에서 사용)
-  thumbnail?: string
+  youtubeUrl: string
+  thumbnailUrl: string
+  avgRating: number
+  // 추가 필드들 (UI에서 사용) - 기존 호환성
+  url?: string // youtubeUrl과 동일
+  thumbnail?: string // thumbnailUrl과 동일
   duration?: string
   year?: number
-  rating?: number
+  rating?: number // avgRating과 동일
   reviewCount?: number
   genre?: string
   cast?: string[]

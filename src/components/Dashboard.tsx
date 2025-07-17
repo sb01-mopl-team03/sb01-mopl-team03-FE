@@ -29,9 +29,16 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
   const fetchLiveRooms = async () => {
     try {
       const data = await watchRoomService.getWatchRooms({ limit: 9 })
-      setLiveRooms(data)
+      // 배열인지 확인 후 설정
+      if (Array.isArray(data)) {
+        setLiveRooms(data)
+      } else {
+        console.error('Live rooms data is not an array:', data)
+        setLiveRooms([])
+      }
     } catch (error) {
       console.error('Failed to fetch live rooms:', error)
+      setLiveRooms([]) // 에러 시 빈 배열 설정
     }
   }
 
@@ -170,7 +177,7 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
                   </div>
                 </div>
               ))
-            ) : liveRooms.slice(0, 9).map((room) => (
+            ) : (Array.isArray(liveRooms) ? liveRooms : []).slice(0, 9).map((room) => (
               <div
                 key={room.id}
                 className="flex-shrink-0 w-72 bg-card rounded-xl overflow-hidden border border-white/10 hover:border-[#4ecdc4]/30 transition-all duration-300 group cursor-pointer"
@@ -294,7 +301,7 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
                 onClick={() => onContentPlay && onContentPlay({
                   id: content.id,
                   title: content.title,
-                  thumbnail: content.url,
+                  thumbnail: content.thumbnailUrl || content.url || '',
                   type: content.contentType === 'MOVIE' ? 'movie' : content.contentType === 'TV' ? 'tv' : 'sports',
                   duration: '120분',
                   description: content.description
@@ -317,7 +324,7 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
                           onContentPlay && onContentPlay({
                             id: content.id,
                             title: content.title,
-                            thumbnail: content.url,
+                            thumbnail: content.thumbnailUrl || content.url || '',
                             type: content.contentType === 'MOVIE' ? 'movie' : content.contentType === 'TV' ? 'tv' : 'sports',
                             duration: '120분',
                             description: content.description

@@ -90,6 +90,7 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
         
         const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/users`, {
           method: 'POST',
+          credentials: 'include', // 쿠키 포함
           body: formDataToSend, // FormData를 직접 전송 (Content-Type 헤더는 자동 설정됨)
         })
         
@@ -127,6 +128,7 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
           headers: {
             'Content-Type': 'application/json',
           },
+          credentials: 'include', // 쿠키 포함 - refresh token 받기 위함
           body: JSON.stringify(requestBody),
         })
         

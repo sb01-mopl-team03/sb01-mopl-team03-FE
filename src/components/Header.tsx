@@ -29,13 +29,7 @@ interface HeaderProps {
   deleteAllNotifications: () => Promise<void> // 모든 알림 삭제 함수
 }
 
-// API 응답 타입 정의
-interface NotificationDto {
-  id: string
-  content: string
-  notificationType: 'ROLE_CHANGED' | 'PLAYLIST_SUBSCRIBED' | 'FOLLOWING_POSTED_PLAYLIST' | 'FOLLOWED' | 'UNFOLLOWED' | 'DM_RECEIVED' | 'NEW_DM_ROOM' | 'CONNECTED'
-  createdAt: string
-}
+// API 응답 타입 정의는 SSENotification 사용
 
 // UI용 알림 타입 (기존 mock 데이터와 호환)
 interface UINotification {
@@ -187,7 +181,18 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
         throw new Error(`알림 목록을 가져오는데 실패했습니다. (상태: ${response.status})`)
       }
 
-      const notificationDtos: NotificationDto[] = await response.json()
+      const responseData = await response.json()
+      
+      // CursorPageResponseDto 구조로 받은 경우 content 배열 추출
+      const notificationDtos = responseData.content || responseData
+      
+      // 배열인지 확인
+      if (!Array.isArray(notificationDtos)) {
+        console.error('알림 데이터가 배열이 아닙니다:', responseData)
+        setNotifications([])
+        return
+      }
+      
       const uiNotifications = notificationDtos.map(dto => ({
         ...convertToUINotification(dto),
         isRead: true // 알림 목록 조회 시 백엔드에서 자동으로 읽음 처리됨

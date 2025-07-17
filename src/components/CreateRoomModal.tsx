@@ -23,6 +23,7 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: Creat
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState('all')
   const [selectedContent, setSelectedContent] = useState<ContentDto | null>(null)
+  const [roomTitle, setRoomTitle] = useState('')
   const [step, setStep] = useState<'select' | 'create'>('select')
   const [isCreating, setIsCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -94,21 +95,36 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: Creat
   // 콘텐츠 선택 핸들러: 생성 요청 없이 확인 단계로 이동
   const handleContentSelect = (content: ContentDto) => {
     setSelectedContent(content)
+    // 기본 제목을 콘텐츠 제목으로 설정하되, 사용자가 수정 가능
+    setRoomTitle(`${content.title} 시청방`)
     setStep('create')
     setError(null)
   }
 
   // 시청방 생성 요청
   const handleCreateRoom = async () => {
-    if (!selectedContent) return
+    if (!selectedContent || !roomTitle.trim()) {
+      setError('시청방 제목을 입력해주세요.')
+      return
+    }
     setIsCreating(true)
     setError(null)
     try {
       const request: WatchRoomCreateRequest = {
         contentId: selectedContent.id,
-        ownerId: userId // 생성자 uuid 추가
+        ownerId: userId, // 생성자 uuid 추가
+        title: roomTitle.trim()
       }
       const newRoom = await watchRoomService.createWatchRoom(request)
+      
+      // 시청방 생성 시 선택한 콘텐츠 정보를 localStorage에 저장
+      const roomContentKey = `room-content-${newRoom.id}`
+      localStorage.setItem(roomContentKey, JSON.stringify({
+        contentId: selectedContent.id,
+        contentData: selectedContent,
+        savedAt: Date.now()
+      }))
+      
       onCreateRoom(newRoom)
       handleClose()
     } catch (error) {
@@ -123,6 +139,7 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: Creat
     setSearchQuery('')
     setFilterType('all')
     setSelectedContent(null)
+    setRoomTitle('')
     setStep('select')
     setIsCreating(false)
     setError(null)
@@ -225,7 +242,7 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: Creat
                       {/* Thumbnail */}
                       <div className="aspect-[3/4] relative overflow-hidden">
                         <img
-                          src={item.thumbnail}
+                          src={item.thumbnail || item.thumbnailUrl}
                           alt={item.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           onError={(e) => {
@@ -257,10 +274,10 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: Creat
                         
                         {/* Rating and Type */}
                         <div className="flex items-center justify-between">
-                          {item.rating && (
+                          {(item.avgRating || item.rating) && (
                             <div className="flex items-center gap-1">
                               <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                              <span className="text-xs">{item.rating}</span>
+                              <span className="text-xs">{item.avgRating || item.rating}</span>
                             </div>
                           )}
                           <Badge variant="outline" className="text-xs border-white/20 text-white/60">
@@ -322,7 +339,7 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: Creat
                 <div className="flex items-center gap-4 p-4 bg-white/5 rounded-lg border border-white/10">
                   <div className="w-16 h-20 rounded overflow-hidden">
                     <img
-                      src={selectedContent.thumbnail}
+                      src={selectedContent.thumbnail || selectedContent.thumbnailUrl}
                       alt={selectedContent.title}
                       className="w-full h-full object-cover"
                       onError={(e) => {
@@ -342,10 +359,10 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: Creat
                     <h3 className="font-medium mb-1">{selectedContent.title}</h3>
                     <p className="text-sm text-white/60 mb-2">{selectedContent.duration}</p>
                     <div className="flex items-center gap-3">
-                      {selectedContent.rating && (
+                      {(selectedContent.avgRating || selectedContent.rating) && (
                         <div className="flex items-center gap-1">
                           <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                          <span className="text-sm">{selectedContent.rating}</span>
+                          <span className="text-sm">{selectedContent.avgRating || selectedContent.rating}</span>
                         </div>
                       )}
                       <Badge variant="outline" className="text-xs border-white/20 text-white/60">
@@ -355,6 +372,24 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: Creat
                   </div>
                 </div>
               )}
+
+              {/* Room Title Input */}
+              <div className="space-y-2">
+                <label htmlFor="room-title" className="text-sm font-medium text-white/80">
+                  시청방 제목
+                </label>
+                <Input
+                  id="room-title"
+                  placeholder="시청방 제목을 입력하세요..."
+                  value={roomTitle}
+                  onChange={(e) => setRoomTitle(e.target.value)}
+                  className="bg-white/5 border-white/20 focus:border-[#4ecdc4]"
+                  maxLength={50}
+                />
+                <p className="text-xs text-white/50">
+                  {roomTitle.length}/50자
+                </p>
+              </div>
 
               {/* Error State */}
               {error && (
@@ -370,6 +405,7 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: Creat
                   onClick={() => {
                     setStep('select')
                     setSelectedContent(null)
+                    setRoomTitle('')
                     setError(null)
                   }}
                   className="flex-1 border-white/20 hover:bg-white/5"
@@ -379,7 +415,7 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: Creat
                 </Button>
                 <Button
                   onClick={handleCreateRoom}
-                  disabled={!selectedContent || isCreating}
+                  disabled={!selectedContent || !roomTitle.trim() || isCreating}
                   className="flex-1 teal-gradient hover:opacity-80 text-black disabled:opacity-50"
                 >
                   {isCreating ? (
