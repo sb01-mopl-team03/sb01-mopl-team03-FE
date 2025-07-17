@@ -231,7 +231,7 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen, current
                   {/* Content Thumbnail */}
                   <div className="aspect-[16/9] relative overflow-hidden">
                     <img
-                      src="/api/placeholder/400/225"
+                      src="https://via.placeholder.com/400x225/1a1a1a/ffffff?text=Live+Stream"
                       alt={room.contentTitle}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
