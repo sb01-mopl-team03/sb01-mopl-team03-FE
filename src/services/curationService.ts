@@ -34,7 +34,7 @@ export interface ContentDto {
 }
 
 export class CurationService {
-  private baseUrl = '/api/keywords'
+  private baseUrl = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/keywords`
 
   private async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
     const accessToken = localStorage.getItem('accessToken')
@@ -126,7 +126,7 @@ export class CurationService {
    */
   async getUserKeywords(userId: string): Promise<KeywordDto[]> {
     try {
-      const response = await this.authenticatedFetch(`/api/users/${userId}/keywords`)
+      const response = await this.authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/users/${userId}/keywords`)
       
       if (!response.ok) {
         throw new Error(`사용자 키워드 조회에 실패했습니다. Status: ${response.status}`)

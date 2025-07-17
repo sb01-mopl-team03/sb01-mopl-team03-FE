@@ -1,7 +1,12 @@
-import { Plus, TrendingUp, Clock, Star, ChevronRight } from 'lucide-react'
+import { Plus, TrendingUp, Clock, Star, ChevronRight, Play, Calendar, Palette, ChevronLeft } from 'lucide-react'
 import { Button } from './ui/button'
-import { ContentCard } from './ContentCard'
-import { LiveRoomCard } from './LiveRoomCard'
+import { useState, useEffect, useRef } from 'react'
+import { WatchRoomDto } from '../types/watchRoom'
+import { ContentDto } from '../types/content'
+import { PlaylistDto } from '../types/playlist'
+import { contentService } from '../services/contentService'
+import { watchRoomService } from '../services/watchRoomService'
+import { playlistService } from '../services/playlistService'
 
 interface DashboardProps {
   onPageChange?: (page: string) => void
@@ -10,11 +15,68 @@ interface DashboardProps {
 }
 
 export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: DashboardProps) {
-  const featuredContent: any[] = []
+  const [liveRooms, setLiveRooms] = useState<WatchRoomDto[]>([])
+  const [featuredContent, setFeaturedContent] = useState<ContentDto[]>([])
+  const [myPlaylists, setMyPlaylists] = useState<PlaylistDto[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  
+  // Scroll refs for navigation
+  const liveRoomsScrollRef = useRef<HTMLDivElement>(null)
+  const featuredContentScrollRef = useRef<HTMLDivElement>(null)
+  const playlistsScrollRef = useRef<HTMLDivElement>(null)
 
-  const liveRooms: any[] = []
+  // ========== API INTEGRATION POINT - START ==========
+  const fetchLiveRooms = async () => {
+    try {
+      const data = await watchRoomService.getWatchRooms({ limit: 9 })
+      // 배열인지 확인 후 설정
+      if (Array.isArray(data)) {
+        setLiveRooms(data)
+      } else {
+        console.error('Live rooms data is not an array:', data)
+        setLiveRooms([])
+      }
+    } catch (error) {
+      console.error('Failed to fetch live rooms:', error)
+      setLiveRooms([]) // 에러 시 빈 배열 설정
+    }
+  }
 
-  const myPlaylists: any[] = []
+  const fetchFeaturedContent = async () => {
+    try {
+      const data = await contentService.getContents({ size: 20 })
+      setFeaturedContent(data.data)
+    } catch (error) {
+      console.error('Failed to fetch featured content:', error)
+    }
+  }
+
+  const fetchMyPlaylists = async () => {
+    try {
+      // 백엔드 API를 통해 현재 사용자의 플레이리스트 조회
+      const data = await playlistService.getPlaylistByUser()
+      setMyPlaylists(data.slice(0, 4)) // 최대 4개까지만 표시
+    } catch (error) {
+      console.error('Failed to fetch my playlists:', error)
+      // 에러 시 빈 배열로 설정
+      setMyPlaylists([])
+    }
+  }
+
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true)
+      await Promise.all([
+        fetchLiveRooms(),
+        fetchFeaturedContent(),
+        fetchMyPlaylists()
+      ])
+      setIsLoading(false)
+    }
+    
+    loadData()
+  }, [])
+  // ========== API INTEGRATION POINT - END ==========
 
   const handlePlaylistNavigation = () => {
     if (onPageChange) {
@@ -25,6 +87,25 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
   const handlePlaylistClick = (playlistId: string) => {
     if (onPlaylistOpen) {
       onPlaylistOpen(playlistId)
+    }
+  }
+
+  // Scroll navigation functions
+  const scrollLeft = (ref: React.RefObject<HTMLDivElement>) => {
+    if (ref.current) {
+      ref.current.scrollBy({
+        left: -288, // Scroll by approximately one card width
+        behavior: 'smooth'
+      })
+    }
+  }
+
+  const scrollRight = (ref: React.RefObject<HTMLDivElement>) => {
+    if (ref.current) {
+      ref.current.scrollBy({
+        left: 288, // Scroll by approximately one card width
+        behavior: 'smooth'
+      })
     }
   }
 
@@ -54,7 +135,7 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
 
       <div className="container mx-auto px-4 space-y-12">
         {/* Live Rooms Section */}
-        <section className="mx-[0px] my-[42px]">
+        <section className="mx-[0px] my-[42px] relative">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
               <TrendingUp className="w-6 h-6 text-[#4ecdc4]" />
@@ -66,15 +147,111 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
             </Button>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {liveRooms.map((room, index) => (
-              <LiveRoomCard key={index} {...room} />
+          {/* Navigation Buttons */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-black/60 hover:bg-black/80 border-white/20"
+            onClick={() => scrollLeft(liveRoomsScrollRef)}
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-black/60 hover:bg-black/80 border-white/20"
+            onClick={() => scrollRight(liveRoomsScrollRef)}
+          >
+            <ChevronRight className="w-6 h-6" />
+          </Button>
+          
+          <div ref={liveRoomsScrollRef} className="flex overflow-x-auto scrollbar-hide gap-6 pb-4" style={{ scrollSnapType: 'x mandatory' }}>
+            {isLoading ? (
+              Array(3).fill(0).map((_, index) => (
+                <div key={index} className="flex-shrink-0 w-72 bg-card rounded-xl glass-effect border border-white/10 animate-pulse" style={{ scrollSnapAlign: 'start' }}>
+                  <div className="aspect-[3/4] bg-white/10 rounded-t-xl mb-4"></div>
+                  <div className="p-4">
+                    <div className="h-4 bg-white/10 rounded mb-2"></div>
+                    <div className="h-3 bg-white/10 rounded mb-3 w-3/4"></div>
+                    <div className="h-3 bg-white/10 rounded w-1/2"></div>
+                  </div>
+                </div>
+              ))
+            ) : (Array.isArray(liveRooms) ? liveRooms : []).slice(0, 9).map((room) => (
+              <div
+                key={room.id}
+                className="flex-shrink-0 w-72 bg-card rounded-xl overflow-hidden border border-white/10 hover:border-[#4ecdc4]/30 transition-all duration-300 group cursor-pointer"
+                style={{ scrollSnapAlign: 'start' }}
+              >
+                {/* Thumbnail */}
+                <div className="aspect-[3/4] relative overflow-hidden bg-gradient-to-br from-[#4ecdc4] to-[#44b3a7] group-hover:scale-105 transition-transform duration-300 flex items-center justify-center">
+                  <div className="text-center text-black">
+                    <div className="text-2xl font-bold opacity-60">LIVE</div>
+                    <div className="text-xs opacity-40 mt-1">시청방</div>
+                  </div>
+                  
+                  {/* Live Badge */}
+                  <div className="absolute top-3 left-3">
+                    <div className="px-2 py-1 rounded-full text-xs font-medium bg-red-500 text-white animate-pulse">
+                      🔴 LIVE
+                    </div>
+                  </div>
+                  
+                  {/* Viewers Count */}
+                  <div className="absolute top-3 right-3">
+                    <div className="px-2 py-1 rounded-full text-xs font-medium bg-black/50 text-white">
+                      👥 {room.headCount}
+                    </div>
+                  </div>
+                  
+                  {/* Overlay */}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          // TODO: Join room functionality
+                          console.log('Joining room:', room.id)
+                        }}
+                        className="teal-gradient hover:opacity-80 text-black"
+                      >
+                        <Play className="w-4 h-4 mr-1" />
+                        참여하기
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Content Info */}
+                <div className="p-4">
+                  <h3 className="font-medium mb-2 line-clamp-1">{room.contentTitle}</h3>
+                  <p className="text-sm text-white/60 mb-3 line-clamp-1">{room.ownerName}의 방</p>
+                  
+                  {/* Room Stats */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-1">
+                      <Clock className="w-4 h-4 text-[#4ecdc4]" />
+                      <span className="text-sm">실시간</span>
+                    </div>
+                    <span className="text-xs text-white/60">{room.headCount}명 시청중</span>
+                  </div>
+                  
+                  {/* Host Info */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-white/60">호스트: {room.ownerName}</span>
+                    <div className="px-2 py-1 rounded-full text-xs font-medium bg-[#4ecdc4]/20 text-[#4ecdc4]">
+                      Live
+                    </div>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         </section>
 
         {/* Featured Content Section */}
-        <section>
+        <section className="relative">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
               <Star className="w-6 h-6 text-[#4ecdc4]" />
@@ -86,33 +263,128 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
             </Button>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {featuredContent.map((content, index) => (
-              <ContentCard 
-                key={index} 
-                title={content.title}
-                thumbnail={content.imageUrl}
-                rating={content.rating}
-                genre={[content.genre]}
-                duration={content.duration}
-                type={content.type}
-                viewers={content.viewers}
-                isLive={content.isLive}
+          {/* Navigation Buttons */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-black/60 hover:bg-black/80 border-white/20"
+            onClick={() => scrollLeft(featuredContentScrollRef)}
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-black/60 hover:bg-black/80 border-white/20"
+            onClick={() => scrollRight(featuredContentScrollRef)}
+          >
+            <ChevronRight className="w-6 h-6" />
+          </Button>
+          
+          <div ref={featuredContentScrollRef} className="flex overflow-x-auto scrollbar-hide gap-6 pb-4" style={{ scrollSnapType: 'x mandatory' }}>
+            {isLoading ? (
+              Array(6).fill(0).map((_, index) => (
+                <div key={index} className="flex-shrink-0 w-72 bg-card rounded-xl glass-effect border border-white/10 animate-pulse" style={{ scrollSnapAlign: 'start' }}>
+                  <div className="aspect-[3/4] bg-white/10 rounded-t-xl mb-4"></div>
+                  <div className="p-4">
+                    <div className="h-4 bg-white/10 rounded mb-2"></div>
+                    <div className="h-3 bg-white/10 rounded mb-3 w-3/4"></div>
+                    <div className="h-3 bg-white/10 rounded w-1/2"></div>
+                  </div>
+                </div>
+              ))
+            ) : featuredContent.slice(0, 20).map((content) => (
+              <div
+                key={content.id}
+                className="flex-shrink-0 w-72 bg-card rounded-xl overflow-hidden border border-white/10 hover:border-[#4ecdc4]/30 transition-all duration-300 group cursor-pointer"
+                style={{ scrollSnapAlign: 'start' }}
                 onClick={() => onContentPlay && onContentPlay({
-                  id: `dashboard-${index + 1}`,
+                  id: content.id,
                   title: content.title,
-                  thumbnail: content.imageUrl,
-                  type: content.type,
-                  duration: content.duration || '120분',
-                  description: `${content.genre} 장르의 인기 콘텐츠입니다.`
+                  thumbnail: content.thumbnailUrl || content.url || '',
+                  type: content.contentType === 'MOVIE' ? 'movie' : content.contentType === 'TV' ? 'tv' : 'sports',
+                  duration: '120분',
+                  description: content.description
                 })}
-              />
+              >
+                {/* Thumbnail */}
+                <div className="aspect-[3/4] relative overflow-hidden bg-gradient-to-br from-[#4ecdc4] to-[#44b3a7] group-hover:scale-105 transition-transform duration-300 flex items-center justify-center">
+                  <div className="text-center text-black">
+                    <div className="text-2xl font-bold opacity-60">MOPL</div>
+                    <div className="text-xs opacity-40 mt-1">{content.contentType}</div>
+                  </div>
+                  
+                  {/* Overlay */}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onContentPlay && onContentPlay({
+                            id: content.id,
+                            title: content.title,
+                            thumbnail: content.thumbnailUrl || content.url || '',
+                            type: content.contentType === 'MOVIE' ? 'movie' : content.contentType === 'TV' ? 'tv' : 'sports',
+                            duration: '120분',
+                            description: content.description
+                          })
+                        }}
+                        className="teal-gradient hover:opacity-80 text-black"
+                      >
+                        <Play className="w-4 h-4 mr-1" />
+                        재생
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          // TODO: Add to playlist functionality
+                          console.log('Add to playlist:', content.id)
+                        }}
+                        className="border-white/20 hover:bg-white/10"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Content Info */}
+                <div className="p-4">
+                  <h3 className="font-medium mb-2 line-clamp-1">{content.title}</h3>
+                  <p className="text-sm text-white/60 mb-3 line-clamp-2">{content.description}</p>
+                  
+                  {/* Rating and Year */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-1">
+                      <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                      <span className="text-sm">4.5</span>
+                      <span className="text-xs text-white/40">(123)</span>
+                    </div>
+                    <span className="text-xs text-white/60">{content.releaseDate ? new Date(content.releaseDate).getFullYear() : '2024'}</span>
+                  </div>
+                  
+                  {/* Duration and Type */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-white/60">120분</span>
+                    <div className={`px-2 py-1 rounded text-xs font-medium ${
+                      content.contentType === 'MOVIE' ? 'bg-blue-500/20 text-blue-400 border border-blue-400/30' :
+                      content.contentType === 'TV' ? 'bg-purple-500/20 text-purple-400 border border-purple-400/30' :
+                      'bg-green-500/20 text-green-400 border border-green-400/30'
+                    }`}>
+                      {content.contentType === 'MOVIE' ? '영화' : content.contentType === 'TV' ? 'TV/드라마' : '스포츠'}
+                    </div>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         </section>
 
         {/* My Playlists Section */}
-        <section>
+        <section className="relative">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
               <Clock className="w-6 h-6 text-[#4ecdc4]" />
@@ -128,20 +400,114 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
             </Button>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {myPlaylists.map((playlist, index) => (
-              <div
-                key={index}
-                className="group relative p-6 rounded-xl glass-effect border border-white/10 transition-all duration-300 hover:scale-105 hover:border-[#4ecdc4]/50 cursor-pointer"
-                onClick={() => handlePlaylistClick(playlist.id)}
-              >
-                <div className={`absolute inset-0 bg-gradient-to-br ${playlist.color} opacity-10 rounded-xl`} />
-                <div className="relative">
-                  <h3 className="mb-2">{playlist.name}</h3>
-                  <p className="text-sm text-white/60">{playlist.count}개 항목</p>
+          {/* Navigation Buttons */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-black/60 hover:bg-black/80 border-white/20"
+            onClick={() => scrollLeft(playlistsScrollRef)}
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-black/60 hover:bg-black/80 border-white/20"
+            onClick={() => scrollRight(playlistsScrollRef)}
+          >
+            <ChevronRight className="w-6 h-6" />
+          </Button>
+          
+          <div ref={playlistsScrollRef} className="flex overflow-x-auto scrollbar-hide gap-6 pb-4" style={{ scrollSnapType: 'x mandatory' }}>
+            {isLoading ? (
+              Array(4).fill(0).map((_, index) => (
+                <div key={index} className="flex-shrink-0 w-72 glass-effect rounded-xl overflow-hidden animate-pulse" style={{ scrollSnapAlign: 'start' }}>
+                  <div className="aspect-video bg-white/10"></div>
+                  <div className="p-4">
+                    <div className="h-4 bg-white/10 rounded mb-2"></div>
+                    <div className="h-3 bg-white/10 rounded w-2/3"></div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            ) : myPlaylists.map((playlist, index) => {
+              const gradientColors = [
+                'from-blue-500 to-purple-600',
+                'from-green-500 to-teal-600',
+                'from-orange-500 to-red-600',
+                'from-purple-500 to-pink-600',
+                'from-teal-500 to-blue-600'
+              ];
+              const color = gradientColors[index % gradientColors.length];
+              
+              return (
+                <div
+                  key={playlist.id}
+                  className="flex-shrink-0 w-72 glass-effect rounded-xl overflow-hidden hover:bg-white/5 transition-all duration-200 group cursor-pointer"
+                  style={{ scrollSnapAlign: 'start' }}
+                  onClick={() => handlePlaylistClick(playlist.id)}
+                >
+                  {/* Thumbnail */}
+                  <div className="relative aspect-video">
+                    <div className={`w-full h-full bg-gradient-to-br ${color} flex items-center justify-center`}>
+                      <div className="text-center text-white">
+                        <Palette className="w-8 h-8 mx-auto mb-2 opacity-80" />
+                        <p className="text-sm font-medium opacity-80">{playlist.name.charAt(0)}</p>
+                      </div>
+                    </div>
+                    
+                    {/* Play Button Overlay */}
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Button
+                        size="lg"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handlePlaylistClick(playlist.id)
+                        }}
+                        className="rounded-full w-16 h-16 teal-gradient hover:opacity-80 text-black"
+                      >
+                        <Play className="w-8 h-8 fill-current" />
+                      </Button>
+                    </div>
+
+                    {/* Privacy Badge */}
+                    <div className="absolute top-3 right-3">
+                      <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        playlist.isPublic 
+                          ? 'bg-green-500/20 text-green-400' 
+                          : 'bg-gray-500/20 text-gray-400'
+                      }`}>
+                        {playlist.isPublic ? '공개' : '비공개'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="p-4">
+                    <h3 className="font-medium mb-2 line-clamp-2">{playlist.name}</h3>
+                    <p className="text-sm text-white/60 mb-3 line-clamp-2">설명이 없습니다.</p>
+                    
+                    {/* Content Count */}
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs text-white/60">
+                        {playlist.playlistContents.length}개 콘텐츠
+                      </span>
+                    </div>
+
+                    {/* Metadata */}
+                    <div className="flex items-center justify-between text-xs text-white/60">
+                      <div className="flex items-center space-x-1">
+                        <Clock className="w-3 h-3" />
+                        <span>0분</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <Calendar className="w-3 h-3" />
+                        <span>{playlist.createdAt ? new Date(playlist.createdAt).toLocaleDateString('ko-KR') : '날짜 없음'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
       </div>

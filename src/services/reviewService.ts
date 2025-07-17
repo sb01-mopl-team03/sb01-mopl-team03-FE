@@ -5,7 +5,7 @@ import {
 } from '../types/content'
 
 export class ReviewService {
-  private baseUrl = '/api/reviews'
+  private baseUrl = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/reviews`
 
   private async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
     const accessToken = localStorage.getItem('accessToken')
@@ -38,7 +38,7 @@ export class ReviewService {
    */
   async getReviewsByContentId(contentId: string): Promise<ReviewResponse[]> {
     try {
-      const response = await this.authenticatedFetch(`/api/contents/${contentId}/reviews`)
+      const response = await this.authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/contents/${contentId}/reviews`)
       
       if (!response.ok) {
         throw new Error(`리뷰 목록 조회에 실패했습니다. Status: ${response.status}`)
@@ -138,7 +138,7 @@ export class ReviewService {
    */
   async getReviewsByUserId(userId: string): Promise<ReviewResponse[]> {
     try {
-      const response = await this.authenticatedFetch(`/api/users/${userId}/reviews`)
+      const response = await this.authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/users/${userId}/reviews`)
       
       if (!response.ok) {
         throw new Error(`사용자 리뷰 목록 조회에 실패했습니다. Status: ${response.status}`)

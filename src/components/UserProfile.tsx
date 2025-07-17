@@ -41,7 +41,9 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
   // 사용자 정보 조회
   const fetchUserInfo = async () => {
     try {
-      const response = await authenticatedFetch(`/api/users/${userId}`)
+      // Spring Security 때문에 인증 헤더가 필요
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/users/${userId}`)
+      
       if (!response.ok) {
         throw new Error('사용자 정보를 가져오는데 실패했습니다.')
       }
@@ -56,7 +58,8 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
   // 팔로워 목록 조회
   const fetchFollowers = async () => {
     try {
-      const response = await authenticatedFetch(`/api/follows/${userId}/followers`)
+      // Spring Security 때문에 인증 헤더가 필요
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/${userId}/followers`)
       if (!response.ok) {
         throw new Error('팔로워 목록을 가져오는데 실패했습니다.')
       }
@@ -70,7 +73,8 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
   // 팔로잉 목록 조회
   const fetchFollowing = async () => {
     try {
-      const response = await authenticatedFetch(`/api/follows/${userId}/following`)
+      // Spring Security 때문에 인증 헤더가 필요
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/${userId}/following`)
       if (!response.ok) {
         throw new Error('팔로잉 목록을 가져오는데 실패했습니다.')
       }
@@ -85,13 +89,15 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
   const fetchUserPlaylists = async () => {
     try {
       if (getPlaylists) {
-        // API로 해당 사용자의 플레이리스트만 조회
-        const response = await authenticatedFetch(`/api/users/${userId}/playlists`)
+        // 사용자별 플레이리스트 조회 (공개 플레이리스트만)
+        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists?userId=${userId}`)
         if (!response.ok) {
           throw new Error('플레이리스트를 가져오는데 실패했습니다.')
         }
         const playlistsData = await response.json()
-        setPlaylists(playlistsData)
+        // 공개 플레이리스트만 필터링
+        const publicPlaylists = playlistsData.filter((playlist: any) => playlist.isPublic)
+        setPlaylists(publicPlaylists)
       } else {
         // getPlaylists 함수가 없으면 빈 배열
         setPlaylists([])
@@ -108,7 +114,8 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
     if (!currentUserId || isOwnProfile) return
 
     try {
-      const response = await authenticatedFetch(`/api/follows/${currentUserId}/is-following/${userId}`)
+      // 로그인된 사용자만 팔로우 상태 확인
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/${currentUserId}/is-following/${userId}`)
       if (!response.ok) {
         throw new Error('팔로우 상태를 확인하는데 실패했습니다.')
       }
@@ -116,6 +123,8 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
       setIsFollowing(isFollowingData)
     } catch (error) {
       console.error('팔로우 상태 확인 오류:', error)
+      // 에러 시 팔로우 상태는 false로 설정
+      setIsFollowing(false)
     }
   }
 
@@ -127,7 +136,7 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
     try {
       if (isFollowing) {
         // 언팔로우
-        const response = await authenticatedFetch('/api/follows/unfollow', {
+        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/unfollow`, {
           method: 'DELETE',
           body: JSON.stringify({
             followerId: currentUserId,
@@ -144,7 +153,7 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
         setFollowers(prev => prev.filter(follower => follower.id !== currentUserId))
       } else {
         // 팔로우
-        const response = await authenticatedFetch('/api/follows/follow', {
+        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/follow`, {
           method: 'POST',
           body: JSON.stringify({
             followerId: currentUserId,
@@ -181,11 +190,12 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
       setIsLoading(true)
       setError(null)
       
-      await Promise.all([
+      // 각 API 호출을 독립적으로 처리 (하나가 실패해도 다른 것들은 계속 진행)
+      await Promise.allSettled([
         fetchUserInfo(),
         fetchFollowers(),
         fetchFollowing(),
-        checkIsFollowing(),
+        currentUserId ? checkIsFollowing() : Promise.resolve(),
         fetchUserPlaylists()
       ])
       

@@ -35,13 +35,13 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
   // 카카오 OAuth 로그인
   const handleKakaoLogin = () => {
     // 백엔드에서 소셜 로그인 성공 후, 프론트엔드의 /oauth/callback 으로 access_token을 쿼리로 리다이렉트해야 함
-    window.location.href = '/api/oauth2/login/kakao'
+    window.location.href = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/oauth2/login/kakao`
   }
 
   // 구글 OAuth 로그인
   const handleGoogleLogin = () => {
     // 백엔드에서 소셜 로그인 성공 후, 프론트엔드의 /oauth/callback 으로 access_token을 쿼리로 리다이렉트해야 함
-    window.location.href = '/api/oauth2/login/google'
+    window.location.href = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/oauth2/login/google`
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -88,8 +88,9 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
           formDataToSend.append('profile', profileImage)
         }
         
-        const response = await fetch('/api/users', {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/users`, {
           method: 'POST',
+          credentials: 'include', // 쿠키 포함
           body: formDataToSend, // FormData를 직접 전송 (Content-Type 헤더는 자동 설정됨)
         })
         
@@ -122,11 +123,12 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
           password: formData.password,
         }
         
-        const response = await fetch('/api/auth/login', {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/auth/login`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
+          credentials: 'include', // 쿠키 포함 - refresh token 받기 위함
           body: JSON.stringify(requestBody),
         })
         

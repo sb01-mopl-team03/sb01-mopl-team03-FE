@@ -62,7 +62,7 @@ export class DmService {
 
   // Get all DM rooms for the current user
   async getAllRooms(): Promise<DmRoomDto[]> {
-    const response = await this.authenticatedFetch('/api/dmRooms/');
+    const response = await this.authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/dmRooms/`);
     
     if (!response.ok) {
       throw new Error('Failed to fetch DM rooms');
@@ -73,7 +73,7 @@ export class DmService {
 
   // Get specific DM room by ID
   async getRoom(dmRoomId: string): Promise<DmRoomDto> {
-    const response = await this.authenticatedFetch(`/api/dmRooms/${dmRoomId}`);
+    const response = await this.authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/dmRooms/${dmRoomId}`);
     
     if (!response.ok) {
       throw new Error('Failed to fetch DM room');
@@ -84,7 +84,7 @@ export class DmService {
 
   // Get or create DM room with another user
   async getOrCreateRoom(userBId: string): Promise<string> {
-    const response = await this.authenticatedFetch(`/api/dmRooms/userRoom?userB=${userBId}`);
+    const response = await this.authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/dmRooms/userRoom?userB=${userBId}`);
     
     if (!response.ok) {
       throw new Error('Failed to get or create DM room');
@@ -95,7 +95,7 @@ export class DmService {
 
   // Get all DMs for a specific room
   async getDmMessages(roomId: string): Promise<DmDto[]> {
-    const response = await this.authenticatedFetch(`/api/dm/${roomId}`);
+    const response = await this.authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/dm/${roomId}`);
     
     if (!response.ok) {
       throw new Error('Failed to fetch DM messages');
@@ -106,7 +106,7 @@ export class DmService {
 
   // Get following list (users that current user follows)
   async getFollowing(userId: string): Promise<FollowResponse[]> {
-    const response = await this.authenticatedFetch(`/api/follows/${userId}/following`);
+    const response = await this.authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/${userId}/following`);
     
     if (!response.ok) {
       throw new Error('Failed to fetch following list');

@@ -129,7 +129,7 @@ export function useWatchRoomWebSocket({
             const roomInfo: WatchRoomInfoDto = JSON.parse(message.body)
             // participantsInfoDto가 없을 수도 있으니 방어적으로 처리
             if (!('participantsInfoDto' in roomInfo) || !roomInfo.participantsInfoDto) {
-              (roomInfo as any).participantsInfoDto = { participantDtoList: [], participantsCount: 0 }
+              (roomInfo as any).participantsInfoDto = { participantDtoList: [], participantCount: 0 }
             }
             onRoomSync?.(roomInfo)
             setConnectionStatus('connected')

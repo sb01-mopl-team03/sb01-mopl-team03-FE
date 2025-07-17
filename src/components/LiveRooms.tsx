@@ -12,9 +12,10 @@ interface LiveRoomsProps {
   onJoinRoom?: (room: WatchRoomDto) => void
   onCreateRoom?: () => void
   onUserProfileOpen?: (userId: string) => void
+  currentUserId?: string | null
 }
 
-export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen }: LiveRoomsProps) {
+export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen, currentUserId }: LiveRoomsProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<'participants' | 'latest' | 'oldest'>('participants')
   const [rooms, setRooms] = useState<WatchRoomDto[]>([])
@@ -36,7 +37,7 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen }: LiveR
       
       const roomsData = await watchRoomService.getWatchRooms({
         query: searchQuery,
-        sortBy: sortBy
+        sortBy: sortBy === 'participants' ? 'participantCount' : sortBy === 'latest' ? 'createdAt' : 'createdAt'
       })
       
       setRooms(roomsData)
@@ -267,20 +268,40 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen }: LiveR
                       <span className="text-xs text-white/60">방금 전</span>
                     </div>
                     
-                    <h3 className="font-medium mb-2 line-clamp-1">{room.contentTitle}</h3>
+                    <h3 className="font-medium mb-2 line-clamp-1">{room.title}</h3>
                     <p className="text-sm text-white/60 mb-3 line-clamp-1">{room.contentTitle}</p>
                     
                     <div className="flex items-center gap-2">
                       <Avatar 
-                        className="w-6 h-6 cursor-pointer hover:ring-2 hover:ring-[#4ecdc4]/50 transition-all"
-                        onClick={() => onUserProfileOpen?.(room.ownerId)}
+                        className={`w-6 h-6 transition-all ${
+                          currentUserId 
+                            ? 'cursor-pointer hover:ring-2 hover:ring-[#4ecdc4]/50' 
+                            : 'cursor-default opacity-60'
+                        }`}
+                        onClick={() => {
+                          if (currentUserId) {
+                            onUserProfileOpen?.(room.ownerId)
+                          } else {
+                            alert('로그인이 필요한 기능입니다. 로그인 후 이용해주세요.')
+                          }
+                        }}
                       >
                         <AvatarImage src="" />
                         <AvatarFallback>{room.ownerName[0]}</AvatarFallback>
                       </Avatar>
                       <span 
-                        className="text-sm text-white/80 cursor-pointer hover:text-[#4ecdc4] transition-colors"
-                        onClick={() => onUserProfileOpen?.(room.ownerId)}
+                        className={`text-sm text-white/80 transition-colors ${
+                          currentUserId 
+                            ? 'cursor-pointer hover:text-[#4ecdc4]' 
+                            : 'cursor-default opacity-60'
+                        }`}
+                        onClick={() => {
+                          if (currentUserId) {
+                            onUserProfileOpen?.(room.ownerId)
+                          } else {
+                            alert('로그인이 필요한 기능입니다. 로그인 후 이용해주세요.')
+                          }
+                        }}
                       >
                         {room.ownerName}
                       </span>
@@ -347,21 +368,41 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen }: LiveR
                     )}
                   </div>
                   
-                  <h3 className="font-medium mb-1 line-clamp-1 text-sm">{room.contentTitle}</h3>
+                  <h3 className="font-medium mb-1 line-clamp-1 text-sm">{room.title}</h3>
                   <p className="text-xs text-white/60 mb-2 line-clamp-1">{room.contentTitle}</p>
                   
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Avatar 
-                        className="w-5 h-5 cursor-pointer hover:ring-2 hover:ring-[#4ecdc4]/50 transition-all"
-                        onClick={() => onUserProfileOpen?.(room.ownerId)}
+                        className={`w-5 h-5 transition-all ${
+                          currentUserId 
+                            ? 'cursor-pointer hover:ring-2 hover:ring-[#4ecdc4]/50' 
+                            : 'cursor-default opacity-60'
+                        }`}
+                        onClick={() => {
+                          if (currentUserId) {
+                            onUserProfileOpen?.(room.ownerId)
+                          } else {
+                            alert('로그인이 필요한 기능입니다. 로그인 후 이용해주세요.')
+                          }
+                        }}
                       >
                         <AvatarImage src="" />
                         <AvatarFallback>{room.ownerName[0]}</AvatarFallback>
                       </Avatar>
                       <span 
-                        className="text-xs text-white/80 truncate cursor-pointer hover:text-[#4ecdc4] transition-colors"
-                        onClick={() => onUserProfileOpen?.(room.ownerId)}
+                        className={`text-xs text-white/80 truncate transition-colors ${
+                          currentUserId 
+                            ? 'cursor-pointer hover:text-[#4ecdc4]' 
+                            : 'cursor-default opacity-60'
+                        }`}
+                        onClick={() => {
+                          if (currentUserId) {
+                            onUserProfileOpen?.(room.ownerId)
+                          } else {
+                            alert('로그인이 필요한 기능입니다. 로그인 후 이용해주세요.')
+                          }
+                        }}
                       >
                         {room.ownerName}
                       </span>

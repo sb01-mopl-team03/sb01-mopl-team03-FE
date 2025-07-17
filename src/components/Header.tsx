@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react'
 import { Bell, User, LogOut, Trash2, MessageSquare, UserPlus, Heart, Play } from 'lucide-react'
 import { Button } from './ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
-import { EventSourcePolyfill } from 'event-source-polyfill'
 import { userService } from '../services/userService'
 import { UserResponse } from '../types/user'
+import { useSSE } from '../hooks/useSSE'
+import { AuthService } from '../services/authService'
+import { SSENotification } from '../services/sseService'
 
 // Window 객체에 headerRefreshUserProfile 함수 추가
 declare global {
@@ -27,13 +29,7 @@ interface HeaderProps {
   deleteAllNotifications: () => Promise<void> // 모든 알림 삭제 함수
 }
 
-// API 응답 타입 정의
-interface NotificationDto {
-  id: string
-  content: string
-  notificationType: 'ROLE_CHANGED' | 'PLAYLIST_SUBSCRIBED' | 'FOLLOWING_POSTED_PLAYLIST' | 'FOLLOWED' | 'UNFOLLOWED' | 'DM_RECEIVED' | 'NEW_DM_ROOM' | 'CONNECTED'
-  createdAt: string
-}
+// API 응답 타입 정의는 SSENotification 사용
 
 // UI용 알림 타입 (기존 mock 데이터와 호환)
 interface UINotification {
@@ -50,11 +46,41 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
   const [notifications, setNotifications] = useState<UINotification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
-  const [, setEventSources] = useState<EventSource[]>([])
   const [user, setUser] = useState<UserResponse | null>(null)
+  
+  // AuthService 인스턴스 생성
+  const authService = new AuthService({
+    onTokenExpired: () => {
+      console.log('토큰이 만료되어 자동 로그아웃됩니다.')
+      onLogout()
+    },
+    onTokenRefreshed: () => {
+      console.log('토큰이 갱신되었습니다.')
+    }
+  })
 
-  // NotificationDto를 UINotification으로 변환하는 함수
-  const convertToUINotification = (dto: NotificationDto): UINotification => {
+  // SSE 연결 관리
+  useSSE({
+    userId,
+    onNotification: (notification) => {
+      if (notification.notificationType === 'CONNECTED') {
+        return
+      }
+      
+      const newNotification = convertToUINotification(notification)
+      setNotifications(prev => [newNotification, ...prev])
+    },
+    onAuthRequired: () => {
+      console.log('SSE 인증 오류로 인한 로그아웃')
+      onLogout()
+    },
+    onTokenRefresh: async () => {
+      return await authService.refreshAccessToken()
+    }
+  })
+
+  // SSENotification을 UINotification으로 변환하는 함수
+  const convertToUINotification = (dto: SSENotification): UINotification => {
     const getTypeFromNotificationType = (type: string) => {
       switch (type) {
         case 'DM_RECEIVED':
@@ -143,7 +169,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
     if (!userId) return
 
     try {
-      const response = await authenticatedFetch(`/api/notifications`)
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/notifications`)
       
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
@@ -155,7 +181,18 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
         throw new Error(`알림 목록을 가져오는데 실패했습니다. (상태: ${response.status})`)
       }
 
-      const notificationDtos: NotificationDto[] = await response.json()
+      const responseData = await response.json()
+      
+      // CursorPageResponseDto 구조로 받은 경우 content 배열 추출
+      const notificationDtos = responseData.content || responseData
+      
+      // 배열인지 확인
+      if (!Array.isArray(notificationDtos)) {
+        console.error('알림 데이터가 배열이 아닙니다:', responseData)
+        setNotifications([])
+        return
+      }
+      
       const uiNotifications = notificationDtos.map(dto => ({
         ...convertToUINotification(dto),
         isRead: true // 알림 목록 조회 시 백엔드에서 자동으로 읽음 처리됨
@@ -170,137 +207,12 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
     }
   }
 
-  // SSE 재연결 관련 상태
-  const [retryCount, setRetryCount] = useState(0)
-  const maxRetries = 5
-  const baseRetryDelay = 2000
 
-  // SSE 연결 설정 함수 (토큰 포함)
-  const connectSSE = () => {
-    if (!userId) return
-
-    const token = localStorage.getItem('accessToken')
-    if (!token) {
-      console.warn('accessToken이 없습니다. SSE 연결 생략')
-      return
-    }
-
-    // 최대 재시도 횟수 확인
-    if (retryCount >= maxRetries) {
-      console.warn('SSE 연결 최대 재시도 횟수 초과, 연결 중단')
-      return
-    }
-
-    // 연결 수 제한 확인 및 처리
-    setEventSources(prev => {
-      // 현재 연결 수가 1개 이상이면 새로운 연결 생성하지 않음 (중복 연결 방지)
-      if (prev.length >= 1) {
-        console.log('이미 SSE 연결이 존재합니다.')
-        return prev
-      }
-
-      console.log(`SSE 연결 시도 중... (${retryCount + 1}/${maxRetries})`)
-      
-      const newEventSource = new EventSourcePolyfill(
-        `http://localhost:8080/api/notifications/subscribe`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          },
-          withCredentials: true,
-          heartbeatTimeout: 45000,
-        }
-      )
-
-      newEventSource.onopen = () => {
-        console.log('SSE 연결이 설정되었습니다.')
-        setRetryCount(0) // 연결 성공 시 재시도 카운트 초기화
-      }
-
-      newEventSource.onmessage = (event) => {
-        // heartbeat 메시지 처리
-        if (event.data === 'ping') {
-          return
-        }
-        
-        // heartbeat 이벤트 처리 (이름으로 구분)
-        if (event.type === 'heartbeat') {
-          return
-        }
-        
-        // 실제 알림 처리
-        try {
-          const notificationDto: NotificationDto = JSON.parse(event.data)
-          
-          // CONNECTED 타입 알림은 UI에 표시하지 않음 (연결 확인용)
-          if (notificationDto.notificationType === 'CONNECTED') {
-            return
-          }
-          
-          const newNotification = convertToUINotification(notificationDto)
-          setNotifications(prev => [newNotification, ...prev])
-        } catch (error) {
-          console.error('SSE 메시지 파싱 오류:', error)
-        }
-      }
-
-      newEventSource.onerror = (error) => {
-        console.error('SSE 연결 오류:', error)
-        
-        // 에러 발생한 연결을 배열에서 제거
-        setEventSources(prev => prev.filter(source => source !== newEventSource))
-        newEventSource.close()
-        
-        // 재시도 로직
-        if (retryCount < maxRetries) {
-          const delay = baseRetryDelay * Math.pow(2, retryCount) // 지수 백오프
-          console.log(`${delay}ms 후 SSE 재연결 시도... (${retryCount + 1}/${maxRetries})`)
-          
-          setRetryCount(prev => prev + 1)
-          
-          setTimeout(() => {
-            if (userId && localStorage.getItem('accessToken')) {
-              connectSSE()
-            }
-          }, delay)
-        } else {
-          console.error('SSE 연결 최대 재시도 횟수 초과')
-        }
-      }
-
-      // 새 연결을 배열에 추가
-      return [...prev, newEventSource]
-    })
-  }
-
-  // 컴포넌트 마운트 시 유저 정보, 알림 목록 조회 및 SSE 연결
+  // 컴포넌트 마운트 시 유저 정보, 알림 목록 조회
   useEffect(() => {
     if (userId) {
-      // 새로운 사용자 로그인 시 재시도 카운트 초기화
-      setRetryCount(0)
-      
       fetchUserInfo()
       fetchNotifications()
-      
-      const connectTimer = setTimeout(() => {
-        connectSSE()
-      }, 2000)
-      
-      // 컴포넌트 언마운트 시 모든 SSE 연결 정리
-      return () => {
-        clearTimeout(connectTimer)
-        setEventSources(prev => {
-          prev.forEach(source => {
-            if (source.readyState !== EventSource.CLOSED) {
-              source.close()
-            }
-          })
-          return []
-        })
-      }
-    } else {
-      // 로그아웃 시 재시도 카운트 초기화
-      setRetryCount(0)
     }
   }, [userId])
 
@@ -404,7 +316,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
   const handleLogout = async () => {
     try {
       // 로그아웃 API 호출
-      const response = await authenticatedFetch('/api/auth/logout', {
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/auth/logout`, {
         method: 'POST'
       })
 

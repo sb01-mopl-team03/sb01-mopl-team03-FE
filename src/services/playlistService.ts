@@ -1,7 +1,7 @@
-import { UserResponse } from '../types/user'
+import { PlaylistDto } from '../types/playlist'
 
-export class UserService {
-  private baseUrl = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/users`
+export class PlaylistService {
+  private baseUrl = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists`
 
   private async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
     const accessToken = localStorage.getItem('accessToken')
@@ -30,23 +30,24 @@ export class UserService {
   }
 
   /**
-   * 특정 유저 정보 조회
+   * 현재 사용자의 플레이리스트 목록 조회
    */
-  async getUser(userId: string): Promise<UserResponse> {
+  async getPlaylistByUser(): Promise<PlaylistDto[]> {
     try {
-      const response = await this.authenticatedFetch(`${this.baseUrl}/${userId}`)
+      const response = await this.authenticatedFetch(this.baseUrl)
       
       if (!response.ok) {
-        throw new Error(`유저 정보 조회에 실패했습니다. Status: ${response.status}`)
+        throw new Error(`플레이리스트 목록 조회에 실패했습니다. Status: ${response.status}`)
       }
       
       const data = await response.json()
       return data
     } catch (error) {
-      console.error('유저 정보 조회 오류:', error)
+      console.error('플레이리스트 목록 조회 오류:', error)
       throw error
     }
   }
 }
 
-export const userService = new UserService()
+// 전역 서비스 인스턴스
+export const playlistService = new PlaylistService()

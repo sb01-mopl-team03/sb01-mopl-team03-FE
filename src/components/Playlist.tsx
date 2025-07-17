@@ -249,16 +249,10 @@ export function Playlist({
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <div className="glass-effect rounded-lg p-4">
             <div className="text-2xl font-bold gradient-text">{playlists.length}</div>
             <p className="text-white/60 text-sm">총 플레이리스트</p>
-          </div>
-          <div className="glass-effect rounded-lg p-4">
-            <div className="text-2xl font-bold gradient-text">
-              {playlists.reduce((sum, playlist) => sum + (playlist.contentCount || playlist.playlistContents?.length || 0), 0)}
-            </div>
-            <p className="text-white/60 text-sm">총 콘텐츠</p>
           </div>
           <div className="glass-effect rounded-lg p-4">
             <div className="text-2xl font-bold gradient-text">
@@ -403,10 +397,18 @@ export function Playlist({
                     {playlist.userId && playlist.userId !== currentUserId && isValidUUID(playlist.userId) && (
                       <div className="mb-3 pb-3 border-b border-white/10">
                         <div 
-                          className="flex items-center space-x-2 cursor-pointer hover:text-[#4ecdc4] transition-colors"
+                          className={`flex items-center space-x-2 transition-colors ${
+                            currentUserId 
+                              ? 'cursor-pointer hover:text-[#4ecdc4]' 
+                              : 'cursor-default text-white/60'
+                          }`}
                           onClick={(e) => {
                             e.stopPropagation()
-                            onUserProfileOpen?.(playlist.userId!)
+                            if (currentUserId) {
+                              onUserProfileOpen?.(playlist.userId!)
+                            } else {
+                              alert('로그인이 필요한 기능입니다. 로그인 후 이용해주세요.')
+                            }
                           }}
                         >
                           <div className="w-6 h-6 rounded-full bg-[#4ecdc4] flex items-center justify-center text-black text-xs font-medium">

@@ -6,7 +6,7 @@ import {
 } from '../types/watchRoom'
 
 export class WatchRoomService {
-  private baseUrl = '/api/rooms'
+  private baseUrl = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/rooms`
 
   private async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
     const accessToken = localStorage.getItem('accessToken')
@@ -42,20 +42,19 @@ export class WatchRoomService {
       const urlParams = new URLSearchParams()
       
       if (options?.query) {
-        urlParams.append('query', options.query)
+        urlParams.append('searchKeyword', options.query)
       }
       
-      // 백엔드에서 sortBy를 지원하지 않으므로 URL에 포함시키지 않음
-      // if (options?.sortBy) {
-      //   urlParams.append('sortBy', options.sortBy)
-      // }
+      if (options?.sortBy) {
+        urlParams.append('sortBy', options.sortBy)
+      }
       
       if (options?.limit) {
-        urlParams.append('limit', options.limit.toString())
+        urlParams.append('size', options.limit.toString())
       }
       
       if (options?.offset) {
-        urlParams.append('offset', options.offset.toString())
+        urlParams.append('cursor', options.offset?.toString() || '')
       }
       
       const url = `${this.baseUrl}${urlParams.toString() ? '?' + urlParams.toString() : ''}`
@@ -66,7 +65,16 @@ export class WatchRoomService {
         throw new Error(`시청방 목록 조회에 실패했습니다. Status: ${response.status}`)
       }
       
-      const rooms = await response.json()
+      const responseData = await response.json()
+      
+      // CursorPageResponseDto 구조에서 data 배열 추출
+      const rooms = responseData.data || responseData
+      
+      // 배열인지 확인
+      if (!Array.isArray(rooms)) {
+        console.error('시청방 데이터가 배열이 아닙니다:', responseData)
+        return []
+      }
       
       // 클라이언트 사이드에서 정렬 처리
       if (options?.sortBy) {
@@ -130,17 +138,27 @@ export class WatchRoomService {
       // 여기서는 시청방 정보만 조회하고 실제 입장은 WebSocket 연결 후 처리
       const room = await this.getWatchRoom(roomId)
       
-      // 기본적인 정보만 반환하고, 실제 참여자 정보와 비디오 상태는 WebSocket을 통해 업데이트
+      // 새로운 WatchRoomInfoDto 구조에 맞춰 반환
       return {
-        room,
-        participants: [],
-        videoStatus: {
-          videoControlAction: 'PAUSE' as any,
-          currentTime: 0,
-          isPlaying: false,
-          timestamp: Date.now()
+        id: room.id,
+        title: room.title,
+        newUserId: '', // WebSocket에서 업데이트됨
+        content: {
+          id: room.contentId || '',
+          title: room.contentTitle,
+          titleNormalized: '',
+          description: '',
+          contentType: 'MOVIE' as any,
+          releaseDate: '',
+          youtubeUrl: '',
+          thumbnailUrl: '',
+          avgRating: 0,
+          createdAt: ''
         },
-        chatMessages: []
+        participantsInfoDto: {
+          participantDtoList: [],
+          participantCount: 0
+        }
       }
     } catch (error) {
       console.error('시청방 입장 오류:', error)
@@ -151,24 +169,22 @@ export class WatchRoomService {
   /**
    * 시청방 검색
    */
-  async searchWatchRooms(query: string, sortBy: 'participants' | 'latest' | 'oldest' = 'participants'): Promise<WatchRoomDto[]> {
+  async searchWatchRooms(query: string, sortBy: 'createdAt' | 'title' | 'participantCount' = 'participantCount'): Promise<WatchRoomDto[]> {
     return this.getWatchRooms({ query, sortBy })
   }
 
   /**
    * 시청방 목록 정렬
    */
-  sortWatchRooms(rooms: WatchRoomDto[], sortBy: 'participants' | 'latest' | 'oldest'): WatchRoomDto[] {
+  sortWatchRooms(rooms: WatchRoomDto[], sortBy: 'createdAt' | 'title' | 'participantCount'): WatchRoomDto[] {
     return [...rooms].sort((a, b) => {
       switch (sortBy) {
-        case 'participants':
+        case 'participantCount':
           return b.headCount - a.headCount
-        case 'latest':
-          // createdAt 필드가 없으므로 headCount로 대체
-          return b.headCount - a.headCount
-        case 'oldest':
-          // createdAt 필드가 없으므로 headCount로 대체
-          return a.headCount - b.headCount
+        case 'createdAt':
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        case 'title':
+          return a.title.localeCompare(b.title)
         default:
           return b.headCount - a.headCount
       }
@@ -185,6 +201,7 @@ export class WatchRoomService {
     
     const lowerQuery = query.toLowerCase()
     return rooms.filter(room => 
+      room.title.toLowerCase().includes(lowerQuery) ||
       room.contentTitle.toLowerCase().includes(lowerQuery) ||
       room.ownerName.toLowerCase().includes(lowerQuery)
     )
