@@ -119,11 +119,13 @@ export const useSSE = (options: UseSSEOptions): UseSSEReturn => {
       sseManagerRef.current = new SSEManager(config)
 
       if (autoConnect) {
+        // 즉시 연결하지 말고 약간의 지연 후 연결
         setTimeout(() => {
           sseManagerRef.current?.connect()
-        }, 2000)
+        }, 1000) // 2초에서 1초로 단축
       }
 
+      // 연결 상태 체크 간격 단축
       const checkConnectionStatus = () => {
         if (sseManagerRef.current) {
           setIsConnected(sseManagerRef.current.isConnected())
@@ -131,7 +133,7 @@ export const useSSE = (options: UseSSEOptions): UseSSEReturn => {
         }
       }
 
-      const statusInterval = setInterval(checkConnectionStatus, 1000)
+      const statusInterval = setInterval(checkConnectionStatus, 2000) // 1초에서 2초로 변경
 
       return () => {
         clearInterval(statusInterval)
@@ -150,7 +152,11 @@ export const useSSE = (options: UseSSEOptions): UseSSEReturn => {
     userId,
     apiBaseUrl,
     maxReconnectAttempts,
-    autoConnect
+    autoConnect,
+    handleNotification,
+    handleAuthRequired,
+    handleConnectionOpen,
+    handleConnectionError
   ])
 
   useEffect(() => {

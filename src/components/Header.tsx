@@ -5,7 +5,6 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { userService } from '../services/userService'
 import { UserResponse } from '../types/user'
 import { useSSE } from '../hooks/useSSE'
-import { AuthService } from '../services/authService'
 import { SSENotification } from '../services/sseService'
 
 // Window 객체에 headerRefreshUserProfile 함수 추가
@@ -27,6 +26,7 @@ interface HeaderProps {
   refreshUserProfile?: () => void // 사용자 프로필 새로고침 함수 추가
   deleteNotification: (notificationId: string) => Promise<void> // 개별 알림 삭제 함수
   deleteAllNotifications: () => Promise<void> // 모든 알림 삭제 함수
+  refreshAccessToken: () => Promise<string | null> // 토큰 갱신 함수 추가 (SSE용)
 }
 
 // API 응답 타입 정의는 SSENotification 사용
@@ -42,22 +42,12 @@ interface UINotification {
   isRead: boolean
 }
 
-export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileClick, onCloseDM, onLogout, authenticatedFetch, userId, refreshUserProfile, deleteNotification, deleteAllNotifications }: HeaderProps) {
+export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileClick, onCloseDM, onLogout, authenticatedFetch, userId, refreshUserProfile, deleteNotification, deleteAllNotifications, refreshAccessToken }: HeaderProps) {
   const [notifications, setNotifications] = useState<UINotification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [user, setUser] = useState<UserResponse | null>(null)
   
-  // AuthService 인스턴스 생성
-  const authService = new AuthService({
-    onTokenExpired: () => {
-      console.log('토큰이 만료되어 자동 로그아웃됩니다.')
-      onLogout()
-    },
-    onTokenRefreshed: () => {
-      console.log('토큰이 갱신되었습니다.')
-    }
-  })
 
   // SSE 연결 관리
   useSSE({
@@ -75,7 +65,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
       onLogout()
     },
     onTokenRefresh: async () => {
-      return await authService.refreshAccessToken()
+      return await refreshAccessToken()
     }
   })
 

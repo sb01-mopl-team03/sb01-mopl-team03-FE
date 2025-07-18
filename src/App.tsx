@@ -161,14 +161,34 @@ export default function App() {
       try {
         console.log('토큰 재발급 시작')
         
+        const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'
+        
         // refreshToken은 쿠키에 저장되어 있으므로 별도 헤더 필요 없음
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/auth/refresh`, {
+        const response = await fetch(`${baseUrl}/api/auth/refresh`, {
           method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
           credentials: 'include', // 쿠키 포함
+        })
+        
+        console.log('토큰 재발급 응답:', {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries())
         })
         
         if (!response.ok) {
           console.log(`토큰 재발급 실패: ${response.status} ${response.statusText}`)
+          
+          // 에러 응답 내용도 로그
+          try {
+            const errorText = await response.text()
+            console.log('토큰 재발급 에러 응답:', errorText)
+          } catch (e) {
+            console.log('에러 응답 읽기 실패:', e)
+          }
+          
           if (response.status === 401) {
             console.log('Refresh token이 만료되었습니다.')
           } else if (response.status === 500) {
@@ -178,6 +198,8 @@ export default function App() {
         }
         
         const text = await response.text()
+        console.log('토큰 재발급 응답 텍스트:', text)
+        
         if (!text || text.trim() === '') {
           console.log('빈 응답으로 토큰 재발급 실패')
           return null
@@ -185,7 +207,7 @@ export default function App() {
         
         // 응답이 accessToken 문자열임
         const newToken = text.replace(/"/g, '') // 혹시 따옴표로 감싸져 있으면 제거
-        console.log('토큰 재발급 완료')
+        console.log('토큰 재발급 완료:', newToken ? '새 토큰 받음' : '토큰 없음')
         return newToken
       } catch (e) {
         console.error('Token refresh 오류:', e)
@@ -211,6 +233,44 @@ export default function App() {
       userIdFromToken,
       currentUserId: userId
     })
+    
+    // 인증이 필요 없는 경로 확인 (먼저 확인)
+    const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'
+    const authFreeUrls = [
+      `${baseUrl}/api/auth/login`,
+      `${baseUrl}/api/auth/refresh`,
+      `${baseUrl}/api/auth/change-password`,
+      `${baseUrl}/api/auth/temp-password`,
+      `${baseUrl}/api/users` // POST 요청만 (회원가입)
+    ]
+
+    const isAuthFree = authFreeUrls.some(authUrl => {
+      if (authUrl.endsWith('/api/users')) {
+        // /api/users는 POST 요청만 인증 불필요 (회원가입)
+        // 정확히 /api/users 경로이고 POST 요청인 경우만
+        const isMatch = url === authUrl && (options.method === 'POST')
+        console.log('🔍 /api/users 경로 체크:', { url, authUrl, method: options.method, isMatch })
+        return isMatch
+      }
+      return url.startsWith(authUrl)
+    })
+
+    console.log('🔍 인증 필요 여부 체크:', { url, method: options.method, isAuthFree })
+
+    // 인증이 필요 없는 경로는 바로 처리
+    if (isAuthFree) {
+      console.log('✅ 인증이 필요 없는 API 호출:', url)
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      }
+      
+      return fetch(url, {
+        ...options,
+        headers,
+        credentials: 'include' // 쿠키 포함 (refresh token용)
+      })
+    }
     
     // 토큰이 없는 경우
     if (!accessToken) {
@@ -242,22 +302,18 @@ export default function App() {
     }
     
     // Authorization 헤더 추가
-    // 인증이 필요 없는 경로 예외 처리
-    const authFreeUrls = [
-      `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/auth/login`,
-      `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/auth/refresh`,
-      `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/auth/change-password`,
-      `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/auth/temp-password`,
-      `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/users`
-    ]
-
-    const isAuthFree = authFreeUrls.some(authUrl => url.startsWith(authUrl))
-
     const headers = {
       'Content-Type': 'application/json',
-      ...(isAuthFree ? {} : { 'Authorization': `Bearer ${accessToken}` }),
+      'Authorization': `Bearer ${accessToken}`,
       ...(options.headers || {})
     }
+    
+    console.log('🔑 Authorization 헤더 추가:', { 
+      url, 
+      hasToken: !!accessToken, 
+      tokenPreview: accessToken ? `${accessToken.substring(0, 20)}...` : 'no token',
+      headers: { ...headers, Authorization: headers.Authorization ? `Bearer ${headers.Authorization.split(' ')[1]?.substring(0, 20)}...` : 'no auth' }
+    })
     
     const response = await fetch(url, {
       ...options,
@@ -1523,6 +1579,7 @@ export default function App() {
         refreshUserProfile={refreshUserProfile} // 사용자 프로필 새로고침 함수 전달
         deleteNotification={deleteNotification} // 개별 알림 삭제 함수 전달
         deleteAllNotifications={deleteAllNotifications} // 모든 알림 삭제 함수 전달
+        refreshAccessToken={refreshAccessToken} // 토큰 갱신 함수 전달 (SSE용)
       />
       
       {/* Main content with click handler to close DM */}

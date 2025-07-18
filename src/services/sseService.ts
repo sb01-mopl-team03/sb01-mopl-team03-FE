@@ -19,17 +19,13 @@ export interface SSEManagerConfig {
 }
 
 export class SSEManager {
-  // @ts-ignore - userId is used for future features
   private _userId: string
   private apiBaseUrl: string
   private maxReconnectAttempts: number
   private eventSource: EventSourcePolyfill | null = null
   private reconnectAttempts: number = 0
   private reconnectTimeout: NodeJS.Timeout | null = null
-  private tokenRefreshTimeout: NodeJS.Timeout | null = null
   private isManualDisconnect: boolean = false
-  private lastHeartbeat: number = Date.now()
-  private heartbeatCheckInterval: NodeJS.Timeout | null = null
   
   private onNotification?: (notification: SSENotification) => void
   private onAuthRequired?: () => void
@@ -62,23 +58,7 @@ export class SSEManager {
       return
     }
 
-    const tokenExpiry = this.getTokenExpiry(token)
-    const now = Date.now()
-    
-    if (tokenExpiry && tokenExpiry <= now) {
-      console.log('토큰이 만료되었습니다. 갱신 중...')
-      this.refreshTokenAndConnect()
-      return
-    }
-
     this.startSSEConnection(token)
-    
-    if (tokenExpiry) {
-      const refreshTime = tokenExpiry - now - (5 * 60 * 1000)
-      if (refreshTime > 0) {
-        this.scheduleTokenRefresh(refreshTime)
-      }
-    }
   }
 
   private startSSEConnection(token: string): void {
@@ -86,97 +66,83 @@ export class SSEManager {
     
     const url = `${this.apiBaseUrl}/api/notifications/subscribe`
     
-    this.eventSource = new EventSourcePolyfill(url, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      },
-      withCredentials: true,
-      heartbeatTimeout: 45000,
-    })
-
-    this.eventSource.onopen = () => {
-      console.log('SSE 연결 성공')
-      this.reconnectAttempts = 0
-      this.lastHeartbeat = Date.now()
-      this.startHeartbeatCheck()
-      this.onConnectionOpen?.()
-    }
-
-    this.eventSource.onmessage = (event) => {
-      this.handleMessage(event)
-    }
-
-    this.eventSource.addEventListener('auth-error', (event: any) => {
-      console.warn('인증 오류:', event.data)
-      this.eventSource?.close()
-      this.handleAuthRequired()
-    })
-
-    this.eventSource.addEventListener('token-expired', () => {
-      console.log('토큰 만료 알림 받음')
-      this.eventSource?.close()
-      this.refreshTokenAndConnect()
-    })
-
-    this.eventSource.onerror = (event: any) => {
-      console.error('SSE 연결 오류:', event)
-      this.onConnectionError?.(event)
+    try {
+      console.log('SSE 연결 시도:', url)
       
-      if (this.eventSource?.readyState === EventSourcePolyfill.CLOSED) {
-        console.log('SSE 연결이 닫혔습니다. 재연결을 시도합니다.')
-        this.eventSource = null
-        this.handleReconnect()
-      } else if (this.eventSource?.readyState === EventSourcePolyfill.CONNECTING) {
-        console.log('SSE 연결 중...')
+      this.eventSource = new EventSourcePolyfill(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        withCredentials: true,
+        heartbeatTimeout: 45000,
+      })
+
+      this.eventSource.onopen = () => {
+        console.log('SSE 연결 성공')
+        this.reconnectAttempts = 0
+        this.onConnectionOpen?.()
       }
+
+      this.eventSource.onmessage = (event) => {
+        this.handleMessage(event)
+      }
+
+      this.eventSource.onerror = (error: any) => {
+        console.error('SSE 연결 오류:', {
+          error,
+          readyState: this.eventSource?.readyState,
+          url
+        })
+        
+        this.onConnectionError?.(error)
+        
+        // 연결이 완전히 닫혔을 때만 재연결 시도
+        if (this.eventSource?.readyState === EventSourcePolyfill.CLOSED) {
+          console.log('SSE 연결이 닫혔습니다.')
+          this.eventSource = null
+          this.handleReconnect()
+        } else if (this.eventSource?.readyState === EventSourcePolyfill.CONNECTING) {
+          console.log('SSE 연결 중...')
+        }
+      }
+
+      // 커스텀 이벤트 리스너
+      this.eventSource.addEventListener('auth-error', (event: any) => {
+        console.warn('인증 오류:', event.data)
+        this.eventSource?.close()
+        this.handleAuthRequired()
+      })
+
+      this.eventSource.addEventListener('token-expired', () => {
+        console.log('토큰 만료 알림 받음')
+        this.eventSource?.close()
+        this.refreshTokenAndConnect()
+      })
+
+    } catch (error) {
+      console.error('SSE 연결 시도 중 에러:', error)
+      this.handleReconnect()
     }
   }
 
   private handleMessage(event: any): void {
-    this.lastHeartbeat = Date.now()
-    
-    if (event.data === 'ping') {
-      return
-    }
-    
-    if (event.type === 'heartbeat') {
+    // ping/pong 메시지 무시
+    if (event.data === 'ping' || event.data === 'heartbeat') {
       return
     }
     
     try {
       const notification: SSENotification = JSON.parse(event.data)
       
+      // 연결 확인 메시지 무시
       if (notification.notificationType === 'CONNECTED') {
         return
       }
       
+      console.log('SSE 알림 수신:', notification)
       this.onNotification?.(notification)
     } catch (error) {
-      console.error('SSE 메시지 파싱 오류:', error)
-    }
-  }
-
-  private startHeartbeatCheck(): void {
-    this.clearHeartbeatCheck()
-    
-    this.heartbeatCheckInterval = setInterval(() => {
-      const timeSinceLastHeartbeat = Date.now() - this.lastHeartbeat
-      
-      if (timeSinceLastHeartbeat > 60000) {
-        console.warn('Heartbeat 타임아웃 - 연결 상태를 확인합니다.')
-        
-        if (this.eventSource?.readyState !== EventSourcePolyfill.OPEN) {
-          console.error('SSE 연결이 끊어졌습니다. 재연결을 시도합니다.')
-          this.handleReconnect()
-        }
-      }
-    }, 30000)
-  }
-
-  private clearHeartbeatCheck(): void {
-    if (this.heartbeatCheckInterval) {
-      clearInterval(this.heartbeatCheckInterval)
-      this.heartbeatCheckInterval = null
+      console.error('SSE 메시지 파싱 오류:', error, 'Raw data:', event.data)
     }
   }
 
@@ -197,21 +163,6 @@ export class SSEManager {
     }
   }
 
-  private scheduleTokenRefresh(delay: number): void {
-    this.clearTokenRefreshTimeout()
-    
-    this.tokenRefreshTimeout = setTimeout(() => {
-      console.log('토큰 갱신 및 재연결 시작')
-      this.refreshTokenAndReconnect()
-    }, delay)
-  }
-
-  private async refreshTokenAndReconnect(): Promise<void> {
-    console.log('토큰 갱신 및 재연결 시작')
-    this.disconnect()
-    await this.refreshTokenAndConnect()
-  }
-
   private handleReconnect(): void {
     if (this.isManualDisconnect) {
       console.log('수동 연결 해제 상태이므로 재연결하지 않습니다.')
@@ -221,12 +172,7 @@ export class SSEManager {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++
       
-      let delay: number
-      if (this.reconnectAttempts === 1) {
-        delay = 1000
-      } else {
-        delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000)
-      }
+      const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 30000)
       
       console.log(`${delay}ms 후 재연결 시도 (${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
       
@@ -235,7 +181,7 @@ export class SSEManager {
         console.log('재연결 시도 중...')
         
         const token = this.getValidToken()
-        if (!token || this.getTokenExpiry(token)! <= Date.now()) {
+        if (!token || this.isTokenExpired(token)) {
           console.log('토큰이 유효하지 않습니다. 토큰 갱신 후 재연결합니다.')
           await this.refreshTokenAndConnect()
         } else {
@@ -252,12 +198,13 @@ export class SSEManager {
     return localStorage.getItem('accessToken')
   }
 
-  private getTokenExpiry(token: string): number | null {
+  private isTokenExpired(token: string): boolean {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]))
-      return payload.exp * 1000
+      const currentTime = Date.now() / 1000
+      return payload.exp < currentTime
     } catch (error) {
-      return null
+      return true
     }
   }
 
@@ -289,19 +236,14 @@ export class SSEManager {
           localStorage.setItem('accessToken', cleanToken)
           console.log('토큰 갱신 성공')
           return cleanToken
-        } else {
-          console.error('유효하지 않은 토큰 응답:', newToken)
-          return null
         }
       } else {
         console.error(`토큰 갱신 실패: ${response.status} ${response.statusText}`)
         if (response.status === 401) {
-          console.log('Refresh token이 만료되었습니다.')
           localStorage.removeItem('accessToken')
-          localStorage.removeItem('refreshToken')
         }
-        return null
       }
+      return null
     } catch (error) {
       console.error('토큰 갱신 네트워크 오류:', error)
       return null
@@ -319,18 +261,9 @@ export class SSEManager {
     }
   }
 
-  private clearTokenRefreshTimeout(): void {
-    if (this.tokenRefreshTimeout) {
-      clearTimeout(this.tokenRefreshTimeout)
-      this.tokenRefreshTimeout = null
-    }
-  }
-
   public disconnect(): void {
     this.isManualDisconnect = true
     this.clearReconnectTimeout()
-    this.clearTokenRefreshTimeout()
-    this.clearHeartbeatCheck()
     
     if (this.eventSource) {
       this.eventSource.close()
@@ -349,12 +282,11 @@ export class SSEManager {
     this.isManualDisconnect = false
     this.reconnectAttempts = 0
     this.clearReconnectTimeout()
-    this.clearTokenRefreshTimeout()
     this.disconnect()
     
     setTimeout(async () => {
       const token = this.getValidToken()
-      if (!token || this.getTokenExpiry(token)! <= Date.now()) {
+      if (!token || this.isTokenExpired(token)) {
         console.log('강제 재연결: 토큰 갱신 후 연결')
         await this.refreshTokenAndConnect()
       } else {
