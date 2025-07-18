@@ -403,6 +403,8 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
   const handleSendMessage = () => {
     if (!newMessage.trim() || !isConnected) return
 
+    // 메시지를 서버로 전송만 하고, 화면에 즉시 표시하지 않음
+    // 서버에서 브로드캐스트되어 돌아올 때만 화면에 표시됨
     wsSendChatMessage(newMessage)
     console.log('Sending message:', newMessage)
     
