@@ -136,12 +136,13 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
     try {
       if (isFollowing) {
         // 언팔로우
+        const unfollowFormData = new FormData()
+        unfollowFormData.append('followerId', currentUserId)
+        unfollowFormData.append('followingId', userId)
+        
         const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/unfollow`, {
           method: 'DELETE',
-          body: JSON.stringify({
-            followerId: currentUserId,
-            followingId: userId
-          })
+          body: unfollowFormData
         })
         
         if (!response.ok) {
@@ -153,12 +154,13 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
         setFollowers(prev => prev.filter(follower => follower.id !== currentUserId))
       } else {
         // 팔로우
+        const followFormData = new FormData()
+        followFormData.append('followerId', currentUserId)
+        followFormData.append('followingId', userId)
+        
         const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/follow`, {
           method: 'POST',
-          body: JSON.stringify({
-            followerId: currentUserId,
-            followingId: userId
-          })
+          body: followFormData
         })
         
         if (!response.ok) {

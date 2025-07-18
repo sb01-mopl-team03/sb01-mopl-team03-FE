@@ -370,6 +370,16 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
                 <Button
                   size="lg"
                   variant="outline"
+                  onClick={handleAddContent}
+                  className="border-white/20 hover:bg-white/10"
+                >
+                  <Plus className="w-5 h-5 mr-2" />
+                  콘텐츠 추가
+                </Button>
+
+                <Button
+                  size="lg"
+                  variant="outline"
                   onClick={toggleMultiSelectMode}
                   className={`border-white/20 hover:bg-white/10 ${isMultiSelectMode ? 'bg-white/10' : ''}`}
                 >
