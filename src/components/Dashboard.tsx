@@ -225,7 +225,7 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
                 
                 {/* Content Info */}
                 <div className="p-4">
-                  <h3 className="font-medium mb-2 line-clamp-1">{room.contentTitle}</h3>
+                  <h3 className="font-medium mb-2 line-clamp-1">{room.contentDto?.title}</h3>
                   <p className="text-sm text-white/60 mb-3 line-clamp-1">{room.ownerName}의 방</p>
                   
                   {/* Room Stats */}

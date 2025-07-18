@@ -663,13 +663,12 @@ export default function App() {
 
       console.log('📤 구독 요청 데이터:', requestBody)
 
-      const subscriptionFormData = new FormData()
-      subscriptionFormData.append('userId', requestBody.userId)
-      subscriptionFormData.append('playlistId', requestBody.playlistId)
-      
       const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/subscriptions`, {
         method: 'POST',
-        body: subscriptionFormData
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
       })
 
       console.log('📡 구독 응답 상태:', response.status, response.statusText)
@@ -719,7 +718,6 @@ export default function App() {
       throw error
     }
   }
-
 
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null)
   const [selectedContentDetail, setSelectedContentDetail] = useState<ContentItem | null>(null)

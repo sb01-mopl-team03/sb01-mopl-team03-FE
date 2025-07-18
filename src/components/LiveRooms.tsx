@@ -231,8 +231,8 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen, current
                   {/* Content Thumbnail */}
                   <div className="aspect-[16/9] relative overflow-hidden">
                     <img
-                      src="https://via.placeholder.com/400x225/1a1a1a/ffffff?text=Live+Stream"
-                      alt={room.contentTitle}
+                      src={room.contentDto.thumbnailUrl || 'https://via.placeholder.com/400x225/1a1a1a/ffffff?text=Live+Stream'}
+                      alt={room.contentDto.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     
@@ -269,7 +269,7 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen, current
                     </div>
                     
                     <h3 className="font-medium mb-2 line-clamp-1">{room.title}</h3>
-                    <p className="text-sm text-white/60 mb-3 line-clamp-1">{room.contentTitle}</p>
+                    <p className="text-sm text-white/60 mb-3 line-clamp-1">{room.contentDto.title}</p>
                     
                     <div className="flex items-center gap-2">
                       <Avatar 
@@ -326,8 +326,8 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen, current
                 {/* Content Thumbnail */}
                 <div className="aspect-[16/9] relative overflow-hidden">
                   <img
-                    src="/api/placeholder/400/225"
-                    alt={room.contentTitle}
+                    src={room.contentDto.thumbnailUrl || '/api/placeholder/400/225'}
+                    alt={room.contentDto.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                   
@@ -369,7 +369,7 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen, current
                   </div>
                   
                   <h3 className="font-medium mb-1 line-clamp-1 text-sm">{room.title}</h3>
-                  <p className="text-xs text-white/60 mb-2 line-clamp-1">{room.contentTitle}</p>
+                  <p className="text-xs text-white/60 mb-2 line-clamp-1">{room.contentDto.title}</p>
                   
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">

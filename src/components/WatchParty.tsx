@@ -208,11 +208,14 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
       const roomData: WatchRoomDto = {
         id: roomInfo.id,
         title: roomInfo.title,
-        contentTitle: roomInfo.content.title,
+        contentDto: roomInfo.content,
         ownerId: '', // WebSocket에서는 제공하지 않음
         ownerName: '', // WebSocket에서는 제공하지 않음
         createdAt: '', // WebSocket에서는 제공하지 않음
-        headCount: roomInfo.participantsInfoDto.participantsCount || roomInfo.participantsInfoDto.participantCount
+        headCount: roomInfo.participantsInfoDto.participantsCount || roomInfo.participantsInfoDto.participantCount,
+        // 기존 호환성을 위한 필드들
+        contentTitle: roomInfo.content.title,
+        contentId: roomInfo.content.id
       }
       setRoomData(roomData)
 
@@ -272,11 +275,14 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
         const roomData: WatchRoomDto = {
           id: roomInfo.id,
           title: roomInfo.title,
-          contentTitle: roomInfo.content.title,
+          contentDto: roomInfo.content,
           ownerId: '', // WebSocket에서 업데이트됨
           ownerName: '', // WebSocket에서 업데이트됨
           createdAt: '', // WebSocket에서 업데이트됨
-          headCount: roomInfo.participantsInfoDto.participantsCount || roomInfo.participantsInfoDto.participantCount
+          headCount: roomInfo.participantsInfoDto.participantsCount || roomInfo.participantsInfoDto.participantCount,
+          // 기존 호환성을 위한 필드들
+          contentTitle: roomInfo.content.title,
+          contentId: roomInfo.content.id
         }
         setRoomData(roomData)
         
@@ -438,7 +444,7 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
       <div className="h-screen bg-[#0f0f0f] flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
           <div className="mb-6">
-            <h2 className="text-2xl font-medium mb-2">{roomData?.contentTitle || '시청방'}</h2>
+            <h2 className="text-2xl font-medium mb-2">{roomData?.contentDto?.title || '시청방'}</h2>
             <p className="text-white/60 mb-4">시청방에 참여하시겠습니까?</p>
             <div className="flex items-center justify-center gap-4 text-sm text-white/60 mb-6">
               <div className="flex items-center gap-1">
@@ -531,7 +537,7 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
               </div>
               <div className="flex items-center space-x-2 text-sm text-white/60">
                 <span>
-                  {contentData ? contentData.title : roomData.contentTitle}
+                  {contentData ? contentData.title : roomData.contentDto?.title}
                 </span>
                 {contentData && contentData.contentType && (
                   <>
@@ -642,7 +648,7 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
             {/* Fallback placeholder */}
             {!canUsePlayer && (
               <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-white text-4xl font-bold">
-                {roomData?.contentTitle?.charAt(0).toUpperCase() || 'V'}
+                {roomData?.contentDto?.title?.charAt(0).toUpperCase() || 'V'}
               </div>
             )}
             

@@ -4,12 +4,14 @@ import { ContentDto } from './content'
 export interface WatchRoomDto {
   id: string
   title: string
-  contentTitle: string
-  contentId?: string // 백엔드에서 contentId 제공 시 사용
+  contentDto: ContentDto
   ownerId: string
   ownerName: string
   createdAt: string
   headCount: number
+  // 기존 호환성을 위한 필드들
+  contentTitle?: string // contentDto.title과 동일
+  contentId?: string // contentDto.id와 동일
 }
 
 export interface WatchRoomCreateRequest {
