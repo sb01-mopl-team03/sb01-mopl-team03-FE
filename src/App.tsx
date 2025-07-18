@@ -98,7 +98,7 @@ export default function App() {
       const payload = JSON.parse(atob(token.split('.')[1]))
       const currentTime = Date.now() / 1000 // 현재 시간을 초 단위로 변환
       const expTime = payload.exp
-      const bufferTime = 5 // 5초 버퍼 시간 (토큰이 5초 내에 만료될 예정이면 재발급)
+      const bufferTime = 30 // 30초 버퍼 시간 (토큰이 30초 내에 만료될 예정이면 재발급)
       
       const isExpired = expTime < (currentTime + bufferTime)
       
@@ -808,18 +808,45 @@ export default function App() {
       
       const accessToken = localStorage.getItem('accessToken')
       if (accessToken) {
-        // 토큰 만료 체크
-        if (isTokenExpired(accessToken)) {
-          console.log('저장된 토큰이 만료됨, 백엔드 연결 실패로 인해 로그아웃 처리')
-          // 백엔드 연결 실패 시 바로 로그아웃 처리
-          handleTokenExpiration()
-          return
+        let validToken = accessToken
+        
+        // 토큰 만료 체크 및 재발급 시도 (최근에 발급된 토큰은 재발급 스킵)
+        const isExpired = isTokenExpired(accessToken)
+        const isRecentlyIssued = isTokenRecentlyIssued(accessToken)
+        
+        console.log('초기화 시 토큰 상태:', { 
+          isExpired, 
+          isRecentlyIssued, 
+          shouldRefresh: isExpired && !isRecentlyIssued 
+        })
+        
+        if (isExpired && !isRecentlyIssued) {
+          console.log('저장된 토큰이 만료되어 재발급 시도')
+          
+          try {
+            const newAccessToken = await refreshAccessToken()
+            if (newAccessToken) {
+              console.log('토큰 재발급 성공')
+              validToken = newAccessToken
+            } else {
+              console.log('토큰 재발급 실패, 로그아웃 처리')
+              handleTokenExpiration()
+              return
+            }
+          } catch (error) {
+            console.error('토큰 재발급 중 오류:', error)
+            handleTokenExpiration()
+            return
+          }
+        } else if (isExpired && isRecentlyIssued) {
+          console.log('최근에 발급된 토큰이므로 만료 체크 스킵')
         }
         
-        const userId = extractUserIdFromToken(accessToken)
+        const userId = extractUserIdFromToken(validToken)
         if (userId) {
           setUserId(userId)
           setIsLoggedIn(true)
+          console.log('인증 초기화 성공:', { userId, tokenValid: !isTokenExpired(validToken) })
         } else {
           console.log('토큰에서 사용자 ID 추출 실패')
           localStorage.removeItem('accessToken')
@@ -867,13 +894,14 @@ export default function App() {
     const userId = extractUserIdFromToken(accessToken)
     if (userId) {
       setUserId(userId)
+      setIsLoggedIn(true)
+      console.log('로그인 성공:', { userId, tokenValid: !isTokenExpired(accessToken) })
     } else {
       // 토큰 파싱 실패 시 로그아웃 처리
+      console.error('토큰에서 사용자 ID 추출 실패, 로그인 취소')
       localStorage.removeItem('accessToken')
       setIsLoggedIn(false)
     }
-    
-    setIsLoggedIn(true)
   }
 
   // 페이지 변경 시 localStorage에 저장 및 브라우저 히스토리 업데이트

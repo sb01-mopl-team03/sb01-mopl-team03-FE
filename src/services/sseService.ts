@@ -307,4 +307,8 @@ export class SSEManager {
   public updateUserId(userId: string): void {
     this._userId = userId
   }
+
+  public getUserId(): string {
+    return this._userId
+  }
 }

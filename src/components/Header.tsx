@@ -61,8 +61,20 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
       setNotifications(prev => [newNotification, ...prev])
     },
     onAuthRequired: () => {
-      console.log('SSE 인증 오류로 인한 로그아웃')
-      onLogout()
+      console.warn('SSE 인증 오류 발생 - 토큰 재발급 시도 후 재연결 시도')
+      // SSE 연결 실패가 바로 로그아웃을 의미하지는 않음
+      // 토큰 재발급이 실패하면 그 때 로그아웃 처리
+      refreshAccessToken().then(newToken => {
+        if (!newToken) {
+          console.error('SSE 토큰 재발급 실패로 인한 로그아웃')
+          onLogout()
+        } else {
+          console.log('SSE 토큰 재발급 성공 - 재연결은 자동으로 시도됨')
+        }
+      }).catch(error => {
+        console.error('SSE 토큰 재발급 중 오류:', error)
+        onLogout()
+      })
     },
     onTokenRefresh: async () => {
       return await refreshAccessToken()
