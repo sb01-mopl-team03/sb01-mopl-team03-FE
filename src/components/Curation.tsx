@@ -40,7 +40,7 @@ const convertContentDtoToItem = (dto: ContentDto): ContentItem => {
   return {
     id: dto.id,
     title: dto.title,
-    thumbnail: `/api/placeholder/300/400?text=${encodeURIComponent(dto.title)}`,
+    thumbnail: `https://via.placeholder.com/300x400/1a1a1a/ffffff?text=${encodeURIComponent(dto.title)}`,
     type: dto.contentType.toLowerCase() as 'movie' | 'tv' | 'sports',
     duration: '2시간 30분',
     description: dto.description,

@@ -303,8 +303,8 @@ export default function App() {
     
     // Authorization 헤더 추가
     const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
+      // FormData 사용 시 Content-Type을 자동으로 설정하도록 제거
+      ...(isAuthFree ? {} : { 'Authorization': `Bearer ${accessToken}` }),
       ...(options.headers || {})
     }
     
@@ -530,6 +530,9 @@ export default function App() {
       
       const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(playlistCreateRequest)
       })
       
@@ -573,9 +576,12 @@ export default function App() {
       const addContentsRequest = {
         contentIds: contentIds
       }
-
+      
       const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists/${playlistId}/contents`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(addContentsRequest)
       })
       
@@ -614,9 +620,12 @@ export default function App() {
       const deleteContentsRequest = {
         contentIds: contentIds
       }
-
+      
       const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists/${playlistId}/contents`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(deleteContentsRequest)
       })
       
@@ -654,12 +663,13 @@ export default function App() {
 
       console.log('📤 구독 요청 데이터:', requestBody)
 
+      const subscriptionFormData = new FormData()
+      subscriptionFormData.append('userId', requestBody.userId)
+      subscriptionFormData.append('playlistId', requestBody.playlistId)
+      
       const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/subscriptions`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
+        body: subscriptionFormData
       })
 
       console.log('📡 구독 응답 상태:', response.status, response.statusText)
