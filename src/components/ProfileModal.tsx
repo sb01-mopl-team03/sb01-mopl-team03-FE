@@ -144,7 +144,7 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
         unfollowFormData.append('followerId', userId)
         unfollowFormData.append('followingId', currentViewingUserId)
         
-        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/unfollow`, {
+        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows`, {
           method: 'DELETE',
           body: unfollowFormData
         })
@@ -162,7 +162,7 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
         followFormData.append('followerId', userId)
         followFormData.append('followingId', currentViewingUserId)
         
-        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/follow`, {
+        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows`, {
           method: 'POST',
           body: followFormData
         })
