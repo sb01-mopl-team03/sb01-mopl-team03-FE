@@ -21,6 +21,8 @@ import { UserProfile } from './components/UserProfile'
 import { Button } from './components/ui/button'
 
 import { WatchRoomDto } from './types/watchRoom'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import OAuthCallback from './pages/oauth/callback'
 
 // Window 객체에 headerRefreshUserProfile 함수 추가
 declare global {
@@ -254,7 +256,7 @@ export default function App() {
     const isAuthFree = authFreeUrls.some(authUrl => url.startsWith(authUrl))
 
     const headers = {
-      // FormData 사용 시 Content-Type을 자동으로 설정하도록 제거
+      'Content-Type': 'application/json',
       ...(isAuthFree ? {} : { 'Authorization': `Bearer ${accessToken}` }),
       ...(options.headers || {})
     }
@@ -474,9 +476,6 @@ export default function App() {
       
       const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(playlistCreateRequest)
       })
       
@@ -520,12 +519,9 @@ export default function App() {
       const addContentsRequest = {
         contentIds: contentIds
       }
-      
+
       const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists/${playlistId}/contents`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(addContentsRequest)
       })
       
@@ -564,12 +560,9 @@ export default function App() {
       const deleteContentsRequest = {
         contentIds: contentIds
       }
-      
+
       const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists/${playlistId}/contents`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(deleteContentsRequest)
       })
       
@@ -607,13 +600,12 @@ export default function App() {
 
       console.log('📤 구독 요청 데이터:', requestBody)
 
-      const subscriptionFormData = new FormData()
-      subscriptionFormData.append('userId', requestBody.userId)
-      subscriptionFormData.append('playlistId', requestBody.playlistId)
-      
       const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/subscriptions`, {
         method: 'POST',
-        body: subscriptionFormData
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
       })
 
       console.log('📡 구독 응답 상태:', response.status, response.statusText)
@@ -705,7 +697,6 @@ export default function App() {
         
         // URL 정리 후 메인 페이지로 이동
         window.history.replaceState({}, document.title, '/')
-        
         console.log('OAuth 로그인 성공! 메인 페이지로 이동합니다.')
       } else {
         alert('로그인 중 오류가 발생했습니다. 액세스 토큰을 받지 못했습니다.')
@@ -744,36 +735,49 @@ export default function App() {
     }
   }
 
-  // 초기 로드 시 로그인 상태 확인 및 OAuth 콜백 처리
-  useEffect(() => {
-    const initializeAuth = async () => {
-      // 먼저 OAuth 콜백 처리
-      handleOAuthCallback()
-      
-      const accessToken = localStorage.getItem('accessToken')
-      if (accessToken) {
-        // 토큰 만료 체크
-        if (isTokenExpired(accessToken)) {
-          console.log('저장된 토큰이 만료됨, 백엔드 연결 실패로 인해 로그아웃 처리')
-          // 백엔드 연결 실패 시 바로 로그아웃 처리
-          handleTokenExpiration()
-          return
-        }
-        
-        const userId = extractUserIdFromToken(accessToken)
-        if (userId) {
-          setUserId(userId)
-          setIsLoggedIn(true)
-        } else {
-          console.log('토큰에서 사용자 ID 추출 실패')
-          localStorage.removeItem('accessToken')
-          handleTokenExpiration()
-        }
+ useEffect(() => {
+  const initializeAuth = async () => {
+    const params = new URLSearchParams(window.location.search)
+    const accessTokenFromQuery = params.get('access_token')
+
+    if (accessTokenFromQuery) {
+      // OAuth 콜백 상황이면 바로 로그인 처리
+      console.log('🔑 OAuth 콜백에서 accessToken 감지됨 → 로그인 처리 시작')
+      localStorage.setItem('accessToken', accessTokenFromQuery)
+      const userId = extractUserIdFromToken(accessTokenFromQuery)
+      if (userId) {
+        setUserId(userId)
+        setIsLoggedIn(true)
       }
+      // OAuth 처리가 끝났으니 쿼리스트링 제거
+      window.history.replaceState({}, '', '/')
+      return
     }
 
-    initializeAuth()
-  }, [])
+    // 로컬 스토리지에 accessToken 있는 경우
+    const accessToken = localStorage.getItem('accessToken')
+    if (accessToken) {
+      if (isTokenExpired(accessToken)) {
+        console.log('⚠️ 저장된 토큰이 만료됨 → 로그아웃 처리')
+        handleTokenExpiration()
+        return
+      }
+
+      const userId = extractUserIdFromToken(accessToken)
+      if (userId) {
+        setUserId(userId)
+        setIsLoggedIn(true)
+      } else {
+        console.log('❌ accessToken으로부터 userId 추출 실패')
+        localStorage.removeItem('accessToken')
+        handleTokenExpiration()
+      }
+    }
+  }
+
+  initializeAuth()
+}, [])
+
 
   // 주기적인 토큰 만료 체크
   useEffect(() => {
@@ -1379,7 +1383,9 @@ export default function App() {
     }
   }
 
-  if (!isLoggedIn) {
+  const isOAuthCallback = window.location.pathname === '/oauth/callback'
+
+  if (!isLoggedIn && !isOAuthCallback) {
     console.log('🔍 로그인 상태 디버깅:', {
       isLoggedIn,
       accessToken: localStorage.getItem('accessToken'),
@@ -1482,6 +1488,8 @@ export default function App() {
         return <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
     }
   }
+
+  
 
   // Don't show header/footer in watch party mode, content detail mode, or user profile mode
   if (currentPage === 'watch-party' || currentPage === 'content-detail' || currentPage === 'user-profile') {
