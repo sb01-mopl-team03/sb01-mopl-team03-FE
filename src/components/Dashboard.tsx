@@ -184,10 +184,23 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
                 style={{ scrollSnapAlign: 'start' }}
               >
                 {/* Thumbnail */}
-                <div className="aspect-[3/4] relative overflow-hidden bg-gradient-to-br from-[#4ecdc4] to-[#44b3a7] group-hover:scale-105 transition-transform duration-300 flex items-center justify-center">
-                  <div className="text-center text-black">
-                    <div className="text-2xl font-bold opacity-60">LIVE</div>
-                    <div className="text-xs opacity-40 mt-1">시청방</div>
+                <div className="aspect-[3/4] relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
+                  {room.contentDto?.thumbnailUrl ? (
+                    <img 
+                      src={room.contentDto.thumbnailUrl} 
+                      alt={room.contentDto.title}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                      }}
+                    />
+                  ) : null}
+                  <div className={`absolute inset-0 bg-gradient-to-br from-[#4ecdc4] to-[#44b3a7] flex items-center justify-center ${room.contentDto?.thumbnailUrl ? 'hidden' : ''}`}>
+                    <div className="text-center text-black">
+                      <div className="text-2xl font-bold opacity-60">LIVE</div>
+                      <div className="text-xs opacity-40 mt-1">시청방</div>
+                    </div>
                   </div>
                   
                   {/* Live Badge */}
@@ -308,10 +321,23 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
                 })}
               >
                 {/* Thumbnail */}
-                <div className="aspect-[3/4] relative overflow-hidden bg-gradient-to-br from-[#4ecdc4] to-[#44b3a7] group-hover:scale-105 transition-transform duration-300 flex items-center justify-center">
-                  <div className="text-center text-black">
-                    <div className="text-2xl font-bold opacity-60">MOPL</div>
-                    <div className="text-xs opacity-40 mt-1">{content.contentType}</div>
+                <div className="aspect-[3/4] relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
+                  {content.thumbnailUrl ? (
+                    <img 
+                      src={content.thumbnailUrl} 
+                      alt={content.title}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                      }}
+                    />
+                  ) : null}
+                  <div className={`absolute inset-0 bg-gradient-to-br from-[#4ecdc4] to-[#44b3a7] flex items-center justify-center ${content.thumbnailUrl ? 'hidden' : ''}`}>
+                    <div className="text-center text-black">
+                      <div className="text-2xl font-bold opacity-60">MOPL</div>
+                      <div className="text-xs opacity-40 mt-1">{content.contentType}</div>
+                    </div>
                   </div>
                   
                   {/* Overlay */}

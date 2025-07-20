@@ -402,13 +402,56 @@ export default function App() {
     }
   }
 
+  // UUID 형식 검증 함수
+  const isValidUUID = (uuid: string): boolean => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    return uuidRegex.test(uuid)
+  }
+
   const getOrCreateDmRoom = async (userBId: string) => {
     try {
+      console.log('🔄 DM 룸 생성/조회 요청:', { userBId })
       const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/dmRooms/userRoom?userB=${userBId}`)
+      
       if (!response.ok) {
-        throw new Error('DM 룸 생성/조회 실패')
+        const errorText = await response.text()
+        console.error('❌ DM 룸 생성/조회 실패:', { status: response.status, errorText })
+        throw new Error(`DM 룸 생성/조회 실패: ${response.status} - ${errorText}`)
       }
-      return await response.text() // UUID 문자열 반환
+      
+      // Content-Type 확인
+      const contentType = response.headers.get('Content-Type') || ''
+      console.log('📋 응답 Content-Type:', contentType)
+      
+      let roomId: string
+      
+      if (contentType.includes('application/json')) {
+        // JSON 응답 처리
+        const jsonResponse = await response.json()
+        console.log('📋 JSON 응답:', jsonResponse)
+        roomId = typeof jsonResponse === 'string' ? jsonResponse : jsonResponse.toString()
+      } else {
+        // 텍스트 응답 처리
+        roomId = await response.text()
+        console.log('📋 텍스트 응답:', roomId)
+      }
+      
+      console.log('📋 DM 룸 생성/조회 응답:', { roomId, length: roomId.length })
+      
+      // UUID 형식 검증
+      const trimmedRoomId = roomId.trim()
+      if (!isValidUUID(trimmedRoomId)) {
+        console.error('❌ 유효하지 않은 UUID 형식:', { 
+          roomId: trimmedRoomId, 
+          length: trimmedRoomId.length,
+          contentType,
+          rawResponse: roomId
+        })
+        throw new Error(`유효하지 않은 UUID 형식: ${trimmedRoomId}`)
+      }
+      
+      console.log('✅ 유효한 UUID 반환:', trimmedRoomId)
+      return trimmedRoomId
     } catch (error) {
       console.error('DM 룸 생성/조회 실패:', error)
       throw error
@@ -423,7 +466,8 @@ export default function App() {
       if (pagingDto?.cursor) queryParams.append('cursor', pagingDto.cursor)
       if (pagingDto?.size) queryParams.append('size', pagingDto.size.toString())
       
-      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/dm/${roomId}?${queryParams}`)
+      const queryString = queryParams.toString()
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/dm/${roomId}${queryString ? '?' + queryString : ''}`)
       if (!response.ok) {
         throw new Error('DM 메시지 목록 조회 실패')
       }
@@ -1438,9 +1482,27 @@ export default function App() {
   }
 
   const handleOpenChat = (user: ChatUser) => {
+    console.log('💬 handleOpenChat 호출:', {
+      user,
+      hasRoomId: !!user.roomId,
+      roomIdLength: user.roomId?.length,
+      currentUserId: userId,
+      timestamp: new Date().toISOString()
+    });
+
+    if (!user.roomId) {
+      console.error('❌ roomId가 없는 사용자로 채팅 시도:', user);
+      return;
+    }
+
     setCurrentChatUser(user)
     setShowDMList(false)
     setShowChatRoom(true)
+    
+    console.log('✅ ChatRoom 상태 업데이트 완료:', {
+      showChatRoom: true,
+      currentChatUser: user
+    });
   }
 
   const handleCloseChatRoom = () => {
@@ -1559,6 +1621,25 @@ export default function App() {
           <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
         )
       case 'live':
+        if (!isLoggedIn) {
+          return (
+            <div className="min-h-screen bg-background flex items-center justify-center">
+              <div className="text-center">
+                <h2 className="text-2xl font-bold mb-4">로그인이 필요합니다</h2>
+                <p className="text-white/60 mb-6">라이브 시청방을 이용하려면 로그인해주세요.</p>
+                <button
+                  onClick={() => {
+                    setCurrentPage('home')
+                    localStorage.setItem('currentPage', 'home')
+                  }}
+                  className="teal-gradient hover:opacity-80 text-black px-6 py-3 rounded-lg font-medium"
+                >
+                  홈으로 돌아가기
+                </button>
+              </div>
+            </div>
+          )
+        }
         return <LiveRooms onJoinRoom={handleJoinRoom} onCreateRoom={handleCreateRoomModal} onUserProfileOpen={handleUserProfileOpen} currentUserId={userId} />
       default:
         return <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />

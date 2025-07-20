@@ -151,14 +151,16 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
     setFollowLoading(true)
     try {
       if (isFollowing) {
-        // 언팔로우
-        const unfollowFormData = new FormData()
-        unfollowFormData.append('followerId', currentUserId)
-        unfollowFormData.append('followingId', userId)
-        
+        // 언팔로우 - JSON 방식으로 수정
         const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows`, {
           method: 'DELETE',
-          body: unfollowFormData
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            followerId: currentUserId,
+            followingId: userId
+          })
         })
         
         if (!response.ok) {

@@ -423,7 +423,9 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen, current
               <div className="text-center py-12">
                 <Users className="w-12 h-12 text-white/40 mx-auto mb-4" />
                 <p className="text-white/60 mb-4">
-                  {searchQuery ? '검색 결과가 없습니다.' : '현재 활성화된 시청방이 없습니다.'}
+                  {searchQuery ? '검색 결과가 없습니다.' : 
+                   !currentUserId ? '로그인하시면 더 많은 시청방을 볼 수 있습니다.' : 
+                   '현재 활성화된 시청방이 없습니다.'}
                 </p>
                 <div className="flex gap-2 justify-center">
                   {searchQuery && (
@@ -435,13 +437,26 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen, current
                       모든 시청방 보기
                     </Button>
                   )}
-                  <Button
-                    onClick={onCreateRoom}
-                    className="teal-gradient hover:opacity-80 text-black"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    새 시청방 만들기
-                  </Button>
+                  {currentUserId ? (
+                    <Button
+                      onClick={onCreateRoom}
+                      className="teal-gradient hover:opacity-80 text-black"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      새 시청방 만들기
+                    </Button>
+                  ) : (
+                    <div className="text-center">
+                      <p className="text-white/40 text-sm mb-2">시청방을 만들려면 로그인이 필요합니다</p>
+                      <Button
+                        variant="outline"
+                        onClick={() => window.location.reload()}
+                        className="border-[#4ecdc4]/30 text-[#4ecdc4] hover:bg-[#4ecdc4]/10"
+                      >
+                        로그인하기
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
