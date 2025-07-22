@@ -120,7 +120,7 @@ export function CategoryPage({ category, onContentPlay, onContentDetail, onAddTo
   const convertToContentItem = (content: ContentDto): ContentItem => ({
     id: content.id, // UUID 원본 문자열 사용
     title: content.title,
-    thumbnail: content.thumbnail || '',
+    thumbnail: content.thumbnailUrl || content.thumbnail || '',
     type: content.contentType.toLowerCase() as 'movie' | 'tv' | 'sports',
     duration: content.duration || '120분',
     description: content.description || '',
@@ -217,11 +217,24 @@ export function CategoryPage({ category, onContentPlay, onContentDetail, onAddTo
                   className="bg-card rounded-lg overflow-hidden border border-white/10 hover:border-[#4ecdc4]/30 transition-all duration-300 group cursor-pointer"
                   onClick={() => handleContentDetail(content)}
                 >
-                  {/* Thumbnail Placeholder */}
-                  <div className="aspect-[3/4] relative overflow-hidden bg-gradient-to-br from-[#4ecdc4] to-[#44b3a7] group-hover:scale-105 transition-transform duration-300 flex items-center justify-center">
-                    <div className="text-center text-black">
-                      <div className="text-2xl font-bold opacity-60">MOPL</div>
-                      <div className="text-xs opacity-40 mt-1">{content.contentType}</div>
+                  {/* Thumbnail */}
+                  <div className="aspect-[3/4] relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
+                    {content.thumbnailUrl ? (
+                      <img 
+                        src={content.thumbnailUrl} 
+                        alt={content.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                    ) : null}
+                    <div className={`absolute inset-0 bg-gradient-to-br from-[#4ecdc4] to-[#44b3a7] flex items-center justify-center ${content.thumbnailUrl ? 'hidden' : ''}`}>
+                      <div className="text-center text-black">
+                        <div className="text-2xl font-bold opacity-60">MOPL</div>
+                        <div className="text-xs opacity-40 mt-1">{content.contentType}</div>
+                      </div>
                     </div>
                     
                     {/* Overlay */}

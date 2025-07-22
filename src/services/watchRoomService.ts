@@ -145,7 +145,7 @@ export class WatchRoomService {
         newUserId: '', // WebSocket에서 업데이트됨
         content: {
           id: room.contentId || '',
-          title: room.contentTitle,
+          title: room.contentDto?.title || room.contentTitle || '',
           titleNormalized: '',
           description: '',
           contentType: 'MOVIE' as any,
@@ -202,7 +202,7 @@ export class WatchRoomService {
     const lowerQuery = query.toLowerCase()
     return rooms.filter(room => 
       room.title.toLowerCase().includes(lowerQuery) ||
-      room.contentTitle.toLowerCase().includes(lowerQuery) ||
+      (room.contentDto?.title || room.contentTitle || '').toLowerCase().includes(lowerQuery) ||
       room.ownerName.toLowerCase().includes(lowerQuery)
     )
   }

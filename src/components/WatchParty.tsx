@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { 
   ArrowLeft, 
   Play, 
@@ -93,6 +93,7 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
 
   // Refs
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const loadInitialDataExecutingRef = useRef(false)
 
   // ========== API INTEGRATION POINT - START ==========
   // YouTube API에서 동영상 길이를 가져오므로 임시값 사용
@@ -107,35 +108,16 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
   // YouTube 비디오 ID 추출
   const youtubeVideoId = youtubeUrl ? extractYouTubeVideoId(youtubeUrl) : null
   
-  // YouTube 플레이어 훅 (비디오 ID가 있을 때만 초기화)
-  const playerController = useYouTubePlayer({
-    videoId: youtubeVideoId || '',
-    containerId: 'youtube-player-container',
-    isHost,
-    onStateChange: (isPlaying, currentTime, action) => {
-      console.log('🎵 Video state changed:', { isPlaying, currentTime, action, isHost, isConnected })
-      setIsPlaying(isPlaying)
-      setCurrentTime(currentTime)
-      
-      // 호스트만 다른 사용자에게 동기화 신호 전송
-      if (isHost && isConnected) {
-        console.log('🚀 Sending video control to server:', { action, currentTime })
-        sendVideoControl({
-          videoControlAction: action,
-          currentTime
-        })
-      }
-    },
-    onError: (error) => {
-      console.error('YouTube Player Error:', error)
-      setError(error)
-    }
-  })
+  // YouTube URL이 변경될 때마다 로그 출력
+  useEffect(() => {
+    console.log('🎬 YouTube URL/ID 변경:', { 
+      youtubeUrl, 
+      youtubeVideoId, 
+      extractedFrom: youtubeUrl 
+    })
+  }, [youtubeUrl, youtubeVideoId])
   
-  // 비디오 ID가 없으면 플레이어 사용 불가
-  const canUsePlayer = Boolean(youtubeVideoId && apiLoaded)
-
-  // WebSocket connection
+  // WebSocket connection - 콜백보다 먼저 호출
   const {
     isConnected,
     connectionStatus,
@@ -147,10 +129,10 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
   } = useWatchRoomWebSocket({
     roomId,
     userId,
-    onChatMessage: (message: WatchRoomMessageDto) => {
+    onChatMessage: useCallback((message: WatchRoomMessageDto) => {
       setChatMessages(prev => [...prev, message])
-    },
-    onParticipantsUpdate: (participantsInfo: ParticipantsInfoDto) => {
+    }, []),
+    onParticipantsUpdate: useCallback((participantsInfo: ParticipantsInfoDto) => {
       console.log('👥 Participants updated:', participantsInfo)
       
       // 방어적으로 participantDtoList가 undefined/null일 때 빈 배열 처리
@@ -176,19 +158,14 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
       })
       
       setIsHost(newIsHost)
-
-      // 동적으로 참여: 아직 연결 안되어 있으면 자동 참여
-      if (!isConnected && typeof connect === 'function') {
-        connect()
-      }
-    },
-    onVideoSync: (syncData: VideoSyncDto) => {
+    }, [userId]),
+    onVideoSync: useCallback((syncData: VideoSyncDto) => {
       // Only sync if not too old and not host
       if (Date.now() - syncData.timestamp < 5000 && !isHost) {
         console.log('Video sync received:', syncData)
         
         // YouTube 플레이어 동기화
-        if (playerController.syncVideo) {
+        if (playerController && playerController.syncVideo) {
           playerController.syncVideo({
             action: syncData.videoControlAction,
             currentTime: syncData.currentTime,
@@ -200,19 +177,22 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
         setIsPlaying(syncData.isPlaying)
         setCurrentTime(syncData.currentTime)
       }
-    },
-    onRoomSync: (roomInfo: WatchRoomInfoDto) => {
+    }, [isHost]),
+    onRoomSync: useCallback((roomInfo: WatchRoomInfoDto) => {
       console.log('🏠 Room sync received:', roomInfo)
       
       // 새로운 WatchRoomInfoDto 구조에 맞춰 방 정보 업데이트
       const roomData: WatchRoomDto = {
         id: roomInfo.id,
         title: roomInfo.title,
-        contentTitle: roomInfo.content.title,
+        contentDto: roomInfo.content,
         ownerId: '', // WebSocket에서는 제공하지 않음
         ownerName: '', // WebSocket에서는 제공하지 않음
         createdAt: '', // WebSocket에서는 제공하지 않음
-        headCount: roomInfo.participantsInfoDto.participantsCount || roomInfo.participantsInfoDto.participantCount
+        headCount: roomInfo.participantsInfoDto.participantsCount || roomInfo.participantsInfoDto.participantCount,
+        // 기존 호환성을 위한 필드들
+        contentTitle: roomInfo.content.title,
+        contentId: roomInfo.content.id
       }
       setRoomData(roomData)
 
@@ -250,33 +230,72 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
         console.log('🎬 Setting YouTube URL from content.youtubeUrl:', roomInfo.content.youtubeUrl)
         setYoutubeUrl(roomInfo.content.youtubeUrl)
       } else {
-        console.warn('⚠️ No content.youtubeUrl provided, using fallback')
-        setYoutubeUrl('https://www.youtube.com/watch?v=ZnR0JiQGxRE&t=131s')
+        console.warn('⚠️ No content.youtubeUrl provided')
+        setYoutubeUrl(null)
       }
 
       setLoading(false)
-    },
-    onError: (error: string) => {
+    }, [userId]),
+    onError: useCallback((error: string) => {
       setError(error)
-    }
+    }, [])
   })
+
+  // YouTube Player 상태 변경 콜백 - 메모화
+  const handleStateChange = useCallback((isPlaying: boolean, currentTime: number, action: any) => {
+    console.log('🎵 Video state changed:', { isPlaying, currentTime, action, isHost, isConnected })
+    setIsPlaying(isPlaying)
+    setCurrentTime(currentTime)
+    
+    if (isHost && isConnected) {
+      sendVideoControl({ videoControlAction: action, currentTime })
+    }
+  }, [isHost, isConnected, sendVideoControl])
+
+  // YouTube 플레이어 훅 (비디오 ID가 있을 때만 초기화)
+  const playerController = useYouTubePlayer({
+    videoId: youtubeVideoId || '',
+    containerId: 'youtube-player-container',
+    isHost,
+    onStateChange: handleStateChange,
+    onError: useCallback((error: string) => {
+      console.error('YouTube Player Error:', error)
+      setError(error)
+    }, [])
+  })
+  
+  // 비디오 ID가 없으면 플레이어 사용 불가
+  const canUsePlayer = Boolean(youtubeVideoId && apiLoaded)
 
   // Load initial room data
   useEffect(() => {
     const loadInitialData = async () => {
+      // 중복 실행 방지
+      if (loadInitialDataExecutingRef.current) {
+        console.log('⚠️ loadInitialData 이미 실행 중, 중복 실행 방지')
+        return
+      }
+      
+      loadInitialDataExecutingRef.current = true
+      console.log('🔄 loadInitialData 실행 시작:', { roomId, userId })
       setLoading(true)
       setError(null)
       try {
         // Load room data
         const roomInfo = await watchRoomService.joinWatchRoom(roomId)
+        console.log('📋 Room info loaded:', roomInfo)
+        
         const roomData: WatchRoomDto = {
           id: roomInfo.id,
           title: roomInfo.title,
-          contentTitle: roomInfo.content.title,
+          contentDto: roomInfo.content,
           ownerId: '', // WebSocket에서 업데이트됨
           ownerName: '', // WebSocket에서 업데이트됨
           createdAt: '', // WebSocket에서 업데이트됨
-          headCount: roomInfo.participantsInfoDto.participantsCount || roomInfo.participantsInfoDto.participantCount
+          headCount: roomInfo.participantsInfoDto.participantsCount || roomInfo.participantsInfoDto.participantCount,
+          // 기존 호환성을 위한 필드들
+          contentTitle: roomInfo.content.title,
+          contentId: roomInfo.content.id
         }
         setRoomData(roomData)
         
@@ -299,9 +318,11 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
           console.log('🎬 Initial: Setting YouTube URL from content.youtubeUrl:', roomInfo.content.youtubeUrl)
           setYoutubeUrl(roomInfo.content.youtubeUrl)
         } else {
-          console.warn('⚠️ Initial: No content.youtubeUrl provided, using fallback')
-          setYoutubeUrl('https://www.youtube.com/watch?v=ZnR0JiQGxRE&t=131s')
+          console.warn('⚠️ Initial: No content.youtubeUrl provided')
+          setYoutubeUrl(null)
         }
+        
+        console.log('✅ loadInitialData 완료')
         
         // Connect to WebSocket if shouldConnect is true
         if (shouldConnect) {
@@ -312,11 +333,19 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
         setError(error instanceof Error ? error.message : '시청방 데이터를 불러오는 중 오류가 발생했습니다.')
       } finally {
         setLoading(false)
+        loadInitialDataExecutingRef.current = false
       }
     }
-    loadInitialData()
-    // connect 함수는 의존성에서 제거
-  }, [roomId, userId])
+    
+    // 중복 실행 방지를 위해 timeout 추가
+    const timeoutId = setTimeout(() => {
+      loadInitialData()
+    }, 0)
+    
+    return () => {
+      clearTimeout(timeoutId)
+    }
+  }, [roomId, userId, shouldConnect])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -403,6 +432,8 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
   const handleSendMessage = () => {
     if (!newMessage.trim() || !isConnected) return
 
+    // 메시지를 서버로 전송만 하고, 화면에 즉시 표시하지 않음
+    // 서버에서 브로드캐스트되어 돌아올 때만 화면에 표시됨
     wsSendChatMessage(newMessage)
     console.log('Sending message:', newMessage)
     
@@ -436,7 +467,7 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
       <div className="h-screen bg-[#0f0f0f] flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
           <div className="mb-6">
-            <h2 className="text-2xl font-medium mb-2">{roomData?.contentTitle || '시청방'}</h2>
+            <h2 className="text-2xl font-medium mb-2">{roomData?.contentDto?.title || '시청방'}</h2>
             <p className="text-white/60 mb-4">시청방에 참여하시겠습니까?</p>
             <div className="flex items-center justify-center gap-4 text-sm text-white/60 mb-6">
               <div className="flex items-center gap-1">
@@ -529,7 +560,7 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
               </div>
               <div className="flex items-center space-x-2 text-sm text-white/60">
                 <span>
-                  {contentData ? contentData.title : roomData.contentTitle}
+                  {contentData ? contentData.title : roomData.contentDto?.title}
                 </span>
                 {contentData && contentData.contentType && (
                   <>
@@ -623,9 +654,19 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
                       <Play className="w-8 h-8 text-white" />
                     </div>
                   )}
-                  <p className="text-white/60">
-                    {contentData ? `${contentData.title} 준비 중...` : '비디오 정보를 불러오는 중...'}
+                  <p className="text-white/60 mb-2">
+                    {contentData ? contentData.title : '비디오 정보를 불러오는 중...'}
                   </p>
+                  {youtubeUrl ? (
+                    <p className="text-white/40 text-sm">
+                      YouTube 비디오 ID를 추출할 수 없습니다<br />
+                      URL: {youtubeUrl}
+                    </p>
+                  ) : (
+                    <p className="text-white/40 text-sm">
+                      유효한 YouTube URL이 제공되지 않았습니다
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -640,7 +681,7 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
             {/* Fallback placeholder */}
             {!canUsePlayer && (
               <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-white text-4xl font-bold">
-                {roomData?.contentTitle?.charAt(0).toUpperCase() || 'V'}
+                {roomData?.contentDto?.title?.charAt(0).toUpperCase() || 'V'}
               </div>
             )}
             

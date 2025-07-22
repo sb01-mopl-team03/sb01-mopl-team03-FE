@@ -111,13 +111,30 @@ export function useYouTubePlayer({
 
   // YouTube API 로드 후 플레이어 초기화
   useEffect(() => {
+    if (!videoId) {
+      console.log('🎬 No videoId provided, skipping player initialization')
+      return
+    }
+
+    // 기존 플레이어가 있으면 먼저 정리
+    if (playerRef.current) {
+      console.log('🧹 Destroying existing player before creating new one')
+      playerRef.current.destroy()
+      playerRef.current = null
+      setPlayer(null)
+      setIsReady(false)
+    }
+
     if (window.YT && window.YT.Player) {
+      console.log('🎬 Initializing YouTube player with videoId:', videoId)
       initializePlayer()
     } else {
+      console.log('🔄 Waiting for YouTube API to load...')
       // YouTube API가 로드될 때까지 대기
       const checkYouTubeApi = setInterval(() => {
         if (window.YT && window.YT.Player) {
           clearInterval(checkYouTubeApi)
+          console.log('✅ YouTube API loaded, initializing player')
           initializePlayer()
         }
       }, 100)
@@ -126,11 +143,12 @@ export function useYouTubePlayer({
       setTimeout(() => {
         clearInterval(checkYouTubeApi)
         if (!window.YT || !window.YT.Player) {
+          console.error('❌ YouTube API 로드 타임아웃')
           onError?.('YouTube API 로드 타임아웃')
         }
       }, 10000)
     }
-  }, [initializePlayer])
+  }, [videoId, initializePlayer])
 
   // 플레이어 제어 함수들
   const play = useCallback(() => {
