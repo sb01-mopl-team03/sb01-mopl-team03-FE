@@ -381,15 +381,22 @@ export default function App() {
   // Playlist 관련 API 호출 함수들
   const getPlaylists = async (keyword?: string) => {
     try {
-      // 항상 검색 엔드포인트 사용. keyword가 없으면 빈 문자열로 모든 플레이리스트 조회
-      const searchKeyword = keyword && keyword.trim() !== '' ? keyword.trim() : ''
-      const queryParams = new URLSearchParams()
-      queryParams.append('keyword', searchKeyword)
-      const url = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists/search?${queryParams}`
+      let url: string
+      let response: Response
+      
+      // 키워드가 있으면 검색 API 사용, 없으면 현재 사용자의 플레이리스트 조회
+      if (keyword && keyword.trim() !== '') {
+        const queryParams = new URLSearchParams()
+        queryParams.append('keyword', keyword.trim())
+        url = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists/search?${queryParams}`
+      } else {
+        // 현재 사용자의 모든 플레이리스트 조회
+        url = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists`
+      }
       
       console.log('🚀 API 호출:', url)
       
-      const response = await authenticatedFetch(url)
+      response = await authenticatedFetch(url)
       console.log('📡 응답 상태:', response.status, response.statusText)
       
       if (!response.ok) {
@@ -412,6 +419,20 @@ export default function App() {
         data: Array.isArray(data) && data.length > 0 ? data.slice(0, 2) : data, // 첫 2개 항목만 로그
         headers: Object.fromEntries(response.headers.entries())
       })
+      
+      // 검색 결과의 경우에만 다른 사용자의 비공개 플레이리스트 필터링
+      if (Array.isArray(data) && keyword && keyword.trim() !== '') {
+        const filteredData = data.filter(playlist => {
+          // 본인의 플레이리스트는 공개/비공개 상관없이 모두 표시
+          if (playlist.userId === userId) {
+            return true
+          }
+          // 다른 사용자의 플레이리스트는 공개만 표시
+          return playlist.isPublic === true
+        })
+        return filteredData
+      }
+      
       return data
     } catch (error) {
       console.error('❌ 플레이리스트 목록 조회 실패:', error)
@@ -1471,7 +1492,6 @@ export default function App() {
             onBack={handleBackFromUserProfile}
             authenticatedFetch={authenticatedFetch}
             onUserProfileOpen={handleUserProfileOpen}
-            getPlaylists={getPlaylists}
           />
         ) : (
           <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />

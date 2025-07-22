@@ -203,7 +203,13 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
       }
       
       const playlistsData = await response.json()
-      setPlaylists(playlistsData)
+      
+      // 다른 사용자의 프로필을 보는 경우 공개 플레이리스트만 필터링
+      const filteredPlaylists = isViewingOtherUser 
+        ? playlistsData.filter((playlist: any) => playlist.isPublic) 
+        : playlistsData
+        
+      setPlaylists(filteredPlaylists)
     } catch (error) {
       console.error('플레이리스트 목록 조회 오류:', error)
       setPlaylists([]) // 오류 시 빈 배열로 설정
