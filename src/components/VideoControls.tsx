@@ -28,6 +28,7 @@ interface VideoControlsProps {
   onFullscreenToggle: () => void
   isFullscreen: boolean
   disabled?: boolean
+  onPermissionDenied?: () => void
 }
 
 export function VideoControls({
@@ -41,7 +42,8 @@ export function VideoControls({
   onVolumeChange,
   onFullscreenToggle,
   isFullscreen,
-  disabled = false
+  disabled = false,
+  onPermissionDenied
 }: VideoControlsProps) {
   const [volume, setVolume] = useState([80])
   const [isMuted, setIsMuted] = useState(false)
@@ -117,6 +119,8 @@ export function VideoControls({
     if (isHost) {
       const newTime = Math.max(0, currentTime - 10)
       onSeek(newTime)
+    } else {
+      onPermissionDenied?.()
     }
   }
 
@@ -124,6 +128,16 @@ export function VideoControls({
     if (isHost) {
       const newTime = Math.min(totalDuration, currentTime + 10)
       onSeek(newTime)
+    } else {
+      onPermissionDenied?.()
+    }
+  }
+
+  const handlePlayPauseClick = () => {
+    if (isHost) {
+      onPlayPause()
+    } else {
+      onPermissionDenied?.()
     }
   }
 
@@ -192,7 +206,12 @@ export function VideoControls({
           <Button
             variant="ghost"
             size="sm"
-            onClick={onPlayPause}
+            onClick={() => {
+              console.log('🚨 하단 재생 버튼 클릭됨!', { isHost, disabled: disabled || !isHost })
+              handlePlayPauseClick()
+            }}
+            onMouseDown={() => console.log('🚨 하단 버튼 마우스 다운 감지')}
+            onMouseUp={() => console.log('🚨 하단 버튼 마우스 업 감지')}
             disabled={disabled || !isHost}
             className="hover:bg-white/10 disabled:opacity-50"
             title={isHost ? (isPlaying ? '일시정지' : '재생') : '호스트만 제어 가능'}
