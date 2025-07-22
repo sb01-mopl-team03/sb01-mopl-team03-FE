@@ -21,38 +21,8 @@ import { UserProfile } from './components/UserProfile'
 import { Button } from './components/ui/button'
 
 import { WatchRoomDto } from './types/watchRoom'
-
-// Window 객체에 headerRefreshUserProfile 함수 추가
-declare global {
-  interface Window {
-    headerRefreshUserProfile?: () => void
-  }
-}
-
-interface ChatUser {
-  id: string
-  name: string
-  avatar: string
-  isOnline: boolean
-  roomId: string
-}
-
-interface ContentItem {
-  id: string
-  title: string
-  thumbnail: string
-  type: 'movie' | 'tv' | 'sports'
-  duration: string
-  description: string
-  year?: number
-  rating?: number
-}
-
-interface WatchPartyConfig {
-  isPublic: boolean
-  roomName: string
-}
-
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import OAuthCallback from './pages/oauth/callback'
 
 export default function App() {
   // 페이지 상태를 localStorage에 저장/복원
@@ -98,7 +68,7 @@ export default function App() {
       const payload = JSON.parse(atob(token.split('.')[1]))
       const currentTime = Date.now() / 1000 // 현재 시간을 초 단위로 변환
       const expTime = payload.exp
-      const bufferTime = 30 // 30초 버퍼 시간 (토큰이 30초 내에 만료될 예정이면 재발급)
+      const bufferTime = 5 // 5초 버퍼 시간 (토큰이 5초 내에 만료될 예정이면 재발급)
       
       const isExpired = expTime < (currentTime + bufferTime)
       
@@ -161,34 +131,14 @@ export default function App() {
       try {
         console.log('토큰 재발급 시작')
         
-        const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'
-        
         // refreshToken은 쿠키에 저장되어 있으므로 별도 헤더 필요 없음
-        const response = await fetch(`${baseUrl}/api/auth/refresh`, {
+        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/auth/refresh`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
           credentials: 'include', // 쿠키 포함
-        })
-        
-        console.log('토큰 재발급 응답:', {
-          status: response.status,
-          statusText: response.statusText,
-          headers: Object.fromEntries(response.headers.entries())
         })
         
         if (!response.ok) {
           console.log(`토큰 재발급 실패: ${response.status} ${response.statusText}`)
-          
-          // 에러 응답 내용도 로그
-          try {
-            const errorText = await response.text()
-            console.log('토큰 재발급 에러 응답:', errorText)
-          } catch (e) {
-            console.log('에러 응답 읽기 실패:', e)
-          }
-          
           if (response.status === 401) {
             console.log('Refresh token이 만료되었습니다.')
           } else if (response.status === 500) {
@@ -198,8 +148,6 @@ export default function App() {
         }
         
         const text = await response.text()
-        console.log('토큰 재발급 응답 텍스트:', text)
-        
         if (!text || text.trim() === '') {
           console.log('빈 응답으로 토큰 재발급 실패')
           return null
@@ -207,7 +155,7 @@ export default function App() {
         
         // 응답이 accessToken 문자열임
         const newToken = text.replace(/"/g, '') // 혹시 따옴표로 감싸져 있으면 제거
-        console.log('토큰 재발급 완료:', newToken ? '새 토큰 받음' : '토큰 없음')
+        console.log('토큰 재발급 완료')
         return newToken
       } catch (e) {
         console.error('Token refresh 오류:', e)
@@ -233,44 +181,6 @@ export default function App() {
       userIdFromToken,
       currentUserId: userId
     })
-    
-    // 인증이 필요 없는 경로 확인 (먼저 확인)
-    const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'
-    const authFreeUrls = [
-      `${baseUrl}/api/auth/login`,
-      `${baseUrl}/api/auth/refresh`,
-      `${baseUrl}/api/auth/change-password`,
-      `${baseUrl}/api/auth/temp-password`,
-      `${baseUrl}/api/users` // POST 요청만 (회원가입)
-    ]
-
-    const isAuthFree = authFreeUrls.some(authUrl => {
-      if (authUrl.endsWith('/api/users')) {
-        // /api/users는 POST 요청만 인증 불필요 (회원가입)
-        // 정확히 /api/users 경로이고 POST 요청인 경우만
-        const isMatch = url === authUrl && (options.method === 'POST')
-        console.log('🔍 /api/users 경로 체크:', { url, authUrl, method: options.method, isMatch })
-        return isMatch
-      }
-      return url.startsWith(authUrl)
-    })
-
-    console.log('🔍 인증 필요 여부 체크:', { url, method: options.method, isAuthFree })
-
-    // 인증이 필요 없는 경로는 바로 처리
-    if (isAuthFree) {
-      console.log('✅ 인증이 필요 없는 API 호출:', url)
-      const headers = {
-        'Content-Type': 'application/json',
-        ...(options.headers || {})
-      }
-      
-      return fetch(url, {
-        ...options,
-        headers,
-        credentials: 'include' // 쿠키 포함 (refresh token용)
-      })
-    }
     
     // 토큰이 없는 경우
     if (!accessToken) {
@@ -302,18 +212,22 @@ export default function App() {
     }
     
     // Authorization 헤더 추가
+    // 인증이 필요 없는 경로 예외 처리
+    const authFreeUrls = [
+      `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/auth/login`,
+      `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/auth/refresh`,
+      `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/auth/change-password`,
+      `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/auth/temp-password`,
+      `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/users`
+    ]
+
+    const isAuthFree = authFreeUrls.some(authUrl => url.startsWith(authUrl))
+
     const headers = {
-      // FormData 사용 시 Content-Type을 자동으로 설정하도록 제거
+      'Content-Type': 'application/json',
       ...(isAuthFree ? {} : { 'Authorization': `Bearer ${accessToken}` }),
       ...(options.headers || {})
     }
-    
-    console.log('🔑 Authorization 헤더 추가:', { 
-      url, 
-      hasToken: !!accessToken, 
-      tokenPreview: accessToken ? `${accessToken.substring(0, 20)}...` : 'no token',
-      headers: { ...headers, Authorization: headers.Authorization ? `Bearer ${headers.Authorization.split(' ')[1]?.substring(0, 20)}...` : 'no auth' }
-    })
     
     const response = await fetch(url, {
       ...options,
@@ -402,56 +316,13 @@ export default function App() {
     }
   }
 
-  // UUID 형식 검증 함수
-  const isValidUUID = (uuid: string): boolean => {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-    return uuidRegex.test(uuid)
-  }
-
   const getOrCreateDmRoom = async (userBId: string) => {
     try {
-      console.log('🔄 DM 룸 생성/조회 요청:', { userBId })
       const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/dmRooms/userRoom?userB=${userBId}`)
-      
       if (!response.ok) {
-        const errorText = await response.text()
-        console.error('❌ DM 룸 생성/조회 실패:', { status: response.status, errorText })
-        throw new Error(`DM 룸 생성/조회 실패: ${response.status} - ${errorText}`)
+        throw new Error('DM 룸 생성/조회 실패')
       }
-      
-      // Content-Type 확인
-      const contentType = response.headers.get('Content-Type') || ''
-      console.log('📋 응답 Content-Type:', contentType)
-      
-      let roomId: string
-      
-      if (contentType.includes('application/json')) {
-        // JSON 응답 처리
-        const jsonResponse = await response.json()
-        console.log('📋 JSON 응답:', jsonResponse)
-        roomId = typeof jsonResponse === 'string' ? jsonResponse : jsonResponse.toString()
-      } else {
-        // 텍스트 응답 처리
-        roomId = await response.text()
-        console.log('📋 텍스트 응답:', roomId)
-      }
-      
-      console.log('📋 DM 룸 생성/조회 응답:', { roomId, length: roomId.length })
-      
-      // UUID 형식 검증
-      const trimmedRoomId = roomId.trim()
-      if (!isValidUUID(trimmedRoomId)) {
-        console.error('❌ 유효하지 않은 UUID 형식:', { 
-          roomId: trimmedRoomId, 
-          length: trimmedRoomId.length,
-          contentType,
-          rawResponse: roomId
-        })
-        throw new Error(`유효하지 않은 UUID 형식: ${trimmedRoomId}`)
-      }
-      
-      console.log('✅ 유효한 UUID 반환:', trimmedRoomId)
-      return trimmedRoomId
+      return await response.text() // UUID 문자열 반환
     } catch (error) {
       console.error('DM 룸 생성/조회 실패:', error)
       throw error
@@ -466,8 +337,7 @@ export default function App() {
       if (pagingDto?.cursor) queryParams.append('cursor', pagingDto.cursor)
       if (pagingDto?.size) queryParams.append('size', pagingDto.size.toString())
       
-      const queryString = queryParams.toString()
-      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/dm/${roomId}${queryString ? '?' + queryString : ''}`)
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/dm/${roomId}?${queryParams}`)
       if (!response.ok) {
         throw new Error('DM 메시지 목록 조회 실패')
       }
@@ -574,9 +444,6 @@ export default function App() {
       
       const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(playlistCreateRequest)
       })
       
@@ -620,12 +487,9 @@ export default function App() {
       const addContentsRequest = {
         contentIds: contentIds
       }
-      
+
       const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists/${playlistId}/contents`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(addContentsRequest)
       })
       
@@ -664,12 +528,9 @@ export default function App() {
       const deleteContentsRequest = {
         contentIds: contentIds
       }
-      
+
       const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists/${playlistId}/contents`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(deleteContentsRequest)
       })
       
@@ -763,6 +624,7 @@ export default function App() {
     }
   }
 
+
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null)
   const [selectedContentDetail, setSelectedContentDetail] = useState<ContentItem | null>(null)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
@@ -803,7 +665,6 @@ export default function App() {
         
         // URL 정리 후 메인 페이지로 이동
         window.history.replaceState({}, document.title, '/')
-        
         console.log('OAuth 로그인 성공! 메인 페이지로 이동합니다.')
       } else {
         alert('로그인 중 오류가 발생했습니다. 액세스 토큰을 받지 못했습니다.')
@@ -842,63 +703,49 @@ export default function App() {
     }
   }
 
-  // 초기 로드 시 로그인 상태 확인 및 OAuth 콜백 처리
-  useEffect(() => {
-    const initializeAuth = async () => {
-      // 먼저 OAuth 콜백 처리
-      handleOAuthCallback()
-      
-      const accessToken = localStorage.getItem('accessToken')
-      if (accessToken) {
-        let validToken = accessToken
-        
-        // 토큰 만료 체크 및 재발급 시도 (최근에 발급된 토큰은 재발급 스킵)
-        const isExpired = isTokenExpired(accessToken)
-        const isRecentlyIssued = isTokenRecentlyIssued(accessToken)
-        
-        console.log('초기화 시 토큰 상태:', { 
-          isExpired, 
-          isRecentlyIssued, 
-          shouldRefresh: isExpired && !isRecentlyIssued 
-        })
-        
-        if (isExpired && !isRecentlyIssued) {
-          console.log('저장된 토큰이 만료되어 재발급 시도')
-          
-          try {
-            const newAccessToken = await refreshAccessToken()
-            if (newAccessToken) {
-              console.log('토큰 재발급 성공')
-              validToken = newAccessToken
-            } else {
-              console.log('토큰 재발급 실패, 로그아웃 처리')
-              handleTokenExpiration()
-              return
-            }
-          } catch (error) {
-            console.error('토큰 재발급 중 오류:', error)
-            handleTokenExpiration()
-            return
-          }
-        } else if (isExpired && isRecentlyIssued) {
-          console.log('최근에 발급된 토큰이므로 만료 체크 스킵')
-        }
-        
-        const userId = extractUserIdFromToken(validToken)
-        if (userId) {
-          setUserId(userId)
-          setIsLoggedIn(true)
-          console.log('인증 초기화 성공:', { userId, tokenValid: !isTokenExpired(validToken) })
-        } else {
-          console.log('토큰에서 사용자 ID 추출 실패')
-          localStorage.removeItem('accessToken')
-          handleTokenExpiration()
-        }
+ useEffect(() => {
+  const initializeAuth = async () => {
+    const params = new URLSearchParams(window.location.search)
+    const accessTokenFromQuery = params.get('access_token')
+
+    if (accessTokenFromQuery) {
+      // OAuth 콜백 상황이면 바로 로그인 처리
+      console.log('🔑 OAuth 콜백에서 accessToken 감지됨 → 로그인 처리 시작')
+      localStorage.setItem('accessToken', accessTokenFromQuery)
+      const userId = extractUserIdFromToken(accessTokenFromQuery)
+      if (userId) {
+        setUserId(userId)
+        setIsLoggedIn(true)
       }
+      // OAuth 처리가 끝났으니 쿼리스트링 제거
+      window.history.replaceState({}, '', '/')
+      return
     }
 
-    initializeAuth()
-  }, [])
+    // 로컬 스토리지에 accessToken 있는 경우
+    const accessToken = localStorage.getItem('accessToken')
+    if (accessToken) {
+      if (isTokenExpired(accessToken)) {
+        console.log('⚠️ 저장된 토큰이 만료됨 → 로그아웃 처리')
+        handleTokenExpiration()
+        return
+      }
+
+      const userId = extractUserIdFromToken(accessToken)
+      if (userId) {
+        setUserId(userId)
+        setIsLoggedIn(true)
+      } else {
+        console.log('❌ accessToken으로부터 userId 추출 실패')
+        localStorage.removeItem('accessToken')
+        handleTokenExpiration()
+      }
+    }
+  }
+
+  initializeAuth()
+}, [])
+
 
   // 주기적인 토큰 만료 체크
   useEffect(() => {
@@ -936,14 +783,13 @@ export default function App() {
     const userId = extractUserIdFromToken(accessToken)
     if (userId) {
       setUserId(userId)
-      setIsLoggedIn(true)
-      console.log('로그인 성공:', { userId, tokenValid: !isTokenExpired(accessToken) })
     } else {
       // 토큰 파싱 실패 시 로그아웃 처리
-      console.error('토큰에서 사용자 ID 추출 실패, 로그인 취소')
       localStorage.removeItem('accessToken')
       setIsLoggedIn(false)
     }
+    
+    setIsLoggedIn(true)
   }
 
   // 페이지 변경 시 localStorage에 저장 및 브라우저 히스토리 업데이트
@@ -1482,27 +1328,9 @@ export default function App() {
   }
 
   const handleOpenChat = (user: ChatUser) => {
-    console.log('💬 handleOpenChat 호출:', {
-      user,
-      hasRoomId: !!user.roomId,
-      roomIdLength: user.roomId?.length,
-      currentUserId: userId,
-      timestamp: new Date().toISOString()
-    });
-
-    if (!user.roomId) {
-      console.error('❌ roomId가 없는 사용자로 채팅 시도:', user);
-      return;
-    }
-
     setCurrentChatUser(user)
     setShowDMList(false)
     setShowChatRoom(true)
-    
-    console.log('✅ ChatRoom 상태 업데이트 완료:', {
-      showChatRoom: true,
-      currentChatUser: user
-    });
   }
 
   const handleCloseChatRoom = () => {
@@ -1523,7 +1351,9 @@ export default function App() {
     }
   }
 
-  if (!isLoggedIn) {
+  const isOAuthCallback = window.location.pathname === '/oauth/callback'
+
+  if (!isLoggedIn && !isOAuthCallback) {
     console.log('🔍 로그인 상태 디버깅:', {
       isLoggedIn,
       accessToken: localStorage.getItem('accessToken'),
@@ -1621,30 +1451,13 @@ export default function App() {
           <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
         )
       case 'live':
-        if (!isLoggedIn) {
-          return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
-              <div className="text-center">
-                <h2 className="text-2xl font-bold mb-4">로그인이 필요합니다</h2>
-                <p className="text-white/60 mb-6">라이브 시청방을 이용하려면 로그인해주세요.</p>
-                <button
-                  onClick={() => {
-                    setCurrentPage('home')
-                    localStorage.setItem('currentPage', 'home')
-                  }}
-                  className="teal-gradient hover:opacity-80 text-black px-6 py-3 rounded-lg font-medium"
-                >
-                  홈으로 돌아가기
-                </button>
-              </div>
-            </div>
-          )
-        }
         return <LiveRooms onJoinRoom={handleJoinRoom} onCreateRoom={handleCreateRoomModal} onUserProfileOpen={handleUserProfileOpen} currentUserId={userId} />
       default:
         return <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
     }
   }
+
+  
 
   // Don't show header/footer in watch party mode, content detail mode, or user profile mode
   if (currentPage === 'watch-party' || currentPage === 'content-detail' || currentPage === 'user-profile') {
@@ -1696,7 +1509,6 @@ export default function App() {
         refreshUserProfile={refreshUserProfile} // 사용자 프로필 새로고침 함수 전달
         deleteNotification={deleteNotification} // 개별 알림 삭제 함수 전달
         deleteAllNotifications={deleteAllNotifications} // 모든 알림 삭제 함수 전달
-        refreshAccessToken={refreshAccessToken} // 토큰 갱신 함수 전달 (SSE용)
       />
       
       {/* Main content with click handler to close DM */}
