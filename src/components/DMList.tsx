@@ -1,9 +1,19 @@
 import { useState, useEffect } from 'react'
-import { Search, X, Circle, ArrowLeft, Users } from 'lucide-react'
+import { Search, X, Circle, ArrowLeft, Users, Trash2 } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { DmService } from '../services/dmService'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert_dialog'
 
 interface Conversation {
   id: string
@@ -42,6 +52,9 @@ export function DMList({ isOpen, onClose, onOpenChat, authenticatedFetch, curren
   const [chatPartners, setChatPartners] = useState<ChatPartner[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [roomToDelete, setRoomToDelete] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const dmService = new DmService(authenticatedFetch)
 
@@ -98,6 +111,47 @@ export function DMList({ isOpen, onClose, onOpenChat, authenticatedFetch, curren
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleDeleteDmRoom = (e: React.MouseEvent, roomId: string) => {
+    e.stopPropagation()
+    setRoomToDelete(roomId)
+    setShowDeleteDialog(true)
+  }
+
+  const deleteDmRoom = async () => {
+    if (!roomToDelete) return
+    
+    try {
+      setIsDeleting(true)
+      const response = await authenticatedFetch(
+        `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/dmRooms/${roomToDelete}`,
+        {
+          method: 'DELETE'
+        }
+      )
+      
+      if (!response.ok) {
+        throw new Error('DM 방 삭제 실패')
+      }
+      
+      // Refresh the DM rooms list
+      await loadDMRooms()
+      
+      // Close dialog and reset state
+      setShowDeleteDialog(false)
+      setRoomToDelete(null)
+    } catch (error) {
+      console.error('Error deleting DM room:', error)
+      setError('채팅방을 삭제할 수 없습니다.')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const cancelDelete = () => {
+    setShowDeleteDialog(false)
+    setRoomToDelete(null)
   }
 
   // Load DM rooms when component opens
@@ -291,7 +345,7 @@ export function DMList({ isOpen, onClose, onOpenChat, authenticatedFetch, curren
                     <div
                       key={conversation.id}
                       onClick={() => handleConversationClick(conversation)}
-                      className="flex items-start space-x-3 p-3 rounded-lg hover:bg-white/5 cursor-pointer transition-colors"
+                      className="group flex items-start space-x-3 p-3 rounded-lg hover:bg-white/5 cursor-pointer transition-colors relative"
                     >
                       {/* Avatar with Online Status */}
                       <div className="relative flex-shrink-0">
@@ -325,6 +379,18 @@ export function DMList({ isOpen, onClose, onOpenChat, authenticatedFetch, curren
                           )}
                         </div>
                       </div>
+                      
+                      {/* Delete Button - Only visible on hover */}
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => handleDeleteDmRoom(e, conversation.id)}
+                          className="p-2 hover:bg-red-500/20 text-white/60 hover:text-red-400"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -346,6 +412,33 @@ export function DMList({ isOpen, onClose, onOpenChat, authenticatedFetch, curren
           </div>
         )}
       </div>
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent className="bg-[#1a1a1a] border-white/20">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">채팅방 나가기</AlertDialogTitle>
+            <AlertDialogDescription className="text-white/70">
+              채팅방을 나가시겠습니까? 나가면 다시 볼 수 없습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={cancelDelete}
+              className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+            >
+              취소
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={deleteDmRoom}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isDeleting ? '삭제 중...' : '나가기'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

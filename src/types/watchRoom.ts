@@ -24,8 +24,11 @@ export interface WatchRoomInfoDto {
   id: string
   title: string
   newUserId: string
+  playTime: number
+  isPlaying: boolean
   participantsInfoDto: ParticipantsInfoDto
   content: ContentDto
+  videoSyncDto?: VideoSyncDto
 }
 
 export interface ParticipantDto {
@@ -88,6 +91,7 @@ export interface WatchRoomSearchOptions {
 
 // 백엔드 WebSocket 응답 타입 (실제 백엔드 구조에 맞춤)
 export interface BackendParticipantDto {
+  id: string // UUID (문자열로 받음)
   username: string
   profile: string | null
   isOwner: boolean

@@ -160,11 +160,11 @@ export interface YouTubePlayerController {
   seekTo(seconds: number): void
   getCurrentTime(): number
   getDuration(): number
-  getPlayerState(): YouTubePlayerState
+  getPlayerState(): YouTubePlayerStateChangeEvent
   setVolume(volume: number): void
   getVolume(): number
   destroy(): void
-  syncVideo?: (videoSync: { action: VideoControlAction; currentTime: number; isPlaying: boolean }) => void
+  syncVideo?: (videoSync: { action: VideoControlAction; currentTime: number; isPlaying: boolean }) => boolean
 }
 
 // VideoControlAction import를 위한 타입 (순환 참조 방지)
