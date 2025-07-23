@@ -1,3 +1,4 @@
+// useDmWebSocket.ts
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
@@ -18,6 +19,7 @@ export const useDmWebSocket = ({ roomId, userId, onMessageReceived, onError }: U
   const currentTokenRef = useRef<string | null>(null); // 토큰 상태 추적을 위한 ref
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
   const maxReconnectAttempts = 3;
+  const [connectionAttempts, setConnectionAttempts] = useState(0); // 연결 시도 카운터 추가
 
   // UUID 형식 검증 함수
   const isValidUUID = (uuid: string): boolean => {
@@ -41,22 +43,26 @@ export const useDmWebSocket = ({ roomId, userId, onMessageReceived, onError }: U
       timestamp: new Date().toISOString()
     });
 
-    // 이미 연결 중이거나 연결되어 있으면 아무것도 하지 않음
-    if (clientRef.current) {
-      if (clientRef.current.connected || connectionStatus === 'connecting') {
-        console.log('⏭️ 이미 연결되어 있거나 연결 중 - 중복 연결 방지');
-        return;
-      }
+    // 더 엄격한 중복 연결 방지
+    if (clientRef.current && clientRef.current.connected) {
+      console.log('⏭️ 이미 연결됨 - 중복 연결 방지');
+      return;
+    }
+    if (connectionStatus === 'connecting') {
+      console.log('⏭️ 연결 시도 중 - 중복 연결 방지');
+      return;
+    }
+
+    // 연결 해제되었거나 오류 상태인데 재연결 시도가 필요한 경우를 위해 기존 클라이언트 정리
+    if (clientRef.current && !clientRef.current.connected && connectionStatus !== 'disconnected') {
+        console.log('🧹 기존 비활성 클라이언트 정리');
+        clientRef.current.deactivate(); // 기존 클라이언트 비활성화
+        clientRef.current = null; // 참조 해제
     }
 
     if (!roomId || !userId) {
       console.log('❌ 필수 정보 누락:', { roomId, userId });
-      return;
-    }
-
-    // UUID 형식 검증
-    if (!isValidUUID(roomId)) {
-      console.error('❌ WebSocket 연결 실패: 유효하지 않은 UUID 형식:', { roomId });
+      setConnectionStatus('error'); // 필수 정보 없으면 연결 시도 안함
       return;
     }
 
@@ -80,10 +86,12 @@ export const useDmWebSocket = ({ roomId, userId, onMessageReceived, onError }: U
     }
 
     setConnectionStatus('connecting');
-    console.log('🔄 DM WebSocket 연결 시도:', { 
+    setConnectionAttempts(prev => prev + 1);
+    console.log(`🔄 WebSocket 연결 시도 #${connectionAttempts + 1}`, {
       roomId, 
-      userId, 
-      attempt: reconnectAttempts + 1,
+      userId,
+      currentStatus: connectionStatus,
+      reconnectAttempt: reconnectAttempts + 1,
       url: `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/ws`
     });
 
@@ -120,17 +128,28 @@ export const useDmWebSocket = ({ roomId, userId, onMessageReceived, onError }: U
         setConnectionStatus('connected');
         setReconnectAttempts(0);
 
-        // Subscribe to the room's topic
-        console.log('📡 DM 룸 구독 중:', `/topic/dm.room.${roomId}`);
-        client.subscribe(`/topic/dm.room.${roomId}`, (message) => {
-          try {
-            const dmMessage: DmDto = JSON.parse(message.body);
-            console.log('📥 DM 메시지 수신:', dmMessage);
-            onMessageReceived(dmMessage);
-          } catch (error) {
-            console.error('❌ DM 메시지 파싱 오류:', error);
-          }
-        });
+        const token = getAuthToken(); // 구독 시점에 최신 토큰 다시 가져오기
+        if (!token) {
+            console.error('❌ 구독을 위한 토큰이 없습니다. 이미 연결되었으므로 재연결 시도하지 않음.');
+            onError?.('인증 오류로 구독할 수 없습니다.');
+            return;
+        }
+
+        // Subscribe to the room's topic with Authorization header
+        console.log('📡 DM 룸 구독 중:', `/topic/dm/${roomId}`);
+        client.subscribe(
+          `/topic/dm/${roomId}`, 
+          (message) => {
+            try {
+              const dmMessage: DmDto = JSON.parse(message.body);
+              console.log('📥 DM 메시지 수신:', dmMessage);
+              onMessageReceived(dmMessage);
+            } catch (error) {
+              console.error('❌ DM 메시지 파싱 오류:', error);
+            }
+          },
+          { 'Authorization': `Bearer ${token}` } 
+        );
         
         console.log('✅ DM WebSocket 설정 완료');
       },
@@ -201,7 +220,7 @@ export const useDmWebSocket = ({ roomId, userId, onMessageReceived, onError }: U
 
     clientRef.current = client;
     client.activate();
-  }, [roomId, userId, onMessageReceived, onError, reconnectAttempts]);
+  }, [roomId, userId, onMessageReceived, onError, reconnectAttempts, connectionStatus]);
 
   const disconnect = useCallback(() => {
     if (clientRef.current) {
@@ -236,7 +255,7 @@ export const useDmWebSocket = ({ roomId, userId, onMessageReceived, onError }: U
     if (!roomId || !userId) {
       console.error('Cannot send message: missing roomId or userId');
       return;
-    }
+      }
 
     // UUID 형식 검증
     if (!isValidUUID(roomId)) {
@@ -264,7 +283,7 @@ export const useDmWebSocket = ({ roomId, userId, onMessageReceived, onError }: U
     });
 
     clientRef.current.publish({
-      destination: '/app/dm.send',
+      destination: `/app/dm/${roomId}`,
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -289,7 +308,7 @@ export const useDmWebSocket = ({ roomId, userId, onMessageReceived, onError }: U
       console.log('❌ 조건 불만족 - 웹소켓 연결 생략:', { roomId, userId });
       disconnect();
     }
-  }, [roomId, userId, connect, disconnect]);
+  }, [roomId, userId]); // connect, disconnect 의존성 제거하여 불필요한 재연결 방지
 
   // 토큰 변경 감지 및 재연결 로직
   useEffect(() => {
@@ -337,6 +356,7 @@ export const useDmWebSocket = ({ roomId, userId, onMessageReceived, onError }: U
     connect,
     disconnect,
     sendMessage,
-    reconnectAttempts
+    reconnectAttempts,
+    connectionAttempts
   };
 };

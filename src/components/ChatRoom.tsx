@@ -1,3 +1,4 @@
+// ChatRoom.tsx
 import React, { useState, useRef, useEffect } from 'react'
 import { ArrowLeft, Send, Image, Smile, X } from 'lucide-react'
 import { Button } from './ui/button'
@@ -47,7 +48,7 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
   
   
   // WebSocket connection
-  const { isConnected, connectionStatus, connect, sendMessage } = useDmWebSocket({
+  const { isConnected, sendMessage } = useDmWebSocket({
     roomId: user?.roomId || null,
     userId: currentUserId,
     onMessageReceived: (dmMessage: DmDto) => {
@@ -61,7 +62,16 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
         type: 'text',
         isOwnMessage: dmMessage.senderId === currentUserId
       }
-      setMessages(prev => [...prev, message])
+      
+      setMessages(prev => {
+        // 중복 메시지 검사
+        const existingMessage = prev.find(msg => msg.id === dmMessage.id);
+        if (existingMessage) {
+          console.log('📥 중복 메시지 무시:', dmMessage.id);
+          return prev; // 중복이면 추가하지 않음
+        }
+        return [...prev, message]; // 새 메시지만 추가
+      })
     },
     onError: (error: string) => {
       console.error('❌ DM WebSocket 에러:', error);
@@ -96,27 +106,7 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
     }
   }, [user?.roomId])
 
-  // 웹소켓 연결 보장 로직 - ChatRoom이 열릴 때마다 연결 상태 확인
-  useEffect(() => {
-    console.log('🏠 ChatRoom 상태 변경:', {
-      isOpen,
-      hasUser: !!user,
-      roomId: user?.roomId,
-      currentUserId,
-      isConnected,
-      connectionStatus
-    });
-
-    if (isOpen && user?.roomId && currentUserId) {
-      console.log('🔄 ChatRoom 열림 - 웹소켓 연결 확인');
-      
-      // 연결되지 않았다면 강제 연결 시도
-      if (!isConnected && connectionStatus !== 'connecting') {
-        console.log('⚡ 웹소켓 미연결 상태 - 강제 연결 시도');
-        connect();
-      }
-    }
-  }, [isOpen, user?.roomId, currentUserId, isConnected, connectionStatus, connect]);
+  // useDmWebSocket 내부 로직에만 웹소켓 연결 관리를 위임하여 중복 연결 방지
 
   const formatTimestamp = (dateString: string) => {
     const date = new Date(dateString)
@@ -135,15 +125,17 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
       setError(null)
       const response = await getDmMessages(user.roomId, { size: 50 })
       
-      const messageList: Message[] = response.data.map((dm: DmDto) => ({
-        id: dm.id,
-        senderId: dm.senderId,
-        senderName: dm.senderId === currentUserId ? '나' : user?.name || 'Unknown',
-        content: dm.content,
-        timestamp: formatTimestamp(dm.createdAt),
-        type: 'text',
-        isOwnMessage: dm.senderId === currentUserId
-      }))
+      const messageList: Message[] = response.data
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+        .map((dm: DmDto) => ({
+          id: dm.id,
+          senderId: dm.senderId,
+          senderName: dm.senderId === currentUserId ? '나' : user?.name || 'Unknown',
+          content: dm.content,
+          timestamp: formatTimestamp(dm.createdAt),
+          type: 'text',
+          isOwnMessage: dm.senderId === currentUserId
+        }))
       
       setMessages(messageList)
     } catch (error) {
@@ -265,10 +257,7 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
                     <Button 
                       onClick={() => {
                         setAuthError(null);
-                        // 재연결 시도
-                        if (user?.roomId && currentUserId) {
-                          connect();
-                        }
+                        // useDmWebSocket이 자동으로 연결 관리하므로 에러만 클리어
                       }}
                       size="sm"
                       className="bg-orange-500 hover:bg-orange-600 text-white"
