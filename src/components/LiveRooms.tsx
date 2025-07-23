@@ -231,8 +231,8 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen, current
                   {/* Content Thumbnail */}
                   <div className="aspect-[16/9] relative overflow-hidden">
                     <img
-                      src="https://via.placeholder.com/400x225/1a1a1a/ffffff?text=Live+Stream"
-                      alt={room.contentTitle}
+                      src={room.contentDto.thumbnailUrl || 'https://via.placeholder.com/400x225/1a1a1a/ffffff?text=Live+Stream'}
+                      alt={room.contentDto.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                     
@@ -269,7 +269,7 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen, current
                     </div>
                     
                     <h3 className="font-medium mb-2 line-clamp-1">{room.title}</h3>
-                    <p className="text-sm text-white/60 mb-3 line-clamp-1">{room.contentTitle}</p>
+                    <p className="text-sm text-white/60 mb-3 line-clamp-1">{room.contentDto.title}</p>
                     
                     <div className="flex items-center gap-2">
                       <Avatar 
@@ -326,8 +326,8 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen, current
                 {/* Content Thumbnail */}
                 <div className="aspect-[16/9] relative overflow-hidden">
                   <img
-                    src="/api/placeholder/400/225"
-                    alt={room.contentTitle}
+                    src={room.contentDto.thumbnailUrl || '/api/placeholder/400/225'}
+                    alt={room.contentDto.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                   
@@ -369,7 +369,7 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen, current
                   </div>
                   
                   <h3 className="font-medium mb-1 line-clamp-1 text-sm">{room.title}</h3>
-                  <p className="text-xs text-white/60 mb-2 line-clamp-1">{room.contentTitle}</p>
+                  <p className="text-xs text-white/60 mb-2 line-clamp-1">{room.contentDto.title}</p>
                   
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -423,7 +423,9 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen, current
               <div className="text-center py-12">
                 <Users className="w-12 h-12 text-white/40 mx-auto mb-4" />
                 <p className="text-white/60 mb-4">
-                  {searchQuery ? '검색 결과가 없습니다.' : '현재 활성화된 시청방이 없습니다.'}
+                  {searchQuery ? '검색 결과가 없습니다.' : 
+                   !currentUserId ? '로그인하시면 더 많은 시청방을 볼 수 있습니다.' : 
+                   '현재 활성화된 시청방이 없습니다.'}
                 </p>
                 <div className="flex gap-2 justify-center">
                   {searchQuery && (
@@ -435,13 +437,26 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen, current
                       모든 시청방 보기
                     </Button>
                   )}
-                  <Button
-                    onClick={onCreateRoom}
-                    className="teal-gradient hover:opacity-80 text-black"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    새 시청방 만들기
-                  </Button>
+                  {currentUserId ? (
+                    <Button
+                      onClick={onCreateRoom}
+                      className="teal-gradient hover:opacity-80 text-black"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      새 시청방 만들기
+                    </Button>
+                  ) : (
+                    <div className="text-center">
+                      <p className="text-white/40 text-sm mb-2">시청방을 만들려면 로그인이 필요합니다</p>
+                      <Button
+                        variant="outline"
+                        onClick={() => window.location.reload()}
+                        className="border-[#4ecdc4]/30 text-[#4ecdc4] hover:bg-[#4ecdc4]/10"
+                      >
+                        로그인하기
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

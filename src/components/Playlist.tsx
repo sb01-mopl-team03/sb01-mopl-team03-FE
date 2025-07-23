@@ -30,8 +30,9 @@ interface PlaylistItem {
     type: 'movie' | 'tv' | 'sports'
   }>
   subscriptions?: Array<{
-    id: string
+    subscriptionId: string
     userId: string
+    playlistId: string
   }>
 }
 
@@ -181,8 +182,16 @@ export function Playlist({
           console.error('구독 정보를 찾을 수 없습니다')
           return
         }
-        console.log('구독 취소 실행:', subscription.id)
-        await unsubscribePlaylist(subscription.id)
+        
+        console.log('구독 취소 실행 - subscription 전체 정보:', subscription)
+        
+        if (!subscription.subscriptionId) {
+          console.error('subscription.subscriptionId가 undefined입니다:', subscription)
+          return
+        }
+        
+        console.log('구독 취소 실행:', subscription.subscriptionId)
+        await unsubscribePlaylist(subscription.subscriptionId)
       } else {
         console.log('구독 실행:', playlistId)
         await subscribePlaylist(playlistId)

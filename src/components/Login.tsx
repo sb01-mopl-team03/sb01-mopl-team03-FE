@@ -88,10 +88,10 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
           formDataToSend.append('profile', profileImage)
         }
         
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/users`, {
+        const response = await fetch('/api/users', {
           method: 'POST',
           credentials: 'include', // 쿠키 포함
-          body: formDataToSend, // FormData를 직접 전송 (Content-Type 헤더는 자동 설정됨)
+          body: formDataToSend, // FormData를 직접 전송
         })
         
         if (!response.ok) {
@@ -117,13 +117,13 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
         alert('회원가입이 완료되었습니다. 로그인해주세요.')
         onToggleAuth()
       } else {
-        // 로그인 API 호출
+        // 로그인 API 호출 - JSON 방식 (AuthController는 JSON만 지원)
         const requestBody = {
           email: formData.email,
           password: formData.password,
         }
         
-        const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/auth/login`, {
+        const response = await fetch('/api/auth/login', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

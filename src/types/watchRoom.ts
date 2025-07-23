@@ -4,12 +4,14 @@ import { ContentDto } from './content'
 export interface WatchRoomDto {
   id: string
   title: string
-  contentTitle: string
-  contentId?: string // 백엔드에서 contentId 제공 시 사용
+  contentDto: ContentDto
   ownerId: string
   ownerName: string
   createdAt: string
   headCount: number
+  // 기존 호환성을 위한 필드들
+  contentTitle?: string // contentDto.title과 동일
+  contentId?: string // contentDto.id와 동일
 }
 
 export interface WatchRoomCreateRequest {
@@ -22,8 +24,11 @@ export interface WatchRoomInfoDto {
   id: string
   title: string
   newUserId: string
+  playTime: number
+  isPlaying: boolean
   participantsInfoDto: ParticipantsInfoDto
   content: ContentDto
+  videoSyncDto?: VideoSyncDto
 }
 
 export interface ParticipantDto {
@@ -86,6 +91,7 @@ export interface WatchRoomSearchOptions {
 
 // 백엔드 WebSocket 응답 타입 (실제 백엔드 구조에 맞춤)
 export interface BackendParticipantDto {
+  id: string // UUID (문자열로 받음)
   username: string
   profile: string | null
   isOwner: boolean

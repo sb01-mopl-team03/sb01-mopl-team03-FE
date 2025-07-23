@@ -139,8 +139,8 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
     setFollowLoading(true)
     try {
       if (isFollowing) {
-        // 언팔로우
-        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/unfollow`, {
+        // 언팔로우 - JSON 방식으로 수정
+        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows`, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json'
@@ -159,16 +159,14 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
         // 팔로워 수 업데이트
         setFollowers(prev => prev.filter(follower => follower.id !== userId))
       } else {
-        // 팔로우
-        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/follow`, {
+        // 팔로우 - multipart/form-data 방식으로 변경
+        const followFormData = new FormData()
+        followFormData.append('followerId', userId)
+        followFormData.append('followingId', currentViewingUserId)
+        
+        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            followerId: userId,
-            followingId: currentViewingUserId
-          })
+          body: followFormData
         })
         
         if (!response.ok) {

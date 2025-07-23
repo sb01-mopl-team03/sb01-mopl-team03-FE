@@ -31,6 +31,7 @@ export interface ContentDto {
   contentType: 'MOVIE' | 'TV' | 'SPORTS'
   releaseDate: string
   url?: string
+  thumbnailUrl?: string
 }
 
 export class CurationService {

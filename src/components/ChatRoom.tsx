@@ -4,7 +4,7 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { ScrollArea } from './ui/scroll-area'
-import { DmDto } from '../services/dmService'
+import { DmDto, CursorPageResponseDto, DmPagingDto } from '../services/dmService'
 import { useDmWebSocket } from '../hooks/useDmWebSocket'
 
 interface Message {
@@ -31,7 +31,7 @@ interface ChatRoomProps {
   onBack: () => void
   user: ChatUser | null
   currentUserId: string | null
-  getDmMessages: (roomId: string, pagingDto?: { cursor?: string; size?: number }) => Promise<any>
+  getDmMessages: (roomId: string, pagingDto?: DmPagingDto) => Promise<CursorPageResponseDto<DmDto>>
 }
 
 
@@ -41,15 +41,17 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
   const [isTyping] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [authError, setAuthError] = useState<string | null>(null) // 인증 에러 전용 상태
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null) 
   
   
   // WebSocket connection
-  const { isConnected, sendMessage } = useDmWebSocket({
+  const { isConnected, connectionStatus, connect, sendMessage } = useDmWebSocket({
     roomId: user?.roomId || null,
     userId: currentUserId,
     onMessageReceived: (dmMessage: DmDto) => {
+      console.log('📥 ChatRoom에서 메시지 수신:', dmMessage);
       const message: Message = {
         id: dmMessage.id,
         senderId: dmMessage.senderId,
@@ -60,6 +62,18 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
         isOwnMessage: dmMessage.senderId === currentUserId
       }
       setMessages(prev => [...prev, message])
+    },
+    onError: (error: string) => {
+      console.error('❌ DM WebSocket 에러:', error);
+      
+      // 인증 관련 에러와 일반 에러 구분
+      if (error.includes('로그인') || error.includes('인증') || error.includes('Authentication')) {
+        setAuthError(error);
+        setError(null); // 일반 에러는 초기화
+      } else {
+        setError(error);
+        setAuthError(null); // 인증 에러는 초기화
+      }
     }
   })
 
@@ -82,6 +96,28 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
     }
   }, [user?.roomId])
 
+  // 웹소켓 연결 보장 로직 - ChatRoom이 열릴 때마다 연결 상태 확인
+  useEffect(() => {
+    console.log('🏠 ChatRoom 상태 변경:', {
+      isOpen,
+      hasUser: !!user,
+      roomId: user?.roomId,
+      currentUserId,
+      isConnected,
+      connectionStatus
+    });
+
+    if (isOpen && user?.roomId && currentUserId) {
+      console.log('🔄 ChatRoom 열림 - 웹소켓 연결 확인');
+      
+      // 연결되지 않았다면 강제 연결 시도
+      if (!isConnected && connectionStatus !== 'connecting') {
+        console.log('⚡ 웹소켓 미연결 상태 - 강제 연결 시도');
+        connect();
+      }
+    }
+  }, [isOpen, user?.roomId, currentUserId, isConnected, connectionStatus, connect]);
+
   const formatTimestamp = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleTimeString('ko-KR', { 
@@ -97,9 +133,9 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
     try {
       setLoading(true)
       setError(null)
-      const response = await getDmMessages(user.roomId)
+      const response = await getDmMessages(user.roomId, { size: 50 })
       
-      const messageList: Message[] = response.data.map((dm: any) => ({
+      const messageList: Message[] = response.data.map((dm: DmDto) => ({
         id: dm.id,
         senderId: dm.senderId,
         senderName: dm.senderId === currentUserId ? '나' : user?.name || 'Unknown',
@@ -119,9 +155,23 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
   }
 
   const handleSendMessage = () => {
-    if (!newMessage.trim() || !user || !isConnected) return
+    if (!newMessage.trim() || !user || !isConnected) {
+      console.warn('⚠️ 메시지 전송 실패:', {
+        hasMessage: !!newMessage.trim(),
+        hasUser: !!user,
+        isConnected,
+        roomId: user?.roomId,
+        userId: currentUserId
+      });
+      return;
+    }
 
-    console.log('Sending message via WebSocket:', newMessage.trim())
+    console.log('📤 ChatRoom에서 메시지 전송:', {
+      content: newMessage.trim(),
+      roomId: user.roomId,
+      userId: currentUserId,
+      isConnected
+    });
     sendMessage(newMessage.trim())
     setNewMessage('')
   }
@@ -174,6 +224,10 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
                 <p className="font-medium text-sm">{user.name}</p>
                 <p className="text-xs text-white/60">
                   {user.isOnline ? '온라인' : '오프라인'}
+                  {' • '}
+                  <span className={`${isConnected ? 'text-green-400' : 'text-red-400'}`}>
+                    {isConnected ? '연결됨' : '연결 안됨'}
+                  </span>
                 </p>
               </div>
             </div>
@@ -204,7 +258,27 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
                   {error}
                 </div>
               )}
-              {!loading && !error && messages.length === 0 && (
+              {authError && (
+                <div className="flex items-center justify-center h-32 text-orange-400">
+                  <div className="text-center">
+                    <p className="mb-3">{authError}</p>
+                    <Button 
+                      onClick={() => {
+                        setAuthError(null);
+                        // 재연결 시도
+                        if (user?.roomId && currentUserId) {
+                          connect();
+                        }
+                      }}
+                      size="sm"
+                      className="bg-orange-500 hover:bg-orange-600 text-white"
+                    >
+                      다시 시도
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {!loading && !error && !authError && messages.length === 0 && (
                 <div className="flex items-center justify-center h-32 text-white/60">
                   아직 메시지가 없습니다.
                 </div>
@@ -302,7 +376,7 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
             
             <Button 
               onClick={handleSendMessage}
-              disabled={!newMessage.trim()}
+              disabled={!newMessage.trim() || !isConnected}
               size="sm"
               className="p-2 bg-[#4ecdc4] hover:bg-[#26a69a] text-black disabled:opacity-50 disabled:hover:bg-[#4ecdc4] rounded-full flex-shrink-0"
             >

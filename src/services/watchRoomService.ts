@@ -143,9 +143,11 @@ export class WatchRoomService {
         id: room.id,
         title: room.title,
         newUserId: '', // WebSocket에서 업데이트됨
+        playTime: 0, // 기본값: 처음부터 시작
+        isPlaying: false, // 기본값: 일시정지 상태
         content: {
-          id: room.contentId || '',
-          title: room.contentTitle,
+          id: room.contentDto?.id || room.contentId || '',
+          title: room.contentDto?.title || room.contentTitle || '',
           titleNormalized: '',
           description: '',
           contentType: 'MOVIE' as any,
@@ -202,7 +204,7 @@ export class WatchRoomService {
     const lowerQuery = query.toLowerCase()
     return rooms.filter(room => 
       room.title.toLowerCase().includes(lowerQuery) ||
-      room.contentTitle.toLowerCase().includes(lowerQuery) ||
+      (room.contentDto?.title || room.contentTitle || '').toLowerCase().includes(lowerQuery) ||
       room.ownerName.toLowerCase().includes(lowerQuery)
     )
   }

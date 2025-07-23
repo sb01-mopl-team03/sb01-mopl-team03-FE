@@ -41,17 +41,33 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
   // 사용자 정보 조회
   const fetchUserInfo = async () => {
     try {
+      console.log('사용자 정보 조회 시작:', userId)
+      
       // Spring Security 때문에 인증 헤더가 필요
       const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/users/${userId}`)
       
+      console.log('사용자 정보 조회 응답:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      })
+      
       if (!response.ok) {
-        throw new Error('사용자 정보를 가져오는데 실패했습니다.')
+        const errorText = await response.text()
+        console.error('사용자 정보 조회 실패:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorText
+        })
+        throw new Error(`사용자 정보를 가져오는데 실패했습니다. (${response.status})`)
       }
+      
       const userData: UserResponse = await response.json()
+      console.log('사용자 정보 조회 성공:', userData)
       setUserInfo(userData)
     } catch (error) {
       console.error('사용자 정보 조회 오류:', error)
-      setError('사용자 정보를 불러올 수 없습니다.')
+      setError(error instanceof Error ? error.message : '사용자 정보를 불러올 수 없습니다.')
     }
   }
 
@@ -135,9 +151,12 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
     setFollowLoading(true)
     try {
       if (isFollowing) {
-        // 언팔로우
-        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/unfollow`, {
+        // 언팔로우 - JSON 방식으로 수정
+        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows`, {
           method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          },
           body: JSON.stringify({
             followerId: currentUserId,
             followingId: userId
@@ -153,12 +172,13 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
         setFollowers(prev => prev.filter(follower => follower.id !== currentUserId))
       } else {
         // 팔로우
-        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/follow`, {
+        const followFormData = new FormData()
+        followFormData.append('followerId', currentUserId)
+        followFormData.append('followingId', userId)
+        
+        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows`, {
           method: 'POST',
-          body: JSON.stringify({
-            followerId: currentUserId,
-            followingId: userId
-          })
+          body: followFormData
         })
         
         if (!response.ok) {
