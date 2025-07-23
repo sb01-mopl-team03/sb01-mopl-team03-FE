@@ -296,7 +296,7 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
       // request JSON을 문자열로 변환하여 추가
       const requestData: any = {
         newName: name,
-        password: password
+        currentPassword: password,
       }
 
       if (newPassword) {
