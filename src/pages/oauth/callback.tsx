@@ -1,24 +1,30 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-export default function OAuthCallback() {
+interface OAuthCallbackProps {
+  onLogin: (accessToken: string) => void
+}
+
+export default function OAuthCallback({ onLogin }: OAuthCallbackProps) {
   const navigate = useNavigate()
 
+useEffect(() => {
+  console.log("🟡 현재 위치:", window.location.href)
+}, [])
+
   useEffect(() => {
-    // access_token을 쿼리에서 추출
+    console.log("🟡 /oauth/callback 라우트 진입");
     const params = new URLSearchParams(window.location.search)
     const accessToken = params.get('access_token')
 
     if (accessToken) {
-      // 토큰 저장 (localStorage 등)
       localStorage.setItem('accessToken', accessToken)
-      // 메인 페이지로 이동
+      onLogin(accessToken) // ✅ 로그인 상태 갱신
       navigate('/', { replace: true })
     } else {
-      // 토큰이 없으면 로그인 페이지로 이동
       navigate('/login', { replace: true })
     }
-  }, [navigate])
+  }, [navigate, onLogin])
 
   return (
     <div className="flex items-center justify-center min-h-screen">
