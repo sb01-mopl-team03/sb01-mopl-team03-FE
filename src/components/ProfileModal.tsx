@@ -42,6 +42,10 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
   const [followLoading, setFollowLoading] = useState(false) // 팔로우 로딩 상태
   const [activeTab, setActiveTab] = useState<'profile' | 'followers' | 'following' | 'playlists'>('profile') // 활성 탭
   const [playlists, setPlaylists] = useState<any[]>([]) // 플레이리스트 목록
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [newPasswordError, setNewPasswordError] = useState('')
+  const [confirmPasswordError, setConfirmPasswordError] = useState('')
 
   // 현재 보고 있는 사용자 ID (본인 또는 다른 사용자)
   const currentViewingUserId = targetUserId || userId
@@ -226,6 +230,25 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
     }
   }
 
+  const validateNewPassword = (value: string) => {
+  const regex = /^(?=.*[0-9])(?=.*[a-zA-Z])(?=.*[!@#$%^&*]).{8,}$/
+  if (!value) {
+    setNewPasswordError('')
+    } else if (!regex.test(value)) {
+      setNewPasswordError('비밀번호는 8자 이상이며, 숫자, 영문, 특수문자를 포함해야 합니다.')
+    } else {
+      setNewPasswordError('')
+    }
+  }
+
+  const validateConfirmPassword = (value: string) => {
+    if (value !== newPassword) {
+      setConfirmPasswordError('비밀번호가 일치하지 않습니다.')
+    } else {
+      setConfirmPasswordError('')
+    }
+  }
+
   const handleSaveProfile = async () => {
     setIsLoading(true)
     setError(null)
@@ -238,6 +261,8 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
         return
       }
 
+
+      
       // 비밀번호가 입력되지 않은 경우 에러
       if (!password.trim()) {
         setError('프로필 수정을 위해 현재 비밀번호를 입력해주세요.')
@@ -245,15 +270,39 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
         return
       }
 
+      if (newPassword) {
+        if (newPasswordError || confirmPasswordError) {
+          setError('새 비밀번호 입력 조건을 확인해주세요.')
+          setIsLoading(false)
+          return
+        }
+
+        if (!confirmPassword) {
+          setError('비밀번호 확인을 입력해주세요.')
+          setIsLoading(false)
+          return
+        }
+
+        if (newPassword !== confirmPassword) {
+          setError('비밀번호가 일치하지 않습니다.')
+          setIsLoading(false)
+          return
+        }
+      }
+
       // FormData를 사용하여 multipart/form-data 요청 생성
       const formData = new FormData()
       
       // request JSON을 문자열로 변환하여 추가
-      const requestData = {
+      const requestData: any = {
         newName: name,
-        newPassword: password
+        password: password
       }
-      
+
+      if (newPassword) {
+        requestData.newPassword = newPassword
+      }
+            
       console.log('Request data:', requestData)
       
       // request 부분을 JSON 문자열로 추가 (Content-Type: application/json으로 처리됨)
@@ -505,12 +554,54 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
                     className="mt-1 h-12 px-4 text-base bg-white/5 border-white/20 focus:border-[#4ecdc4]"
                     required
                   />
-                  <p className="text-xs text-white/60 mt-1">보안을 위해 현재 비밀번호 확인이 필요합니다.</p>
+                  <p className="text-xs text-white/60 mt-1">회원 정보를 안전하게 변경하려면 비밀번호를 다시 입력해주세요.</p>
+                  {!isViewingOtherUser && (
+                  <>
+                    {/* 새 비밀번호 입력 */}
+                    <div className="mt-4">
+                      <Label htmlFor="newPassword" className="text-sm">새 비밀번호 (선택)</Label>
+                      <Input
+                        id="newPassword"
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setNewPassword(value);
+                          validateNewPassword(value);
+                        }}
+                        placeholder="새 비밀번호를 입력하세요 (선택)"
+                        className="mt-1 h-12 px-4 text-base bg-white/5 border-white/20 focus:border-[#4ecdc4]"
+                      />
+                      {newPasswordError && (
+                        <p className="text-red-400 text-xs mt-1">{newPasswordError}</p>
+                      )}
+                    </div>
+
+                    {/* 비밀번호 확인 입력 */}
+                    <div className="mt-4">
+                      <Label htmlFor="confirmPassword" className="text-sm">새 비밀번호 확인</Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setConfirmPassword(value);
+                          validateConfirmPassword(value);
+                        }}
+                        placeholder="새 비밀번호를 다시 입력하세요"
+                        className="mt-1 h-12 px-4 text-base bg-white/5 border-white/20 focus:border-[#4ecdc4]"
+                      />
+                      {confirmPasswordError && (
+                        <p className="text-red-400 text-xs mt-1">{confirmPasswordError}</p>
+                      )}
+                    </div>
+                  </>
+                )}
                 </div>
               )}
             </div>
           )}
-          
           {activeTab === 'followers' && (
             <div className="space-y-3 max-h-60 overflow-y-auto">
               {followers.map((follower) => (
