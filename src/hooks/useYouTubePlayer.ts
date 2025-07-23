@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { YouTubePlayer, YouTubePlayerStateChangeEvent, YouTubePlayerState, YouTubePlayerController, VideoControlAction } from '../types/youtube'
-import { el } from 'date-fns/locale'
+import { tr } from 'date-fns/locale'
 
 interface UseYouTubePlayerProps {
   videoId: string
@@ -8,6 +8,7 @@ interface UseYouTubePlayerProps {
   isHost: boolean
   onStateChange?: (isPlaying: boolean, currentTime: number, action: VideoControlAction) => void
   onError?: (error: string) => void
+  onTimeUpdate?: (currentTime: number) => void // Add new prop for continuous time updates
 }
 
 export function useYouTubePlayer({
@@ -15,12 +16,14 @@ export function useYouTubePlayer({
   containerId,
   isHost,
   onStateChange,
-  onError
+  onError,
+  onTimeUpdate // Destructure new prop
 }: UseYouTubePlayerProps): YouTubePlayerController {
   const [player, setPlayer] = useState<YouTubePlayer | null>(null)
   const [isReady, setIsReady] = useState(false)
   const playerRef = useRef<YouTubePlayer | null>(null)
   const isHostControlRef = useRef(false)
+  const currentTimeIntervalRef = useRef<NodeJS.Timeout | null>(null) // Ref to store interval ID
 
   // 플레이어 초기화
   const initializePlayer = useCallback(() => {
@@ -35,7 +38,7 @@ export function useYouTubePlayer({
         videoId,
         playerVars: {
           autoplay: 0,
-          controls: 1, // 기본 컨트롤 활성화 (디버깅용)
+          controls: 0, // 기본 컨트롤 활성화 (디버깅용)
           disablekb: 0, // 키보드 제어 활성화 (디버깅용)
           fs: 0, // 전체화면 버튼 숨김
           modestbranding: 1, // YouTube 로고 최소화
@@ -52,7 +55,6 @@ export function useYouTubePlayer({
             playerRef.current = event.target
             setPlayer(event.target)
             
-            // 플레이어 기능이 실제로 작동하는지 검증 후 ready 설정
             const verifyPlayerReady = () => {
               try {
                 const canGetState = typeof event.target.getPlayerState === 'function'
@@ -71,27 +73,47 @@ export function useYouTubePlayer({
                 setTimeout(verifyPlayerReady, 200)
               }
             }
-            
             verifyPlayerReady()
           },
           onStateChange: (event) => {
             const state = event.data
             const rawTime = event.target.getCurrentTime()
-            const currentTime = Math.round(rawTime * 100) / 100 // 소수점 둘째 자리까지 정밀도
+            const currentTime = Math.round(rawTime * 100) / 100
             
-            let action: VideoControlAction
-            let isPlaying = false
+            let action: VideoControlAction | null = null;
+            let isPlaying = false;
             
+            // Clear existing interval before handling state change
+            if (currentTimeIntervalRef.current) {
+              clearInterval(currentTimeIntervalRef.current);
+              currentTimeIntervalRef.current = null;
+            }
+
             switch (state) {
               case window.YT.PlayerState.PLAYING:
                 action = VideoControlAction.PLAY
                 isPlaying = true
+                // Start continuous time updates when playing
+                currentTimeIntervalRef.current = setInterval(() => {
+                  if (event.target.getPlayerState() === window.YT.PlayerState.PLAYING) {
+                    onTimeUpdate?.(event.target.getCurrentTime());
+                  } else {
+                    // Stop interval if state changes unexpectedly
+                    clearInterval(currentTimeIntervalRef.current!);
+                    currentTimeIntervalRef.current = null;
+                  }
+                }, 500); // Update every 500ms
                 break
               case window.YT.PlayerState.PAUSED:
                 action = VideoControlAction.PAUSE
                 isPlaying = false
                 break
+              case window.YT.PlayerState.ENDED:
+                action = VideoControlAction.PAUSE // Treat ended as paused for UI
+                isPlaying = false
+                break
               default:
+                // For other states like BUFFERING, CUED, UNSTARTED, we just clear interval and return
                 return
             }
             
@@ -101,19 +123,13 @@ export function useYouTubePlayer({
               currentTime, 
               isPlaying, 
               isHost,
-              isHostControl: isHostControlRef.current,
-              willSendToWebSocket: isHost && !isHostControlRef.current
+              isHostControl: isHostControlRef.current
             })
             
-            // WebSocket 전송 조건 개선
-            if (isHost && !isHostControlRef.current) {
-              console.log('🎵 Host direct control detected, sending to WebSocket')
-              onStateChange?.(isPlaying, currentTime, action)
-            } else if (isHostControlRef.current) {
-              console.log('🎵 Sync control detected, not sending to WebSocket')
-            } else if (!isHost) {
-              console.log('🎵 Non-host state change, not sending to WebSocket')
-            }
+            // 모든 상태 변경은 로컬 UI 업데이트만 수행
+            // WebSocket 전송은 UI 이벤트 핸들러(handlePlayPause 등)에서만 처리
+            console.log('🎵 Updating local UI state only')
+            onStateChange?.(isPlaying, currentTime, action);
           },
           onError: (event) => {
             console.error('YouTube Player Error:', event.data)
@@ -143,7 +159,7 @@ export function useYouTubePlayer({
       console.error('YouTube Player 초기화 오류:', error)
       onError?.('YouTube 플레이어를 초기화할 수 없습니다.')
     }
-  }, [videoId, containerId, isHost, onStateChange, onError])
+  }, [videoId, containerId, isHost, onStateChange, onError, onTimeUpdate]) // Add onTimeUpdate to dependency array
 
   // YouTube API 로드 후 플레이어 초기화
   useEffect(() => {
@@ -155,6 +171,10 @@ export function useYouTubePlayer({
       playerRef.current = null;
       setPlayer(null);
       setIsReady(false);
+      if (currentTimeIntervalRef.current) { // Clear interval on videoId change / player destruction
+        clearInterval(currentTimeIntervalRef.current);
+        currentTimeIntervalRef.current = null;
+      }
     }
 
     if (!playerRef.current && window.YT && window.YT.Player) {
@@ -244,7 +264,6 @@ export function useYouTubePlayer({
     try {
       if (playerRef.current && isReady) {
         const rawTime = playerRef.current.getCurrentTime()
-        // 소수점 둘째 자리까지 반환 (백엔드 Double 저장에 적합)
         time = Math.round(rawTime * 100) / 100
         
         console.log('🎵 getCurrentTime called:', {
@@ -255,7 +274,6 @@ export function useYouTubePlayer({
           playerState: playerRef.current?.getPlayerState?.()
         })
         
-        // 비정상값 감지
         if (time > 10000 || time < 0 || isNaN(time)) {
           console.warn('🚨 ABNORMAL TIME FROM YOUTUBE PLAYER:', {
             rawTime,
@@ -280,17 +298,12 @@ export function useYouTubePlayer({
     return 0
   }, [isReady])
 
-
-
-
-
   const getPlayerState = useCallback((): YouTubePlayerStateChangeEvent => {
     return {
       target: playerRef.current!,
       data: playerRef.current?.getPlayerState() ?? YouTubePlayerState.UNSTARTED
     }
   }, [isReady])
-
 
   const setVolume = useCallback((volume: number) => {
     if (playerRef.current && isReady) {
@@ -312,6 +325,11 @@ export function useYouTubePlayer({
       setPlayer(null)
       setIsReady(false)
     }
+    // Clear interval on destroy
+    if (currentTimeIntervalRef.current) {
+      clearInterval(currentTimeIntervalRef.current);
+      currentTimeIntervalRef.current = null;
+    }
   }, [])
 
   // 외부에서 비디오 동기화 (모든 참여자)
@@ -323,18 +341,40 @@ export function useYouTubePlayer({
     return false;
   }
 
-  if (videoSync.action === 'PLAY') {
+  isHostControlRef.current = true // Temporarily set flag for sync operations
+
+  // Always seek first for precise positioning
+  playerRef.current.seekTo(videoSync.currentTime, true);
+  playerRef.current.pauseVideo();
+
+  
+  if (videoSync.action === 'PLAY' || videoSync.isPlaying === true) {
+    // 재생 시 볼륨 제어로 자연스러운 재생 시작
+    playerRef.current.setVolume(0); // 음소거로 재생 시작
     playerRef.current.playVideo();
-  }else if (videoSync.action === 'PAUSE') {
+    console.log('▶️ 동기화 재생 시작 (음소거)');
+    
+    // 100ms 후 볼륨 복원
+    setTimeout(() => {
+      if (playerRef.current) {
+        playerRef.current.setVolume(80);
+        console.log('🔊 볼륨 복원');
+      }
+    }, 100);
+  } else if (videoSync.action === 'PAUSE') {
     playerRef.current.pauseVideo();
-  }else if (videoSync.action === 'SEEK') {
-    playerRef.current.seekTo(videoSync.currentTime, true);
+    console.log('⏸️ 동기화 일시정지');
   }
   
+  // Reset flag after a short delay to allow player state to update
+  setTimeout(() => {
+    isHostControlRef.current = false;
+  }, 100);
+
   return true;
 }, [isReady]);
 
-  // 플레이어 상태 모니터링 (5초마다)
+  // 플레이어 상태 모니터링 (5초마다) - Keep for general logging, but time updates are handled by onTimeUpdate now
   useEffect(() => {
     if (playerRef.current && isReady) {
       console.log('🎵 Starting player status monitoring')
@@ -362,7 +402,7 @@ export function useYouTubePlayer({
         } catch (error) {
           console.error('❌ Error checking player status:', error)
         }
-      }, 5000) // 5초마다 상태 확인
+      }, 5000)
       
       return () => {
         console.log('🎵 Stopping player status monitoring')
@@ -375,6 +415,11 @@ export function useYouTubePlayer({
   useEffect(() => {
     return () => {
       destroy()
+      // Ensure interval is cleared even if destroy isn't explicitly called (e.g., if player init failed)
+      if (currentTimeIntervalRef.current) {
+        clearInterval(currentTimeIntervalRef.current);
+        currentTimeIntervalRef.current = null;
+      }
     }
   }, [destroy])
 

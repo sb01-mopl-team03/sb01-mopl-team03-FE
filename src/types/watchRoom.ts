@@ -24,6 +24,8 @@ export interface WatchRoomInfoDto {
   id: string
   title: string
   newUserId: string
+  playTime: number
+  isPlaying: boolean
   participantsInfoDto: ParticipantsInfoDto
   content: ContentDto
 }

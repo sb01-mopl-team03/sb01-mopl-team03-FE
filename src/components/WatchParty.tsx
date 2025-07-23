@@ -81,7 +81,7 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
   const [isChatOpen, setIsChatOpen] = useState(true)
   const [showParticipants, setShowParticipants] = useState(false)
   const [newMessage, setNewMessage] = useState('')
-  const [isHoveringVideo, setIsHoveringVideo] = useState(false) // New state for video hover
+  const [isHoveringVideo, setIsHoveringVideo] = useState(false) // State for video hover
 
   // Data State
   const [roomData, setRoomData] = useState<WatchRoomDto | null>(null)
@@ -94,17 +94,17 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
   const [youtubeUrl, setYoutubeUrl] = useState<string | null>(null)
   const [showPermissionDialog, setShowPermissionDialog] = useState(false)
   const [videoDuration, setVideoDuration] = useState(0)
+  const [initialSyncData, setInitialSyncData] = useState<VideoSyncDto | null>(null) // New state for initial sync data
 
   // Refs
   const chatEndRef = useRef<HTMLDivElement>(null)
   const loadInitialDataExecutingRef = useRef(false)
   const videoContainerRef = useRef<HTMLDivElement>(null); // Ref for the video container
 
-  // ========== API INTEGRATION POINT - START ==========
-  // 실제 YouTube 동영상 길이 사용 (API에서 가져온 값 우선)
+  // API INTEGRATION POINT - START
   const totalDuration = videoDuration > 0 ? videoDuration :
     (contentData?.duration ? parseInt(contentData.duration) : 0)
-  // ========== API INTEGRATION POINT - END ==========
+  // API INTEGRATION POINT - END
 
   // 비디오 상태 관리
   const [isPlaying, setIsPlaying] = useState(false)
@@ -140,18 +140,16 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
     onParticipantsUpdate: useCallback((participantsInfo: ParticipantsInfoDto) => {
       console.log('👥 Participants updated:', participantsInfo)
 
-      // 백엔드 변경사항에 맞춘 매핑 (UUID id, username, profile, isOwner)
       const mappedParticipants = (participantsInfo.participantDtoList ?? []).map((p: any) => ({
-        userId: p.id, // UUID 직접 사용
-        userName: p.username, // username 직접 사용
-        userAvatar: p.profile, // profile 직접 사용 (프로필 이미지)
-        isHost: p.isOwner, // isOwner 직접 사용
-        isOnline: p.isOnline ?? true, // 기본값 true
+        userId: p.id,
+        userName: p.username,
+        userAvatar: p.profile,
+        isHost: p.isOwner,
+        isOnline: p.isOnline ?? true,
         joinedAt: p.joinedAt ?? ''
       }))
       setParticipants(mappedParticipants)
 
-      // Check if current user is host
       const currentUserParticipant = mappedParticipants.find(p => p.userId === userId)
       const newIsHost = currentUserParticipant?.isHost || false
 
@@ -174,36 +172,16 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
         isHost
       })
 
-      // 타임스탬프 체크 개선 (0일 때는 항상 허용)
       const isValidTimestamp = syncData.timestamp === 0 || (Date.now() - syncData.timestamp < 10000)
 
       if (isValidTimestamp && playerController && playerController.syncVideo) {
         console.log('📡 Executing video sync')
-
-        // 플레이어 준비 대기 및 재시도 로직
-        const attemptSync = (attempts = 0) => {
-          if (!playerController.syncVideo) {
-            console.log('📡 syncVideo function not available')
-            return
-          }
-
-          const success = playerController.syncVideo({
-            action: syncData.videoControlAction,
-            currentTime: syncData.currentTime,
-            isPlaying: syncData.isPlaying
-          })
-
-          // if (!success && attempts < 1) { // 최대 10번 재시도 (3초간)
-          //   console.log(`📡 Sync attempt ${attempts + 1}/10 failed, retrying in 300ms...`)
-          //   setTimeout(() => attemptSync(attempts + 1), 300)
-          if (!success) {
-            console.log('📡 Video sync failed after all retries')
-          } else {
-            console.log('📡 Video sync successful')
-          }
-        }
-
-        attemptSync()
+        playerController.syncVideo({
+          action: syncData.videoControlAction,
+          currentTime: syncData.currentTime,
+          isPlaying: syncData.isPlaying
+        })
+        console.log('📡 Video sync successful')
       } else {
         console.log('📡 Video sync ignored:', { isValidTimestamp, hasPlayerController: !!playerController })
       }
@@ -215,31 +193,27 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
     onRoomSync: useCallback((roomInfo: WatchRoomInfoDto) => {
       console.log('🏠 Room sync received:', roomInfo)
 
-      // 새로운 WatchRoomInfoDto 구조에 맞춰 방 정보 업데이트
       const roomData: WatchRoomDto = {
         id: roomInfo.id,
         title: roomInfo.title,
         contentDto: roomInfo.content,
-        ownerId: '', // WebSocket에서는 제공하지 않음
-        ownerName: '', // WebSocket에서는 제공하지 않음
-        createdAt: '', // WebSocket에서는 제공하지 않음
+        ownerId: '',
+        ownerName: '',
+        createdAt: '',
         headCount: roomInfo.participantsInfoDto.participantsCount || roomInfo.participantsInfoDto.participantCount,
-        // 기존 호환성을 위한 필드들
         contentTitle: roomInfo.content.title,
         contentId: roomInfo.content.id
       }
       setRoomData(roomData)
 
-      // 전체 콘텐츠 데이터 설정
       setContentData(roomInfo.content)
 
-      // participantsInfoDto에서 참여자 정보 추출 (백엔드 변경사항 반영)
       const participantList = roomInfo.participantsInfoDto.participantDtoList || []
       const mappedParticipants = participantList.map((p: any) => ({
-        userId: p.id, // UUID 직접 사용
-        userName: p.username, // username 직접 사용
-        userAvatar: p.profile, // profile 직접 사용 (프로필 이미지)
-        isHost: p.isOwner, // isOwner 직접 사용
+        userId: p.id,
+        userName: p.username,
+        userAvatar: p.profile,
+        isHost: p.isOwner,
         isOnline: p.isOnline ?? true,
         joinedAt: p.joinedAt ?? ''
       }))
@@ -259,13 +233,35 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
 
       setIsHost(newIsHost)
 
-      // 백엔드에서 제공하는 content.youtubeUrl 사용
       if (roomInfo.content?.youtubeUrl) {
         console.log('🎬 Setting YouTube URL from content.youtubeUrl:', roomInfo.content.youtubeUrl)
         setYoutubeUrl(roomInfo.content.youtubeUrl)
       } else {
         console.warn('⚠️ No content.youtubeUrl provided')
         setYoutubeUrl(null)
+      }
+
+      // Store initial video sync data from playTime and isPlaying
+      if (roomInfo.playTime !== undefined && roomInfo.isPlaying !== undefined) {
+        console.log('🎬 Storing initial sync data from roomInfo:', {
+          playTime: roomInfo.playTime,
+          isPlaying: roomInfo.isPlaying
+        });
+        const syncData = {
+          videoControlAction: roomInfo.isPlaying ? VideoControlAction.PLAY : VideoControlAction.PAUSE,
+          currentTime: roomInfo.playTime,
+          isPlaying: roomInfo.isPlaying,
+          timestamp: Date.now()
+        };
+        setInitialSyncData(syncData);
+      } else {
+        // Fallback to videoSyncDto if new fields are not available
+        if (roomInfo.videoSyncDto) {
+          console.log('🎬 Fallback: Storing initial videoSyncDto:', roomInfo.videoSyncDto);
+          setInitialSyncData(roomInfo.videoSyncDto);
+        } else {
+          setInitialSyncData(null);
+        }
       }
 
       setLoading(false)
@@ -293,17 +289,8 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
     setIsPlaying(isPlaying)
     setCurrentTime(preciseCurrentTime)
 
-    if (isHost && isConnected) {
-      console.log('🎵 Host sending state change to backend:', {
-        action,
-        preciseCurrentTime
-      })
-      sendVideoControl({
-        videoControlAction: action,
-        currentTime: preciseCurrentTime
-      })
-    }
-  }, [isHost, isConnected, sendVideoControl])
+    // WebSocket 전송은 useYouTubePlayer 내부에서 isHost && !isHostControlRef.current 조건에 따라 처리됨
+  }, [isHost, isConnected]) // Removed sendVideoControl from dependencies as it's not called directly here anymore
 
   // YouTube 플레이어 훅 (비디오 ID가 있을 때만 초기화)
   const playerController = useYouTubePlayer({
@@ -314,7 +301,11 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
     onError: useCallback((error: string) => {
       console.error('YouTube Player Error:', error)
       setError(error)
-    }, [])
+    }, []),
+    // Add onTimeUpdate to continuously update current time
+    onTimeUpdate: useCallback((time: number) => {
+      setCurrentTime(Math.round(time * 100) / 100);
+    }, []),
   })
 
   // 비디오 ID가 없으면 플레이어 사용 불가
@@ -323,7 +314,6 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
   // Load initial room data
   useEffect(() => {
     const loadInitialData = async () => {
-      // 중복 실행 방지
       if (loadInitialDataExecutingRef.current) {
         console.log('⚠️ loadInitialData 이미 실행 중, 중복 실행 방지')
         return
@@ -334,7 +324,6 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
       setLoading(true)
       setError(null)
       try {
-        // Load room data
         const roomInfo = await watchRoomService.joinWatchRoom(roomId)
         console.log('📋 Room info loaded:', roomInfo)
 
@@ -342,31 +331,24 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
           id: roomInfo.id,
           title: roomInfo.title,
           contentDto: roomInfo.content,
-          ownerId: '', // WebSocket에서 업데이트됨
-          ownerName: '', // WebSocket에서 업데이트됨
-          createdAt: '', // WebSocket에서 업데이트됨
+          ownerId: '',
+          ownerName: '',
+          createdAt: '',
           headCount: roomInfo.participantsInfoDto.participantsCount || roomInfo.participantsInfoDto.participantCount,
-          // 기존 호환성을 위한 필드들
           contentTitle: roomInfo.content.title,
           contentId: roomInfo.content.id
         }
         setRoomData(roomData)
 
-        // 전체 콘텐츠 데이터 설정
         setContentData(roomInfo.content)
 
-        // Check if current user is host - 초기에는 확인 불가, WebSocket에서 업데이트됨
         console.log('🔑 Initial host status set to false (will be updated via WebSocket)')
         setIsHost(false)
 
-        // Set initial video state - 초기 상태는 정지
         setIsPlaying(false)
         setCurrentTime(0)
-
-        // Set initial chat messages - 초기에는 빈 배열
         setChatMessages([])
 
-        // 백엔드에서 제공하는 content.youtubeUrl 사용
         if (roomInfo.content?.youtubeUrl) {
           console.log('🎬 Initial: Setting YouTube URL from content.youtubeUrl:', roomInfo.content.youtubeUrl)
           setYoutubeUrl(roomInfo.content.youtubeUrl)
@@ -374,10 +356,32 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
           console.warn('⚠️ Initial: No content.youtubeUrl provided')
           setYoutubeUrl(null)
         }
+        
+        // Store initial video sync data from playTime and isPlaying
+        if (roomInfo.playTime !== undefined && roomInfo.isPlaying !== undefined) {
+          console.log('🎬 Initial: Storing initial sync data from roomInfo:', {
+            playTime: roomInfo.playTime,
+            isPlaying: roomInfo.isPlaying
+          });
+          const syncData = {
+            videoControlAction: roomInfo.isPlaying ? VideoControlAction.PLAY : VideoControlAction.PAUSE,
+            currentTime: roomInfo.playTime,
+            isPlaying: roomInfo.isPlaying,
+            timestamp: Date.now()
+          };
+          setInitialSyncData(syncData);
+        } else {
+          // Fallback to videoSyncDto if new fields are not available
+          if (roomInfo.videoSyncDto) {
+            console.log('🎬 Initial: Fallback: Storing initial videoSyncDto:', roomInfo.videoSyncDto);
+            setInitialSyncData(roomInfo.videoSyncDto);
+          } else {
+            setInitialSyncData(null);
+          }
+        }
 
         console.log('✅ loadInitialData 완료')
 
-        // Connect to WebSocket if shouldConnect is true
         if (shouldConnect) {
           connect()
         }
@@ -390,7 +394,6 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
       }
     }
 
-    // 중복 실행 방지를 위해 timeout 추가
     const timeoutId = setTimeout(() => {
       loadInitialData()
     }, 0)
@@ -399,6 +402,18 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
       clearTimeout(timeoutId)
     }
   }, [roomId, userId, shouldConnect])
+
+  // Apply initial video sync when player is ready and initial sync data exists
+  useEffect(() => {
+    if (playerController?.isReady && initialSyncData) {
+      console.log('🎬 Applying initial video sync now that player is ready:', initialSyncData);
+      playerController.syncVideo(initialSyncData);
+      // Also update local state immediately for UI consistency
+      setIsPlaying(initialSyncData.isPlaying);
+      setCurrentTime(initialSyncData.currentTime);
+      setInitialSyncData(null); // Clear after applying
+    }
+  }, [playerController, initialSyncData]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -443,34 +458,32 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
     })
   }, [isHost, userId, participants, canUsePlayer, isConnected])
 
-  // 비디오 시간 업데이트는 YouTube 플레이어에서 자동으로 처리됨
 
   const handlePlayPause = () => {
-    if (!isHost || !canUsePlayer) return;
-
-    const action = isPlaying ? VideoControlAction.PAUSE : VideoControlAction.PLAY;
-    const currentTime = playerController.getCurrentTime() || 0;
-
-    if (action === 'PLAY') {
-      playerController.setVolume(0); // 음소거로 재생 시작
-      playerController.play();
-      console.log('▶️ 재생 시작 (음소거)');
-      setTimeout(() => {
-        playerController.setVolume(80); // 100ms 후 볼륨 복원
-        console.log('🔊 볼륨 복원');
-      }, 100);
-    } else {
-      playerController.pause();
-      console.log('⏸️ 일시정지');
+    if (!isHost || !canUsePlayer || !isConnected) {
+      console.log('❌ Cannot control video:', { isHost, canUsePlayer, isConnected })
+      if (!isHost) {
+        setShowPermissionDialog(true)
+      }
+      return
     }
 
-    sendVideoControl({ videoControlAction: action, currentTime });
+    const action = isPlaying ? VideoControlAction.PAUSE : VideoControlAction.PLAY;
+    const currentTime = playerController?.getCurrentTime() || 0;
+
+    console.log('🎵 Host sending video control:', { action, currentTime, isPlaying })
+
+    // 호스트는 직접 플레이어를 조작하지 않고 백엔드에 제어 메시지만 전송
+    // 실제 플레이어 조작은 백엔드 응답(onVideoSync)에서 처리됨
+    sendVideoControl({
+      videoControlAction: action,
+      currentTime: currentTime
+    })
   };
 
   const handleSeek = (seconds: number) => {
     console.log('🎯 Seek requested:', { isHost, seconds, isConnected, canUsePlayer })
 
-    // Only host can control video
     if (!isHost) {
       console.log('❌ Not host, cannot seek video')
       setShowPermissionDialog(true)
@@ -482,10 +495,8 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
       return
     }
 
-    // 백엔드로만 제어 메시지 전송 (즉시 제어 제거)
     try {
-      // SEEK 시간값 검증 강화
-      const maxDuration = playerController?.getDuration?.() || videoDuration
+      const maxDuration = playerController?.getDuration?.() || totalDuration
       let validSeekTime = seconds
 
       if (maxDuration && seconds > maxDuration) {
@@ -517,7 +528,6 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
   }
 
   const handleVolumeChange = (volume: number) => {
-    // YouTube 플레이어 볼륨 제어
     playerController.setVolume(volume)
 
     console.log(`Volume changed to: ${volume}%`)
@@ -535,8 +545,6 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
   const handleSendMessage = () => {
     if (!newMessage.trim() || !isConnected) return
 
-    // 메시지를 서버로 전송만 하고, 화면에 즉시 표시하지 않음
-    // 서버에서 브로드캐스트되어 돌아올 때만 화면에 표시됨
     wsSendChatMessage(newMessage)
     console.log('Sending message:', newMessage)
 
@@ -724,9 +732,9 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
       <div className="flex-1 flex min-h-0">
         {/* Video Player */}
         <div
-          ref={videoContainerRef} // Attach ref to the video container
-          onMouseEnter={() => setIsHoveringVideo(true)} // Handle mouse enter
-          onMouseLeave={() => setIsHoveringVideo(false)} // Handle mouse leave
+          ref={videoContainerRef}
+          onMouseEnter={() => setIsHoveringVideo(true)}
+          onMouseLeave={() => setIsHoveringVideo(false)}
           className={`flex-1 bg-black relative`}
         >
           {/* YouTube Player */}
@@ -798,14 +806,14 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
               </div>
             )}
 
-            {/* Video Overlay Controls */}
+            {/* Video Overlay Controls (Central Play/Pause Button) */}
             <div
               className={`absolute inset-0 bg-black/30 flex items-center justify-center transition-opacity duration-300 ${
-                isPlaying && !isHoveringVideo ? 'opacity-0' : 'opacity-100' // Hide when playing and not hovering
+                isPlaying && !isHoveringVideo ? 'opacity-0' : 'opacity-100'
               }`}
               style={{
                 zIndex: 10,
-                pointerEvents: isPlaying && !isHoveringVideo ? 'none' : 'auto' // Disable pointer events when hidden
+                pointerEvents: isPlaying && !isHoveringVideo ? 'none' : 'auto'
               }}
             >
               <Button
@@ -842,21 +850,26 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
               )}
             </div>
 
-            {/* Video Controls */}
-            <VideoControls
-              playerController={playerController}
-              isHost={isHost}
-              isPlaying={isPlaying}
-              currentTime={currentTime}
-              totalDuration={totalDuration}
-              onPlayPause={handlePlayPause}
-              onSeek={handleSeek}
-              onVolumeChange={handleVolumeChange}
-              onFullscreenToggle={handleFullscreenToggle}
-              isFullscreen={isFullscreen}
-              disabled={!isConnected || !canUsePlayer}
-              onPermissionDenied={() => setShowPermissionDialog(true)}
-            />
+            {/* Video Controls - Now placed at the bottom and conditionally visible */}
+            <div className={`absolute bottom-0 left-0 right-0 p-4 bg-black/50 backdrop-blur-sm
+                        transition-opacity duration-300 z-50
+                        ${(isPlaying && !isHoveringVideo) && !isFullscreen ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'}
+                        ${isFullscreen ? 'hidden' : ''} `}>
+              <VideoControls
+                playerController={playerController}
+                isHost={isHost}
+                isPlaying={isPlaying}
+                currentTime={currentTime}
+                totalDuration={totalDuration}
+                onPlayPause={handlePlayPause}
+                onSeek={handleSeek}
+                onVolumeChange={handleVolumeChange}
+                onFullscreenToggle={handleFullscreenToggle}
+                isFullscreen={isFullscreen}
+                disabled={!isConnected || !canUsePlayer}
+                onPermissionDenied={() => setShowPermissionDialog(true)}
+              />
+            </div>
 
             {/* Fullscreen Exit Hint */}
             {isFullscreen && (

@@ -233,9 +233,16 @@ export function useWatchRoomWebSocket({
 
   const sendVideoControl = useCallback((action: VideoControlRequest) => {
     if (!clientRef.current?.connected) {
+      console.error('❌ Cannot send video control: WebSocket not connected')
       onError?.('WebSocket에 연결되지 않았습니다.')
       return
     }
+
+    console.log('🎮 Sending video control to backend:', {
+      action: action.videoControlAction,
+      currentTime: action.currentTime,
+      destination: `/app/rooms/${roomId}/video-control`
+    })
 
     clientRef.current.publish({
       destination: `/app/rooms/${roomId}/video-control`,
