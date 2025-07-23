@@ -20,11 +20,10 @@ interface UserProfileProps {
   onBack: () => void
   authenticatedFetch: (url: string, options?: RequestInit) => Promise<Response>
   onUserProfileOpen?: (targetUserId: string) => void
-  getPlaylists?: (keyword?: string) => Promise<any[]>
 }
 
 
-export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch, onUserProfileOpen, getPlaylists }: UserProfileProps) {
+export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch, onUserProfileOpen }: UserProfileProps) {
   
   const [userInfo, setUserInfo] = useState<UserResponse | null>(null)
   const [followers, setFollowers] = useState<UserResponse[]>([])
@@ -104,20 +103,14 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
   // 사용자 플레이리스트 조회
   const fetchUserPlaylists = async () => {
     try {
-      if (getPlaylists) {
-        // 사용자별 플레이리스트 조회 (공개 플레이리스트만)
-        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists?userId=${userId}`)
-        if (!response.ok) {
-          throw new Error('플레이리스트를 가져오는데 실패했습니다.')
-        }
-        const playlistsData = await response.json()
-        // 공개 플레이리스트만 필터링
-        const publicPlaylists = playlistsData.filter((playlist: any) => playlist.isPublic)
-        setPlaylists(publicPlaylists)
-      } else {
-        // getPlaylists 함수가 없으면 빈 배열
-        setPlaylists([])
+      // 새로운 API 엔드포인트 사용: /api/users/{userId}/playlists
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/users/${userId}/playlists`)
+      if (!response.ok) {
+        throw new Error('플레이리스트를 가져오는데 실패했습니다.')
       }
+      const playlistsData = await response.json()
+      // 백엔드에서 이미 필터링된 공개 플레이리스트만 반환되므로 추가 필터링 불필요
+      setPlaylists(playlistsData)
     } catch (error) {
       console.error('플레이리스트 조회 오류:', error)
       // 에러 시 빈 배열로 설정
