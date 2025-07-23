@@ -28,6 +28,7 @@ export interface WatchRoomInfoDto {
   isPlaying: boolean
   participantsInfoDto: ParticipantsInfoDto
   content: ContentDto
+  videoSyncDto?: VideoSyncDto
 }
 
 export interface ParticipantDto {

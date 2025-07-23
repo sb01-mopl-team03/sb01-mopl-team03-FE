@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { YouTubePlayer, YouTubePlayerStateChangeEvent, YouTubePlayerState, YouTubePlayerController, VideoControlAction } from '../types/youtube'
-import { tr } from 'date-fns/locale'
 
 interface UseYouTubePlayerProps {
   videoId: string

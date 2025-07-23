@@ -405,9 +405,14 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
 
   // Apply initial video sync when player is ready and initial sync data exists
   useEffect(() => {
-    if (playerController?.isReady && initialSyncData) {
+    if (playerController?.isReady && playerController.syncVideo && initialSyncData) {
       console.log('🎬 Applying initial video sync now that player is ready:', initialSyncData);
-      playerController.syncVideo(initialSyncData);
+      const syncVideoData = {
+        action: initialSyncData.videoControlAction,
+        currentTime: initialSyncData.currentTime,
+        isPlaying: initialSyncData.isPlaying
+      };
+      playerController.syncVideo(syncVideoData);
       // Also update local state immediately for UI consistency
       setIsPlaying(initialSyncData.isPlaying);
       setCurrentTime(initialSyncData.currentTime);
