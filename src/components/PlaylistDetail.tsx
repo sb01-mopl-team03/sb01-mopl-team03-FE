@@ -40,7 +40,6 @@ interface PlaylistDetailProps {
 export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistById, addPlaylistContents, deletePlaylistContents }: PlaylistDetailProps) {
   const [playlist, setPlaylist] = useState<any>(null)
   const [contents, setContents] = useState<PlaylistContent[]>([])
-  const [isLiked, setIsLiked] = useState(false)
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)

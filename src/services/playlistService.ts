@@ -131,6 +131,25 @@ export class PlaylistService {
       throw error
     }
   }
+
+  /**
+   * 현재 사용자의 플레이리스트 목록 조회
+   */
+  async getPlaylistByUser(): Promise<PlaylistDto[]> {
+    try {
+      const response = await this.authenticatedFetch(`${this.baseUrl}/user`)
+      
+      if (!response.ok) {
+        throw new Error(`사용자 플레이리스트 목록 조회에 실패했습니다. Status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      return data
+    } catch (error) {
+      console.error('사용자 플레이리스트 목록 조회 오류:', error)
+      throw error
+    }
+  }
 }
 
 // 전역 서비스 인스턴스

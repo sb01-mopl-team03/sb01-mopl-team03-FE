@@ -1,4 +1,4 @@
-import { Plus, TrendingUp, Clock, Star, ChevronRight, Play, Calendar, Palette, ChevronLeft } from 'lucide-react'
+import { Plus, TrendingUp, Clock, Star, ChevronRight, Play, Calendar, Palette, ChevronLeft, Loader2 } from 'lucide-react'
 import { Button } from './ui/button'
 import { useState, useEffect, useRef } from 'react'
 import { WatchRoomDto } from '../types/watchRoom'
@@ -11,14 +11,16 @@ import { playlistService } from '../services/playlistService'
 interface DashboardProps {
   onPageChange?: (page: string) => void
   onPlaylistOpen?: (playlistId: string) => void
-  onContentPlay?: (content: { id: string; title: string; thumbnail: string; type: 'movie' | 'tv' | 'sports'; duration: string; description: string }) => void
+  onContentPlay?: (content: { id: string; title: string; thumbnail: string; type: 'movie' | 'tv' | 'sports'; description: string; duration?: string }) => void
+  onJoinRoom?: (room: WatchRoomDto) => void
 }
 
-export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: DashboardProps) {
+export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay, onJoinRoom }: DashboardProps) {
   const [liveRooms, setLiveRooms] = useState<WatchRoomDto[]>([])
   const [featuredContent, setFeaturedContent] = useState<ContentDto[]>([])
   const [myPlaylists, setMyPlaylists] = useState<PlaylistDto[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null)
   
   // Scroll refs for navigation
   const liveRoomsScrollRef = useRef<HTMLDivElement>(null)
@@ -77,6 +79,29 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
     loadData()
   }, [])
   // ========== API INTEGRATION POINT - END ==========
+
+  // Room join handler
+  const handleJoinRoom = async (room: WatchRoomDto) => {
+    console.log('Dashboard - handleJoinRoom 호출:', room.id, room.title)
+    if (joiningRoomId) {
+      console.log('Dashboard - 이미 참여 중인 방 있음:', joiningRoomId)
+      return // 이미 참여 중이면 무시
+    }
+    setJoiningRoomId(room.id)
+    try {
+      console.log('Dashboard - onJoinRoom 콜백 호출 전')
+      if (onJoinRoom) {
+        await onJoinRoom(room)
+        console.log('Dashboard - onJoinRoom 콜백 호출 성공')
+      } else {
+        console.error('Dashboard - onJoinRoom 콜백이 없음')
+      }
+    } catch (error) {
+      console.error('Dashboard - 방 참여 오류:', error)
+    } finally {
+      setJoiningRoomId(null)
+    }
+  }
 
   const handlePlaylistNavigation = () => {
     if (onPageChange) {
@@ -224,12 +249,16 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation()
-                          // TODO: Join room functionality
-                          console.log('Joining room:', room.id)
+                          handleJoinRoom(room)
                         }}
                         className="teal-gradient hover:opacity-80 text-black"
+                        disabled={!!joiningRoomId}
                       >
-                        <Play className="w-4 h-4 mr-1" />
+                        {joiningRoomId === room.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                        ) : (
+                          <Play className="w-4 h-4 mr-1" />
+                        )}
                         참여하기
                       </Button>
                     </div>
@@ -316,7 +345,6 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
                   title: content.title,
                   thumbnail: content.thumbnailUrl || content.url || '',
                   type: content.contentType === 'MOVIE' ? 'movie' : content.contentType === 'TV' ? 'tv' : 'sports',
-                  duration: '120분',
                   description: content.description
                 })}
               >
@@ -352,7 +380,6 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
                             title: content.title,
                             thumbnail: content.thumbnailUrl || content.url || '',
                             type: content.contentType === 'MOVIE' ? 'movie' : content.contentType === 'TV' ? 'tv' : 'sports',
-                            duration: '120분',
                             description: content.description
                           })
                         }}
@@ -394,7 +421,6 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay }: Dashb
                   
                   {/* Duration and Type */}
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-white/60">120분</span>
                     <div className={`px-2 py-1 rounded text-xs font-medium ${
                       content.contentType === 'MOVIE' ? 'bg-blue-500/20 text-blue-400 border border-blue-400/30' :
                       content.contentType === 'TV' ? 'bg-purple-500/20 text-purple-400 border border-purple-400/30' :
