@@ -31,6 +31,20 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
   const [isLoading, setIsLoading] = useState(false)
   const [profileImage, setProfileImage] = useState<File | null>(null)
   const [showProfileSelector, setShowProfileSelector] = useState(false)
+  const [passwordError, setPasswordError] = useState('')
+  
+
+  const validatePassword = (value: string) => {
+  const passwordRegex = /^(?=.*[0-9])(?=.*[a-zA-Z])(?=.*[!@#$%^&*]).{8,}$/;
+  if (!value) {
+    setPasswordError('비밀번호를 입력해주세요.');
+  } else if (!passwordRegex.test(value)) {
+    setPasswordError('비밀번호는 8자 이상이며, 숫자, 영문, 특수문자를 포함해야 합니다.');
+  } else {
+    setPasswordError('');
+  }
+};
+
 
   // 카카오 OAuth 로그인
   const handleKakaoLogin = () => {
@@ -73,6 +87,13 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
           return
         }
         
+        const passwordRegex  = /^(?=.*[0-9])(?=.*[a-zA-Z])(?=.*[!@#$%^&*]).{8,}$/;
+
+        if(!passwordRegex.test(formData.password)){
+          setError('비밀번호는 8자 이상, 숫자, 영문, 특수문자를 포함해야 합니다.')
+          return
+        }
+
         if (formData.password !== formData.confirmPassword) {
           setError('비밀번호가 일치하지 않습니다.')
           return
@@ -240,7 +261,11 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData({ ...formData, password: value });
+                    if (isRegister) validatePassword(value); // 회원가입일 때만 실시간 검사
+                  }}
                   className="mt-2 h-12 px-4 pr-12 text-base bg-white/5 border-white/20 focus:border-[#4ecdc4]"
                   placeholder="비밀번호를 입력하세요"
                   required
@@ -253,6 +278,9 @@ export function Login({ onLogin, onToggleAuth, onForgotPassword, isRegister }: L
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
+               {isRegister && passwordError && (
+                  <p className="text-red-500 text-sm mt-2">{passwordError}</p>
+                )}
             </div>
             
             {isRegister && (
