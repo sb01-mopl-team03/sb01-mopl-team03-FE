@@ -9,12 +9,12 @@ export interface SubscriptionDto {
 }
 
 export interface PlaylistDto {
-  id: string;
+  id: string; // UUID as string
   name: string;
-  userId: string;
+  userId: string; // UUID as string
   username: string;
   isPublic: boolean;
-  createdAt: string;
+  createdAt: string; // LocalDateTime as ISO string
   playlistContents: ContentDto[];
   subscriptions: SubscriptionDto[];
 }

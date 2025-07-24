@@ -349,18 +349,22 @@ export default function App() {
   }
 
   // Playlist 관련 API 호출 함수들
-  const getPlaylists = async (keyword?: string) => {
+  const getPlaylists = async (keyword?: string, viewType: 'all' | 'subscribed' = 'all') => {
     try {
       let url: string
       let response: Response
       
-      // 키워드가 있으면 검색 API 사용, 없으면 현재 사용자의 플레이리스트 조회
-      if (keyword && keyword.trim() !== '') {
+      // 뷰 타입에 따라 다른 엔드포인트 사용
+      if (viewType === 'subscribed') {
+        // 구독한 플레이리스트 조회 (키워드 검색 미지원)
+        url = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists/subscribed`
+      } else if (keyword && keyword.trim() !== '') {
+        // 키워드 검색
         const queryParams = new URLSearchParams()
         queryParams.append('keyword', keyword.trim())
         url = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists/search?${queryParams}`
       } else {
-        // 현재 사용자의 모든 플레이리스트 조회
+        // 전체 공개 플레이리스트 조회
         url = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists`
       }
       

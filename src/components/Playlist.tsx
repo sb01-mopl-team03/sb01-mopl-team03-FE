@@ -38,7 +38,7 @@ interface PlaylistItem {
 
 interface PlaylistProps {
   onPlaylistOpen?: (playlistId: string) => void
-  getPlaylists: (name?: string) => Promise<PlaylistItem[]>
+  getPlaylists: (name?: string, viewType?: 'all' | 'subscribed') => Promise<PlaylistItem[]>
   createPlaylist: (request: { name: string; description?: string; isPublic?: boolean }) => Promise<PlaylistItem>
   subscribePlaylist?: (playlistId: string) => Promise<void>
   unsubscribePlaylist?: (subscriptionId: string) => Promise<void>
@@ -65,6 +65,7 @@ export function Playlist({
   const [showCreationModal, setShowCreationModal] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [viewType, setViewType] = useState<'all' | 'subscribed'>('all')
 
   // UUID 유효성 검사 함수
   const isValidUUID = (str: string): boolean => {
@@ -80,18 +81,18 @@ export function Playlist({
   // 검색어 변경 시 검색 실행
   useEffect(() => {
     const delayTimer = setTimeout(() => {
-      loadPlaylists(searchQuery.trim() || undefined)
+      loadPlaylists(searchQuery.trim() || undefined, viewType)
     }, 300) // 300ms 디바운스
 
     return () => clearTimeout(delayTimer)
-  }, [searchQuery])
+  }, [searchQuery, viewType])
 
-  const loadPlaylists = async (searchKeyword?: string) => {
+  const loadPlaylists = async (searchKeyword?: string, currentViewType: 'all' | 'subscribed' = 'all') => {
     try {
       setLoading(true)
       setError(null)
-      console.log('🔄 플레이리스트 로딩 시작:', { searchKeyword })
-      const playlistData = await getPlaylists(searchKeyword)
+      console.log('🔄 플레이리스트 로딩 시작:', { searchKeyword, currentViewType })
+      const playlistData = await getPlaylists(searchKeyword, currentViewType)
       console.log('📋 플레이리스트 데이터 받음:', playlistData)
       setPlaylists(playlistData)
       
@@ -139,7 +140,7 @@ export function Playlist({
       
       // Refresh the playlists list - 검색어가 있으면 검색 결과, 없으면 전체 목록
       console.log('🔄 플레이리스트 생성 후 목록 새로고침')
-      await loadPlaylists(searchQuery.trim() || undefined)
+      await loadPlaylists(searchQuery.trim() || undefined, viewType)
     } catch (error) {
       console.error('Error creating playlist:', error)
       setError('플레이리스트를 생성할 수 없습니다.')
@@ -197,7 +198,7 @@ export function Playlist({
         await subscribePlaylist(playlistId)
       }
       // 구독 상태 변경 후 다시 로드
-      await loadPlaylists()
+      await loadPlaylists(searchQuery.trim() || undefined, viewType)
     } catch (error) {
       console.error('구독 상태 변경 실패:', error)
     }
@@ -255,21 +256,35 @@ export function Playlist({
               className="pl-14 h-12 px-4 text-base bg-white/5 border-white/20 focus:border-[#4ecdc4]"
             />
           </div>
+
+          {/* Filter Buttons */}
+          <div className="flex items-center gap-3 mt-4">
+            <Button
+              variant={viewType === 'all' ? 'default' : 'outline'}
+              onClick={() => setViewType('all')}
+              className={viewType === 'all' 
+                ? 'teal-gradient hover:opacity-80 text-black' 
+                : 'border-white/20 hover:bg-white/5 text-white/80'
+              }
+            >
+              전체 플레이리스트
+            </Button>
+            {currentUserId && (
+              <Button
+                variant={viewType === 'subscribed' ? 'default' : 'outline'}
+                onClick={() => setViewType('subscribed')}
+                className={viewType === 'subscribed' 
+                  ? 'teal-gradient hover:opacity-80 text-black' 
+                  : 'border-white/20 hover:bg-white/5 text-white/80'
+                }
+              >
+                <Heart className="w-4 h-4 mr-2" />
+                구독한 플레이리스트
+              </Button>
+            )}
+          </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          <div className="glass-effect rounded-lg p-4">
-            <div className="text-2xl font-bold gradient-text">{playlists.length}</div>
-            <p className="text-white/60 text-sm">총 플레이리스트</p>
-          </div>
-          <div className="glass-effect rounded-lg p-4">
-            <div className="text-2xl font-bold gradient-text">
-              {playlists.filter(p => p.isPublic).length}
-            </div>
-            <p className="text-white/60 text-sm">공개 플레이리스트</p>
-          </div>
-        </div>
 
         {/* Playlists Grid */}
         {(() => {
@@ -288,7 +303,7 @@ export function Playlist({
               <div className="text-center py-12">
                 <div className="text-red-400 mb-4">{error}</div>
                 <Button 
-                  onClick={() => loadPlaylists(searchQuery.trim() || undefined)}
+                  onClick={() => loadPlaylists(searchQuery.trim() || undefined, viewType)}
                   variant="outline"
                   className="border-white/20 hover:bg-white/5"
                 >
@@ -302,9 +317,14 @@ export function Playlist({
             return (
               <div className="text-center py-12">
                 <div className="text-white/40 mb-4">
-                  {searchQuery ? '검색 결과가 없습니다' : '플레이리스트가 없습니다'}
+                  {searchQuery 
+                    ? '검색 결과가 없습니다' 
+                    : viewType === 'subscribed' 
+                      ? '구독 중인 플레이리스트가 없습니다'
+                      : '플레이리스트가 없습니다'
+                  }
                 </div>
-                {!searchQuery && (
+                {!searchQuery && viewType === 'all' && (
                   <Button 
                     onClick={handleCreatePlaylist}
                     variant="outline"
