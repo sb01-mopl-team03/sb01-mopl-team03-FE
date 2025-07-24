@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, Play, Globe, Lock } from 'lucide-react'
+import { Users, Globe, Lock } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Switch } from './ui/switch'
@@ -15,7 +15,7 @@ interface WatchPartyConfirmationProps {
     title: string
     thumbnail: string
     type: 'movie' | 'tv' | 'sports'
-    duration: string
+    duration?: string
     description: string
   } | null
 }

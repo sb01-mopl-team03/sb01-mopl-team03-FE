@@ -11,7 +11,7 @@ import { playlistService } from '../services/playlistService'
 interface DashboardProps {
   onPageChange?: (page: string) => void
   onPlaylistOpen?: (playlistId: string) => void
-  onContentPlay?: (content: { id: string; title: string; thumbnail: string; type: 'movie' | 'tv' | 'sports'; description: string }) => void
+  onContentPlay?: (content: { id: string; title: string; thumbnail: string; type: 'movie' | 'tv' | 'sports'; description: string; duration?: string }) => void
   onJoinRoom?: (room: WatchRoomDto) => void
 }
 

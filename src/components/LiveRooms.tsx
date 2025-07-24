@@ -9,11 +9,10 @@ import { watchRoomService } from '../services/watchRoomService'
 interface LiveRoomsProps {
   onJoinRoom?: (room: WatchRoomDto) => void
   onCreateRoom?: () => void
-  onUserProfileOpen?: (userId: string) => void
   currentUserId?: string | null
 }
 
-export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen, currentUserId }: LiveRoomsProps) {
+export function LiveRooms({ onJoinRoom, onCreateRoom, currentUserId }: LiveRoomsProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<'participants' | 'latest' | 'oldest'>('participants')
   const [rooms, setRooms] = useState<WatchRoomDto[]>([])

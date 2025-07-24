@@ -21,8 +21,6 @@ import { UserProfile } from './components/UserProfile'
 import { Button } from './components/ui/button'
 
 import { WatchRoomDto } from './types/watchRoom'
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import OAuthCallback from './pages/oauth/callback'
 import { watchRoomService } from './services/watchRoomService'
 
 // Window 객체에 headerRefreshUserProfile 함수 추가
@@ -45,7 +43,7 @@ interface ContentItem {
   title: string
   thumbnail: string
   type: 'movie' | 'tv' | 'sports'
-  duration: string
+  duration?: string
   description: string
   year?: number
   rating?: number
@@ -704,58 +702,6 @@ export default function App() {
   const [currentWatchRoomId, setCurrentWatchRoomId] = useState<string | null>(null)
   const [watchRoomAutoConnect, setWatchRoomAutoConnect] = useState(false) // 방 생성 시 자동 연결 여부
 
-  // OAuth 콜백 처리 함수
-  const handleOAuthCallback = () => {
-    const currentUrl = new URL(window.location.href)
-    const pathname = currentUrl.pathname
-    
-    // OAuth 성공 처리 - 백엔드에서 /oauth/success?access_token=...로 리다이렉트
-    if (pathname === '/oauth/success') {
-      const accessToken = currentUrl.searchParams.get('access_token')
-      
-      if (accessToken) {
-        // 로그인 성공 처리
-        handleLogin(accessToken)
-        
-        // URL 정리 후 메인 페이지로 이동
-        window.history.replaceState({}, document.title, '/')
-        console.log('OAuth 로그인 성공! 메인 페이지로 이동합니다.')
-      } else {
-        alert('로그인 중 오류가 발생했습니다. 액세스 토큰을 받지 못했습니다.')
-        window.history.replaceState({}, document.title, '/')
-      }
-    }
-    
-    // OAuth 에러 처리 - 백엔드에서 /oauth/error?message=...로 리다이렉트
-    if (pathname === '/oauth/error') {
-      const rawErrorMessage = currentUrl.searchParams.get('message')
-      
-      if (rawErrorMessage) {
-        // URL 디코딩을 먼저 수행
-        const decodedErrorMessage = decodeURIComponent(rawErrorMessage)
-        
-        // 다양한 중복 오류 감지
-        if (decodedErrorMessage.includes('jwt_sessions_user_id_key')) {
-          // 이미 가입된 사용자가 다시 OAuth 로그인 시도
-          alert(`이미 가입된 이메일입니다.\n\n해당 이메일로 직접 로그인해주세요.`)
-        } else if (decodedErrorMessage.includes('users_name_key')) {
-          // 동일한 이름을 가진 사용자가 이미 존재
-          alert(`동일한 이름을 가진 사용자가 이미 존재합니다.\n\n다른 이름으로 가입하거나 기존 이메일로 로그인해주세요.`)
-        } else if (decodedErrorMessage.includes('duplicate key value violates unique constraint')) {
-          // 기타 중복 오류
-          alert(`이미 사용 중인 정보입니다.\n\n다시 확인해주세요.`)
-        } else {
-          // 기타 오류
-          alert(decodedErrorMessage)
-        }
-      } else {
-        alert('OAuth 로그인 중 알 수 없는 오류가 발생했습니다.')
-      }
-      
-      // URL 정리
-      window.history.replaceState({}, document.title, '/')
-    }
-  }
 
  useEffect(() => {
   const initializeAuth = async () => {
@@ -1524,7 +1470,7 @@ export default function App() {
           <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} />
         )
       case 'live':
-        return <LiveRooms onJoinRoom={handleJoinRoom} onCreateRoom={handleCreateRoomModal} onUserProfileOpen={handleUserProfileOpen} currentUserId={userId} />
+        return <LiveRooms onJoinRoom={handleJoinRoom} onCreateRoom={handleCreateRoomModal} currentUserId={userId} />
       default:
         return <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} />
     }
@@ -1581,6 +1527,7 @@ export default function App() {
         refreshUserProfile={refreshUserProfile} // 사용자 프로필 새로고침 함수 전달
         deleteNotification={deleteNotification} // 개별 알림 삭제 함수 전달
         deleteAllNotifications={deleteAllNotifications} // 모든 알림 삭제 함수 전달
+        refreshAccessToken={async () => null} // 빈 토큰 갱신 함수 (SSE용)
       />
       
       {/* Main content with click handler to close DM */}
