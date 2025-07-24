@@ -337,7 +337,7 @@ export default function App() {
       if (pagingDto?.cursor) queryParams.append('cursor', pagingDto.cursor)
       if (pagingDto?.size) queryParams.append('size', pagingDto.size.toString())
       
-      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/dm/${roomId}?${queryParams}`)
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/dmrooms/${roomId}/dms?${queryParams}`)
       if (!response.ok) {
         throw new Error('DM 메시지 목록 조회 실패')
       }
