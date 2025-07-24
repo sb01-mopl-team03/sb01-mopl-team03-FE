@@ -23,6 +23,39 @@ import { Button } from './components/ui/button'
 import { WatchRoomDto } from './types/watchRoom'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import OAuthCallback from './pages/oauth/callback'
+import { watchRoomService } from './services/watchRoomService'
+
+// Window 객체에 headerRefreshUserProfile 함수 추가
+declare global {
+  interface Window {
+    headerRefreshUserProfile?: () => void
+  }
+}
+
+interface ChatUser {
+  id: string
+  name: string
+  avatar: string
+  isOnline: boolean
+  roomId: string
+}
+
+interface ContentItem {
+  id: string
+  title: string
+  thumbnail: string
+  type: 'movie' | 'tv' | 'sports'
+  duration: string
+  description: string
+  year?: number
+  rating?: number
+}
+
+interface WatchPartyConfig {
+  isPublic: boolean
+  roomName: string
+}
+
 
 export default function App() {
   // 페이지 상태를 localStorage에 저장/복원
@@ -1178,7 +1211,7 @@ export default function App() {
     setSelectedContent(null)
   }
 
-  const handleCreateWatchParty = (config: WatchPartyConfig) => {
+  const handleCreateWatchParty = async (config: WatchPartyConfig) => {
     if (!selectedContent) return
 
     // Generate room code
@@ -1191,8 +1224,40 @@ export default function App() {
     console.log('Room code:', roomCode)
     // ========== API INTEGRATION POINT - END ==========
 
-    // TODO: Implement watch party creation with real API
-    alert('Watch party creation not implemented yet')
+    // 시청방 생성 실제 구현
+    try {
+      console.log('시청방 생성 시작:', { config, selectedContent })
+      
+      if (!userId) {
+        alert('로그인이 필요합니다.')
+        return
+      }
+      
+      // 시청방 생성 요청 데이터
+      const createRequest = {
+        contentId: selectedContent.id,
+        ownerId: userId,
+        title: config.roomName
+      }
+      
+      // 시청방 생성 API 호출
+      const newRoom = await watchRoomService.createWatchRoom(createRequest)
+      console.log('시청방 생성 성공:', newRoom)
+      
+      // 생성된 시청방에 자동 입장
+      setCurrentWatchRoomId(newRoom.id)
+      setWatchRoomAutoConnect(true) // 자동 연결 플래그 설정
+      
+      // WatchParty 페이지로 이동
+      setCurrentPage('watch-party')
+      localStorage.setItem('currentPage', 'watch-party')
+      
+      console.log('시청방 입장 완료:', { roomId: newRoom.id })
+      
+    } catch (error) {
+      console.error('시청방 생성 실패:', error)
+      alert('시청방 생성에 실패했습니다. 다시 시도해주세요.')
+    }
     
     setShowWatchPartyConfirmation(false)
     setSelectedContent(null)
@@ -1443,7 +1508,7 @@ export default function App() {
             } : undefined}
           />
         ) : (
-          <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
+          <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} />
         )
       case 'watch-party':
         return currentWatchRoomId && userId ? (
@@ -1455,7 +1520,7 @@ export default function App() {
             onUserProfileOpen={handleUserProfileOpen}
           />
         ) : (
-          <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
+          <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} />
         )
       case 'user-profile':
         return selectedUserId ? (
@@ -1468,12 +1533,12 @@ export default function App() {
             onUserProfileOpen={handleUserProfileOpen}
           />
         ) : (
-          <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
+          <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} />
         )
       case 'live':
         return <LiveRooms onJoinRoom={handleJoinRoom} onCreateRoom={handleCreateRoomModal} onUserProfileOpen={handleUserProfileOpen} currentUserId={userId} />
       default:
-        return <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} />
+        return <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} />
     }
   }
 

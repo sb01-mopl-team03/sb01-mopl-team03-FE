@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Search, Users, Eye, Clock, TrendingUp, Star, Plus, Loader2 } from 'lucide-react'
+import { Search, Users, Clock, TrendingUp, Plus, Loader2, Play } from 'lucide-react'
 import { Input } from './ui/input'
 import { Button } from './ui/button'
-import { Badge } from './ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { WatchRoomDto } from '../types/watchRoom'
 import { watchRoomService } from '../services/watchRoomService'
 
@@ -64,23 +62,6 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen, current
     loadRooms(true)
   }, [])
 
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case 'movie': return '영화'
-      case 'tv': return 'TV/드라마'
-      case 'sports': return '스포츠'
-      default: return '콘텐츠'
-    }
-  }
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'movie': return 'bg-blue-500/20 text-blue-400 border-blue-400/30'
-      case 'tv': return 'bg-purple-500/20 text-purple-400 border-purple-400/30'
-      case 'sports': return 'bg-green-500/20 text-green-400 border-green-400/30'
-      default: return 'bg-gray-500/20 text-gray-400 border-gray-400/30'
-    }
-  }
 
   // const formatTimeAgo = (dateString: string) => {
   //   const date = new Date(dateString)
@@ -173,10 +154,10 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen, current
           {/* Stats */}
           <div className="flex items-center gap-4 text-white/60">
             <span>현재 {displayRooms.length}개 시청방 활성화</span>
-            <Badge variant="outline" className="border-[#4ecdc4]/30 text-[#4ecdc4]">
-              <Users className="w-3 h-3 mr-1" />
+            <div className="px-2 py-1 rounded-full text-xs font-medium bg-[#4ecdc4]/20 text-[#4ecdc4] border border-[#4ecdc4]/30">
+              <Users className="w-3 h-3 mr-1 inline" />
               실시간
-            </Badge>
+            </div>
           </div>
         </div>
 
@@ -218,93 +199,85 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen, current
               {popularRooms.map((room) => (
                 <div
                   key={room.id}
-                  className="bg-card rounded-lg overflow-hidden border border-[#4ecdc4]/30 hover:border-[#4ecdc4]/50 transition-all duration-300 group relative"
+                  className="bg-card rounded-xl overflow-hidden border border-white/10 hover:border-[#4ecdc4]/30 transition-all duration-300 group cursor-pointer"
                 >
-                  {/* Popular badge */}
-                  <div className="absolute top-3 left-3 z-10">
-                    <Badge className="bg-[#4ecdc4] text-black">
-                      <Star className="w-3 h-3 mr-1" />
-                      인기
-                    </Badge>
-                  </div>
-
-                  {/* Content Thumbnail */}
-                  <div className="aspect-[16/9] relative overflow-hidden">
-                    <img
-                      src={room.contentDto.thumbnailUrl || 'https://via.placeholder.com/400x225/1a1a1a/ffffff?text=Live+Stream'}
-                      alt={room.contentDto.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
+                  {/* Thumbnail */}
+                  <div className="aspect-[3/4] relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
+                    {room.contentDto?.thumbnailUrl ? (
+                      <img 
+                        src={room.contentDto.thumbnailUrl} 
+                        alt={room.contentDto.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                    ) : null}
+                    <div className={`absolute inset-0 bg-gradient-to-br from-[#4ecdc4] to-[#44b3a7] flex items-center justify-center ${room.contentDto?.thumbnailUrl ? 'hidden' : ''}`}>
+                      <div className="text-center text-black">
+                        <div className="text-2xl font-bold opacity-60">LIVE</div>
+                        <div className="text-xs opacity-40 mt-1">시청방</div>
+                      </div>
+                    </div>
                     
-                    {/* Overlay with join button */}
+                    {/* Live Badge */}
+                    <div className="absolute top-3 left-3">
+                      <div className="px-2 py-1 rounded-full text-xs font-medium bg-red-500 text-white animate-pulse">
+                        🔴 LIVE
+                      </div>
+                    </div>
+                    
+                    {/* Viewers Count */}
+                    <div className="absolute top-3 right-3">
+                      <div className="px-2 py-1 rounded-full text-xs font-medium bg-black/50 text-white">
+                        👥 {room.headCount}
+                      </div>
+                    </div>
+                    
+                    {/* Overlay */}
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                      <Button
-                        onClick={() => handleJoinRoom(room)}
-                        className="teal-gradient hover:opacity-80 text-black"
-                        disabled={!!joiningRoomId}
-                      >
-                        {joiningRoomId === room.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                        ) : (
-                          <Users className="w-4 h-4 mr-2" />
-                        )}
-                        참여하기
-                      </Button>
-                    </div>
-
-                    {/* Viewer count overlay */}
-                    <div className="absolute bottom-3 right-3 bg-black/70 backdrop-blur-sm rounded-lg px-2 py-1 flex items-center gap-1">
-                      <Eye className="w-3 h-3 text-[#4ecdc4]" />
-                      <span className="text-xs">{room.headCount}</span>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleJoinRoom(room)
+                          }}
+                          className="teal-gradient hover:opacity-80 text-black"
+                          disabled={!!joiningRoomId}
+                        >
+                          {joiningRoomId === room.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                          ) : (
+                            <Play className="w-4 h-4 mr-1" />
+                          )}
+                          참여하기
+                        </Button>
+                      </div>
                     </div>
                   </div>
-
-                  {/* Room Info */}
+                  
+                  {/* Content Info */}
                   <div className="p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge variant="outline" className={getTypeColor('movie')}>
-                        {getTypeLabel('movie')}
-                      </Badge>
-                      <span className="text-xs text-white/60">방금 전</span>
+                    <h3 className="font-medium mb-2 line-clamp-1">{room.contentDto?.title}</h3>
+                    <p className="text-sm text-white/60 mb-3 line-clamp-1">{room.ownerName}의 방</p>
+                    
+                    {/* Room Stats */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-4 h-4 text-[#4ecdc4]" />
+                        <span className="text-sm">실시간</span>
+                      </div>
+                      <span className="text-xs text-white/60">{room.headCount}명 시청중</span>
                     </div>
                     
-                    <h3 className="font-medium mb-2 line-clamp-1">{room.title}</h3>
-                    <p className="text-sm text-white/60 mb-3 line-clamp-1">{room.contentDto.title}</p>
-                    
-                    <div className="flex items-center gap-2">
-                      <Avatar 
-                        className={`w-6 h-6 transition-all ${
-                          currentUserId 
-                            ? 'cursor-pointer hover:ring-2 hover:ring-[#4ecdc4]/50' 
-                            : 'cursor-default opacity-60'
-                        }`}
-                        onClick={() => {
-                          if (currentUserId) {
-                            onUserProfileOpen?.(room.ownerId)
-                          } else {
-                            alert('로그인이 필요한 기능입니다. 로그인 후 이용해주세요.')
-                          }
-                        }}
-                      >
-                        <AvatarImage src="" />
-                        <AvatarFallback>{room.ownerName[0]}</AvatarFallback>
-                      </Avatar>
-                      <span 
-                        className={`text-sm text-white/80 transition-colors ${
-                          currentUserId 
-                            ? 'cursor-pointer hover:text-[#4ecdc4]' 
-                            : 'cursor-default opacity-60'
-                        }`}
-                        onClick={() => {
-                          if (currentUserId) {
-                            onUserProfileOpen?.(room.ownerId)
-                          } else {
-                            alert('로그인이 필요한 기능입니다. 로그인 후 이용해주세요.')
-                          }
-                        }}
-                      >
-                        {room.ownerName}
-                      </span>
+                    {/* Host Info */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-white/60">호스트: {room.ownerName}</span>
+                      <div className="px-2 py-1 rounded-full text-xs font-medium bg-[#4ecdc4]/20 text-[#4ecdc4]">
+                        Live
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -321,145 +294,135 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, onUserProfileOpen, current
             {displayRooms.map((room) => (
               <div
                 key={room.id}
-                className="bg-card rounded-lg overflow-hidden border border-white/10 hover:border-[#4ecdc4]/30 transition-all duration-300 group"
+                className="bg-card rounded-xl overflow-hidden border border-white/10 hover:border-[#4ecdc4]/30 transition-all duration-300 group cursor-pointer"
               >
-                {/* Content Thumbnail */}
-                <div className="aspect-[16/9] relative overflow-hidden">
-                  <img
-                    src={room.contentDto.thumbnailUrl || '/api/placeholder/400/225'}
-                    alt={room.contentDto.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  
-                  {/* Overlay with join button */}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                    <Button
-                      size="sm"
-                      onClick={() => handleJoinRoom(room)}
-                      className="teal-gradient hover:opacity-80 text-black"
-                      disabled={!!joiningRoomId}
-                    >
-                      {joiningRoomId === room.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      ) : (
-                        <Users className="w-4 h-4 mr-2" />
-                      )}
-                      참여
-                    </Button>
+                {/* Thumbnail */}
+                <div className="aspect-[3/4] relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
+                  {room.contentDto?.thumbnailUrl ? (
+                    <img 
+                      src={room.contentDto.thumbnailUrl} 
+                      alt={room.contentDto.title}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                      }}
+                    />
+                  ) : null}
+                  <div className={`absolute inset-0 bg-gradient-to-br from-[#4ecdc4] to-[#44b3a7] flex items-center justify-center ${room.contentDto?.thumbnailUrl ? 'hidden' : ''}`}>
+                    <div className="text-center text-black">
+                      <div className="text-2xl font-bold opacity-60">LIVE</div>
+                      <div className="text-xs opacity-40 mt-1">시청방</div>
+                    </div>
                   </div>
-
-                  {/* Viewer count overlay */}
-                  <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm rounded px-2 py-1 flex items-center gap-1">
-                    <Eye className="w-3 h-3 text-[#4ecdc4]" />
-                    <span className="text-xs">{room.headCount}</span>
+                  
+                  {/* Live Badge */}
+                  <div className="absolute top-3 left-3">
+                    <div className="px-2 py-1 rounded-full text-xs font-medium bg-red-500 text-white animate-pulse">
+                      🔴 LIVE
+                    </div>
+                  </div>
+                  
+                  {/* Viewers Count */}
+                  <div className="absolute top-3 right-3">
+                    <div className="px-2 py-1 rounded-full text-xs font-medium bg-black/50 text-white">
+                      👥 {room.headCount}
+                    </div>
+                  </div>
+                  
+                  {/* Overlay */}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleJoinRoom(room)
+                        }}
+                        className="teal-gradient hover:opacity-80 text-black"
+                        disabled={!!joiningRoomId}
+                      >
+                        {joiningRoomId === room.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                        ) : (
+                          <Play className="w-4 h-4 mr-1" />
+                        )}
+                        참여하기
+                      </Button>
+                    </div>
                   </div>
                 </div>
-
-                {/* Room Info */}
+                
+                {/* Content Info */}
                 <div className="p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="outline" className={getTypeColor('movie')}>
-                      {getTypeLabel('movie')}
-                    </Badge>
-                    {room.headCount >= 10 && (
-                      <Badge variant="outline" className="border-[#4ecdc4]/30 text-[#4ecdc4]">
-                        인기
-                      </Badge>
-                    )}
+                  <h3 className="font-medium mb-2 line-clamp-1">{room.contentDto?.title}</h3>
+                  <p className="text-sm text-white/60 mb-3 line-clamp-1">{room.ownerName}의 방</p>
+                  
+                  {/* Room Stats */}
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-1">
+                      <Clock className="w-4 h-4 text-[#4ecdc4]" />
+                      <span className="text-sm">실시간</span>
+                    </div>
+                    <span className="text-xs text-white/60">{room.headCount}명 시청중</span>
                   </div>
                   
-                  <h3 className="font-medium mb-1 line-clamp-1 text-sm">{room.title}</h3>
-                  <p className="text-xs text-white/60 mb-2 line-clamp-1">{room.contentDto.title}</p>
-                  
+                  {/* Host Info */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Avatar 
-                        className={`w-5 h-5 transition-all ${
-                          currentUserId 
-                            ? 'cursor-pointer hover:ring-2 hover:ring-[#4ecdc4]/50' 
-                            : 'cursor-default opacity-60'
-                        }`}
-                        onClick={() => {
-                          if (currentUserId) {
-                            onUserProfileOpen?.(room.ownerId)
-                          } else {
-                            alert('로그인이 필요한 기능입니다. 로그인 후 이용해주세요.')
-                          }
-                        }}
-                      >
-                        <AvatarImage src="" />
-                        <AvatarFallback>{room.ownerName[0]}</AvatarFallback>
-                      </Avatar>
-                      <span 
-                        className={`text-xs text-white/80 truncate transition-colors ${
-                          currentUserId 
-                            ? 'cursor-pointer hover:text-[#4ecdc4]' 
-                            : 'cursor-default opacity-60'
-                        }`}
-                        onClick={() => {
-                          if (currentUserId) {
-                            onUserProfileOpen?.(room.ownerId)
-                          } else {
-                            alert('로그인이 필요한 기능입니다. 로그인 후 이용해주세요.')
-                          }
-                        }}
-                      >
-                        {room.ownerName}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-white/60">
-                      <Clock className="w-3 h-3" />
-                      방금 전
+                    <span className="text-xs text-white/60">호스트: {room.ownerName}</span>
+                    <div className="px-2 py-1 rounded-full text-xs font-medium bg-[#4ecdc4]/20 text-[#4ecdc4]">
+                      Live
                     </div>
                   </div>
                 </div>
               </div>
             ))}
-          </div>
         </div>
+        </div>
+        
 
-            {/* Empty State */}
-            {displayRooms.length === 0 && (
-              <div className="text-center py-12">
-                <Users className="w-12 h-12 text-white/40 mx-auto mb-4" />
-                <p className="text-white/60 mb-4">
-                  {searchQuery ? '검색 결과가 없습니다.' : 
-                   !currentUserId ? '로그인하시면 더 많은 시청방을 볼 수 있습니다.' : 
-                   '현재 활성화된 시청방이 없습니다.'}
-                </p>
-                <div className="flex gap-2 justify-center">
-                  {searchQuery && (
-                    <Button
-                      variant="outline"
-                      onClick={() => setSearchQuery('')}
-                      className="border-white/20 hover:bg-white/5"
-                    >
-                      모든 시청방 보기
-                    </Button>
-                  )}
-                  {currentUserId ? (
-                    <Button
-                      onClick={onCreateRoom}
-                      className="teal-gradient hover:opacity-80 text-black"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      새 시청방 만들기
-                    </Button>
-                  ) : (
-                    <div className="text-center">
-                      <p className="text-white/40 text-sm mb-2">시청방을 만들려면 로그인이 필요합니다</p>
-                      <Button
-                        variant="outline"
-                        onClick={() => window.location.reload()}
-                        className="border-[#4ecdc4]/30 text-[#4ecdc4] hover:bg-[#4ecdc4]/10"
-                      >
-                        로그인하기
-                      </Button>
-                    </div>
-                  )}
+        {/* Empty State */}
+        {displayRooms.length === 0 && (
+          <div className="text-center py-12">
+            <Users className="w-12 h-12 text-white/40 mx-auto mb-4" />
+            <p className="text-white/60 mb-4">
+              {searchQuery ? '검색 결과가 없습니다.' : 
+               !currentUserId ? '로그인하시면 더 많은 시청방을 보 수 있습니다.' : 
+               '현재 활성화된 시청방이 없습니다.'}
+            </p>
+            <div className="flex gap-2 justify-center">
+              {searchQuery && (
+                <Button
+                  variant="outline"
+                  onClick={() => setSearchQuery('')}
+                  className="border-white/20 hover:bg-white/5"
+                >
+                  모든 시청방 보기
+                </Button>
+              )}
+              {currentUserId ? (
+                <Button
+                  onClick={onCreateRoom}
+                  className="teal-gradient hover:opacity-80 text-black"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  새 시청방 만들기
+                </Button>
+              ) : (
+                <div className="text-center">
+                  <p className="text-white/40 text-sm mb-2">시청방을 만들려면 로그인이 필요합니다</p>
+                  <Button
+                    variant="outline"
+                    onClick={() => window.location.reload()}
+                    className="border-[#4ecdc4]/30 text-[#4ecdc4] hover:bg-[#4ecdc4]/10"
+                  >
+                    로그인하기
+                  </Button>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+          </div>
+        )}
           </>
         )}
       </div>
