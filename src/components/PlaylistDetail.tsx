@@ -7,6 +7,7 @@ import { ImageWithFallback } from './figma/ImageWithFallback'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Input } from './ui/input'
 import { contentService } from '../services/contentService'
+import { playlistService } from '../services/playlistService'
 import { ContentDto } from '../types/content'
 
 interface PlaylistContent {
@@ -39,7 +40,9 @@ interface PlaylistDetailProps {
 export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistById, addPlaylistContents, deletePlaylistContents }: PlaylistDetailProps) {
   const [playlist, setPlaylist] = useState<any>(null)
   const [contents, setContents] = useState<PlaylistContent[]>([])
-  const [isLiked, setIsLiked] = useState(false)
+  const [isSubscribed, setIsSubscribed] = useState(false)
+  const [subscriptionId, setSubscriptionId] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAddContentModal, setShowAddContentModal] = useState(false)
@@ -55,6 +58,23 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
       setLoading(true)
       setError(null)
       console.log('🔄 플레이리스트 상세 로딩 시작:', playlistId)
+      
+      // Get current user ID from JWT token
+      const token = localStorage.getItem('accessToken')
+      let userId = null
+      if (token) {
+        try {
+          const parts = token.split('.')
+          if (parts.length === 3) {
+            const payload = JSON.parse(atob(parts[1]))
+            userId = payload.userId || payload.sub || payload.id || null
+          }
+        } catch (error) {
+          console.error('JWT 토큰 파싱 오류:', error)
+        }
+      }
+      setCurrentUserId(userId)
+      
       const playlistData = await getPlaylistById(playlistId)
       console.log('📋 플레이리스트 데이터 받음:', playlistData)
       
@@ -66,9 +86,19 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
       
       setPlaylist(playlistData)
       setContents(playlistData.playlistContents || [])
+      
+      // Check if current user is subscribed to this playlist
+      if (userId && playlistData.subscriptions) {
+        const userSubscription = playlistData.subscriptions.find((sub: any) => sub.userId === userId)
+        setIsSubscribed(!!userSubscription)
+        setSubscriptionId(userSubscription?.subscriptionId || null)
+      }
+      
       console.log('✅ 플레이리스트 상태 업데이트 완료:', {
         playlist: playlistData,
-        contents: playlistData.playlistContents || []
+        contents: playlistData.playlistContents || [],
+        isSubscribed: !!userId && playlistData.subscriptions?.some((sub: any) => sub.userId === userId),
+        subscriptionId: playlistData.subscriptions?.find((sub: any) => sub.userId === userId)?.subscriptionId
       })
     } catch (error) {
       console.error('❌ 플레이리스트 상세 로딩 실패:', error)
@@ -139,6 +169,33 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
         </div>
       </div>
     )
+  }
+
+  const handleSubscribeToggle = async () => {
+    if (!currentUserId) {
+      alert('로그인이 필요합니다.')
+      return
+    }
+
+    try {
+      if (isSubscribed && subscriptionId) {
+        await playlistService.unsubscribe(subscriptionId)
+        setIsSubscribed(false)
+        setSubscriptionId(null)
+        console.log('✅ 플레이리스트 구독 취소:', subscriptionId)
+      } else {
+        const subscription = await playlistService.subscribe(currentUserId, playlistId)
+        setIsSubscribed(true)
+        setSubscriptionId(subscription.subscriptionId)
+        console.log('✅ 플레이리스트 구독:', subscription)
+      }
+      
+      // Reload playlist details to get updated subscription data
+      await loadPlaylistDetails()
+    } catch (error) {
+      console.error('❌ 구독 상태 변경 오류:', error)
+      alert('구독 상태 변경에 실패했습니다.')
+    }
   }
 
   const handleRemoveContent = (contentId: string) => {
@@ -414,10 +471,11 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
                 <Button
                   variant="ghost"
                   size="lg"
-                  onClick={() => setIsLiked(!isLiked)}
-                  className={`p-3 hover:bg-white/10 ${isLiked ? 'text-[#4ecdc4]' : 'text-white/60'}`}
+                  onClick={handleSubscribeToggle}
+                  className={`p-3 hover:bg-white/10 ${isSubscribed ? 'text-[#4ecdc4]' : 'text-white/60'}`}
+                  title={isSubscribed ? '구독 취소' : '구독'}
                 >
-                  <Heart className={`w-6 h-6 ${isLiked ? 'fill-current' : ''}`} />
+                  <Heart className={`w-6 h-6 ${isSubscribed ? 'fill-current' : ''}`} />
                 </Button>
 
                 <Button variant="ghost" size="lg" className="p-3 hover:bg-white/10">

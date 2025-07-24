@@ -19,7 +19,7 @@ interface ContentItem {
   title: string
   thumbnail: string
   type: 'movie' | 'tv' | 'sports'
-  duration: string
+  duration?: string
   description: string
   rating?: number
   reviewCount?: number

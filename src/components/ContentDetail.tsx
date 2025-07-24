@@ -11,7 +11,7 @@ interface ContentItem {
   title: string
   thumbnail: string
   type: 'movie' | 'tv' | 'sports'
-  duration: string
+  duration?: string
   description: string
   year?: number
   rating?: number

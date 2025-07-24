@@ -23,6 +23,16 @@ import { useYouTubePlayer } from '../hooks/useYouTubePlayer'
 import { VideoControls } from './VideoControls'
 import { PermissionDeniedDialog } from './PermissionDeniedDialog'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert_dialog'
+import {
   WatchRoomDto,
   WatchRoomMessageDto,
   ParticipantsInfoDto,
@@ -82,6 +92,7 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
   const [showParticipants, setShowParticipants] = useState(false)
   const [newMessage, setNewMessage] = useState('')
   const [isHoveringVideo, setIsHoveringVideo] = useState(false) // State for video hover
+  const [showHostLeaveConfirm, setShowHostLeaveConfirm] = useState(false) // State for host leave confirmation
 
   // Data State
   const [roomData, setRoomData] = useState<WatchRoomDto | null>(null)
@@ -420,12 +431,12 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
     }
   }, [playerController, initialSyncData]);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      disconnect()
-    }
-  }, [disconnect])
+  // Cleanup on unmount - removed automatic disconnect
+  // useEffect(() => {
+  //   return () => {
+  //     disconnect()
+  //   }
+  // }, [disconnect])
 
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -485,6 +496,19 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
       currentTime: currentTime
     })
   };
+
+  // Handle leave button click - show selection dialog for all users
+  const handleLeaveButtonClick = () => {
+    setShowHostLeaveConfirm(true)
+  }
+
+  // Handle confirmed leave - send leave request and go back
+  const handleConfirmLeave = () => {
+    setShowHostLeaveConfirm(false)
+    // TODO: Send leave request to backend if needed
+    disconnect()
+    onBack()
+  }
 
   const handleSeek = (seconds: number) => {
     console.log('🎯 Seek requested:', { isHost, seconds, isConnected, canUsePlayer })
@@ -655,7 +679,7 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
           <div className="flex items-center space-x-4">
             <Button
               variant="ghost"
-              onClick={onBack}
+              onClick={handleLeaveButtonClick}
               className="hover:bg-white/10"
             >
               <ArrowLeft className="w-5 h-5 mr-2" />
@@ -1027,6 +1051,37 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
         open={showPermissionDialog}
         onClose={() => setShowPermissionDialog(false)}
       />
+
+      {/* Leave Selection Dialog */}
+      <AlertDialog open={showHostLeaveConfirm} onOpenChange={setShowHostLeaveConfirm}>
+        <AlertDialogContent className="bg-[#1a1a1a] border-white/20">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">
+              시청방 나가기
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-white/70">
+              {isHost 
+                ? "방장이 나가면 시청방이 삭제됩니다. 정말로 나가시겠습니까?"
+                : "시청방에서 나가시겠습니까?"
+              }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => setShowHostLeaveConfirm(false)}
+              className="border-white/20 hover:bg-white/5 text-white"
+            >
+              취소
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmLeave}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              나가기
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

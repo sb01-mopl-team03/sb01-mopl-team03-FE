@@ -139,7 +139,7 @@ export class DmService {
       params.append('size', pagingDto.size.toString());
     }
     
-    const url = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/dm/${roomId}${params.toString() ? '?' + params.toString() : ''}`;
+    const url = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/dmRooms/${roomId}/dms${params.toString() ? '?' + params.toString() : ''}`;
     
     console.log('🔍 DM 메시지 조회 요청:', { roomId, pagingDto, url });
     
