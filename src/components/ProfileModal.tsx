@@ -143,16 +143,11 @@ export function ProfileModal({ isOpen, onClose, userId, targetUserId, authentica
     setFollowLoading(true)
     try {
       if (isFollowing) {
-        // 언팔로우 - JSON 방식으로 수정
-        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows`, {
+        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/${currentViewingUserId}`, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            followerId: userId,
-            followingId: currentViewingUserId
-          })
         })
         
         if (!response.ok) {
