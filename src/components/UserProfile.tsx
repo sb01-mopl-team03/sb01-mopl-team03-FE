@@ -145,15 +145,11 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
     try {
       if (isFollowing) {
         // 언팔로우 - JSON 방식으로 수정
-        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows`, {
+        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/${userId}`, {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            followerId: currentUserId,
-            followingId: userId
-          })
         })
         
         if (!response.ok) {
@@ -169,9 +165,8 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
         followFormData.append('followerId', currentUserId)
         followFormData.append('followingId', userId)
         
-        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows`, {
+        const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/follows/${userId}`, {
           method: 'POST',
-          body: followFormData
         })
         
         if (!response.ok) {

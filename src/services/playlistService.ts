@@ -1,4 +1,4 @@
-import { PlaylistDto } from '../types/playlist'
+import { PlaylistDto, SubscriptionDto } from '../types/playlist'
 
 export class PlaylistService {
   private baseUrl = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists`
@@ -30,23 +30,88 @@ export class PlaylistService {
   }
 
   /**
-   * 현재 사용자의 플레이리스트 목록 조회
+   * 전체 공개 플레이리스트 목록 조회
    */
-  async getPlaylistByUser(): Promise<PlaylistDto[]> {
+  async getAllPublic(): Promise<PlaylistDto[]> {
     try {
-      const response = await this.authenticatedFetch(this.baseUrl)
+      const response = await fetch(this.baseUrl)
       
       if (!response.ok) {
-        throw new Error(`플레이리스트 목록 조회에 실패했습니다. Status: ${response.status}`)
+        throw new Error(`공개 플레이리스트 목록 조회에 실패했습니다. Status: ${response.status}`)
       }
       
       const data = await response.json()
       return data
     } catch (error) {
-      console.error('플레이리스트 목록 조회 오류:', error)
+      console.error('공개 플레이리스트 목록 조회 오류:', error)
       throw error
     }
   }
+
+  /**
+   * 사용자가 구독한 플레이리스트 목록 조회
+   */
+  async getAllSubscribed(): Promise<PlaylistDto[]> {
+    try {
+      const response = await this.authenticatedFetch(`${this.baseUrl}/subscribed`)
+      
+      if (!response.ok) {
+        throw new Error(`구독한 플레이리스트 목록 조회에 실패했습니다. Status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      return data
+    } catch (error) {
+      console.error('구독한 플레이리스트 목록 조회 오류:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 플레이리스트 구독
+   */
+  async subscribe(userId: string, playlistId: string): Promise<SubscriptionDto> {
+    try {
+      const subscriptionUrl = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/subscriptions`
+      const response = await this.authenticatedFetch(subscriptionUrl, {
+        method: 'POST',
+        body: JSON.stringify({
+          userId,
+          playlistId
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error(`플레이리스트 구독에 실패했습니다. Status: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      return data
+    } catch (error) {
+      console.error('플레이리스트 구독 오류:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 플레이리스트 구독 취소
+   */
+  async unsubscribe(subscriptionId: string): Promise<void> {
+    try {
+      const subscriptionUrl = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/subscriptions/${subscriptionId}`
+      const response = await this.authenticatedFetch(subscriptionUrl, {
+        method: 'DELETE'
+      })
+      
+      if (!response.ok) {
+        throw new Error(`플레이리스트 구독 취소에 실패했습니다. Status: ${response.status}`)
+      }
+    } catch (error) {
+      console.error('플레이리스트 구독 취소 오류:', error)
+      throw error
+    }
+  }
+
 
   /**
    * 특정 사용자의 플레이리스트 목록 조회
