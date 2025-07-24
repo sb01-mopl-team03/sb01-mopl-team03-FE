@@ -10,7 +10,6 @@ interface WatchPartyConfirmationProps {
   isOpen: boolean
   onClose: () => void
   onCreateWatchParty: (config: WatchPartyConfig) => void
-  onWatchAlone: () => void
   content: {
     id: string
     title: string
@@ -30,10 +29,9 @@ export function WatchPartyConfirmation({
   isOpen, 
   onClose, 
   onCreateWatchParty, 
-  onWatchAlone,
   content 
 }: WatchPartyConfirmationProps) {
-  const [isPublic, setIsPublic] = useState(false)
+  const [isPublic, setIsPublic] = useState(true)
   const [roomName, setRoomName] = useState('')
 
   useEffect(() => {
@@ -58,7 +56,7 @@ export function WatchPartyConfirmation({
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             <Users className="w-5 h-5 text-[#4ecdc4]" />
-            <span>시청 방식을 선택해주세요</span>
+            <span>시청방을 만들어주세요</span>
           </DialogTitle>
         </DialogHeader>
 
@@ -94,23 +92,6 @@ export function WatchPartyConfirmation({
 
           {/* Watch Options */}
           <div className="space-y-4">
-            {/* Watch Alone */}
-            <Button
-              onClick={onWatchAlone}
-              variant="outline"
-              className="w-full justify-start border-white/20 hover:bg-white/5 h-auto p-4"
-            >
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                  <Play className="w-5 h-5" />
-                </div>
-                <div className="text-left">
-                  <div className="font-medium">혼자 시청하기</div>
-                  <div className="text-xs text-white/60">바로 재생을 시작합니다</div>
-                </div>
-              </div>
-            </Button>
-
             {/* Create Watch Party */}
             <div className="space-y-4">
               <div className="flex items-center space-x-3 p-4 border border-[#4ecdc4]/30 rounded-lg bg-[#4ecdc4]/5">
@@ -160,6 +141,7 @@ export function WatchPartyConfirmation({
                         id="isPublic"
                         checked={isPublic}
                         onCheckedChange={setIsPublic}
+                        disabled={true}
                       />
                     </div>
                   </div>

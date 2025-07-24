@@ -1198,18 +1198,6 @@ export default function App() {
     setShowWatchPartyConfirmation(true)
   }
 
-  const handleWatchAlone = () => {
-    setShowWatchPartyConfirmation(false)
-    
-    // ========== API INTEGRATION POINT - START ==========
-    // TODO: Start individual viewing session
-    // Example: await startSoloViewing(selectedContent.id)
-    console.log(`Starting solo viewing for: ${selectedContent?.title}`)
-    // ========== API INTEGRATION POINT - END ==========
-    
-    alert(`"${selectedContent?.title}" 재생을 시작합니다.`)
-    setSelectedContent(null)
-  }
 
   const handleCreateWatchParty = async (config: WatchPartyConfig) => {
     if (!selectedContent) return
@@ -1555,7 +1543,6 @@ export default function App() {
           isOpen={showWatchPartyConfirmation}
           onClose={() => setShowWatchPartyConfirmation(false)}
           onCreateWatchParty={handleCreateWatchParty}
-          onWatchAlone={handleWatchAlone}
           content={selectedContent}
         />
 
@@ -1638,7 +1625,6 @@ export default function App() {
         isOpen={showWatchPartyConfirmation}
         onClose={() => setShowWatchPartyConfirmation(false)}
         onCreateWatchParty={handleCreateWatchParty}
-        onWatchAlone={handleWatchAlone}
         content={selectedContent}
       />
 
