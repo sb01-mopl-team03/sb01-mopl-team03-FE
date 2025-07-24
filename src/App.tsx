@@ -353,7 +353,7 @@ export default function App() {
       if (!response.ok) {
         throw new Error('DM 룸 생성/조회 실패')
       }
-      return await response.text() // UUID 문자열 반환
+      return await response.json() // JSON으로 파싱하여 따옴표 제거
     } catch (error) {
       console.error('DM 룸 생성/조회 실패:', error)
       throw error
@@ -368,7 +368,7 @@ export default function App() {
       if (pagingDto?.cursor) queryParams.append('cursor', pagingDto.cursor)
       if (pagingDto?.size) queryParams.append('size', pagingDto.size.toString())
       
-      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/dmrooms/${roomId}/dms?${queryParams}`)
+      const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/dmRooms/${roomId}/dms?${queryParams}`)
       if (!response.ok) {
         throw new Error('DM 메시지 목록 조회 실패')
       }
