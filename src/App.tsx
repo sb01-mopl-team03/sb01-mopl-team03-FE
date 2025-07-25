@@ -443,13 +443,28 @@ export default function App() {
   const getPlaylistById = async (playlistId: string) => {
     try {
       const url = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists/${playlistId}`
-      console.log('🚀 플레이리스트 조회 API 호출:', url)
+      console.log('🚀 플레이리스트 조회 API 호출:', url, { isSharedAccess })
       
-      const response = await authenticatedFetch(url)
+      let response: Response
+      if (isSharedAccess) {
+        // 공유 링크 접근 시 인증 우회
+        console.log('🌐 공유 링크 접근으로 인증 우회하여 호출')
+        response = await fetch(url)
+      } else {
+        // 일반 접근 시 인증 사용
+        response = await authenticatedFetch(url)
+      }
       console.log('📡 응답 상태:', response.status, response.statusText)
       
       if (!response.ok) {
         let errorMessage = '플레이리스트 조회 실패'
+        
+        // 공유 링크 접근에서 401 에러인 경우 특별 처리
+        if (isSharedAccess && response.status === 401) {
+          console.log('🔒 비공개 플레이리스트 접근 시도')
+          throw new Error('비공개 플레이리스트입니다. 접근 권한이 없습니다.')
+        }
+        
         try {
           const errorData = await response.text()
           console.error('❌ 에러 응답:', errorData)
@@ -711,6 +726,9 @@ export default function App() {
   const [currentWatchRoomId, setCurrentWatchRoomId] = useState<string | null>(null)
   const [watchRoomAutoConnect, setWatchRoomAutoConnect] = useState(false) // 방 생성 시 자동 연결 여부
 
+  // 공유 접근 모드 상태
+  const [isSharedAccess, setIsSharedAccess] = useState(false)
+
   // OAuth 콜백 처리 함수
   const handleOAuthCallback = () => {
     const currentUrl = new URL(window.location.href)
@@ -765,11 +783,35 @@ export default function App() {
     }
   }
 
+  // 공유 링크 처리 함수
+  const handleSharedPlaylistURL = () => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const playlistId = urlParams.get('playlist')
+    
+    if (playlistId) {
+      console.log('📋 공유 플레이리스트 링크 감지:', playlistId)
+      
+      // 공유 링크로 접근한 경우
+      setCurrentPage('playlist-detail')
+      setSelectedPlaylistId(playlistId)
+      setIsSharedAccess(true)
+      localStorage.setItem('currentPage', 'playlist-detail')
+      
+      // URL 파라미터 제거 (깔끔한 URL 유지)
+      window.history.replaceState({}, document.title, '/')
+      
+      console.log('✅ 플레이리스트 공유 링크 처리 완료')
+    }
+  }
+
   // 초기 로드 시 로그인 상태 확인 및 OAuth 콜백 처리
   useEffect(() => {
     const initializeAuth = async () => {
       // 먼저 OAuth 콜백 처리
       handleOAuthCallback()
+      
+      // 공유 링크 처리
+      handleSharedPlaylistURL()
       
       const accessToken = localStorage.getItem('accessToken')
       if (accessToken) {
@@ -1448,6 +1490,8 @@ export default function App() {
             getPlaylistById={getPlaylistById}
             addPlaylistContents={addPlaylistContents}
             deletePlaylistContents={deletePlaylistContents}
+            currentUserId={userId || undefined}
+            isSharedAccess={isSharedAccess}
           />
         ) : (
           <Playlist 
@@ -1553,6 +1597,7 @@ export default function App() {
         refreshUserProfile={refreshUserProfile} // 사용자 프로필 새로고침 함수 전달
         deleteNotification={deleteNotification} // 개별 알림 삭제 함수 전달
         deleteAllNotifications={deleteAllNotifications} // 모든 알림 삭제 함수 전달
+        isSharedAccess={isSharedAccess} // 공유 링크 접근 여부 전달
       />
       
       {/* Main content with click handler to close DM */}
