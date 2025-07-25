@@ -5,6 +5,7 @@ import { Input } from './ui/input'
 import { ImageWithFallback } from './figma/ImageWithFallback'
 import { OverlappingThumbnails } from './OverlappingThumbnails'
 import { PlaylistCreationModal } from './PlaylistCreationModal'
+import { useSearchParams } from 'react-router-dom'
 
 interface PlaylistItem {
   id: string
@@ -66,6 +67,8 @@ export function Playlist({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [viewType, setViewType] = useState<'all' | 'subscribed'>('all')
+  const [searchParams] = useSearchParams()
+  const sharedId = searchParams.get('id')
 
   // UUID 유효성 검사 함수
   const isValidUUID = (str: string): boolean => {
@@ -460,9 +463,35 @@ export function Playlist({
                         <span>{playlist.createdAt ? new Date(playlist.createdAt).toLocaleDateString('ko-KR') : '날짜 없음'}</span>
                       </div>
                     </div>
-                    <div className="mt-1 text-xs text-white/60 flex items-center space-x-1">
-                      <span>👥</span>
-                      <span>{playlist.subscriptions?.length ?? 0}명 구독</span>
+                    <div className="mt-2 flex justify-between items-center text-xs text-white/60">
+                      <div className="flex items-center space-x-1">
+                        <span>👥</span>
+                        <span>{playlist.subscriptions?.length ?? 0}명 구독</span>
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const url = `${window.location.origin}/playlist?id=${playlist.id}`
+                          navigator.clipboard.writeText(url)
+                            .then(() => alert('공유 링크가 복사되었습니다!'))
+                            .catch(() => alert('링크 복사에 실패했습니다.'))
+                        }}
+                        className="flex items-center gap-1 px-3 py-1 rounded-full bg-white/10 hover:bg-[#4ecdc4]/80 hover:text-black text-white text-xs font-semibold transition"
+                        title="공유하기"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="w-4 h-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M4 12v.01M12 4v.01M12 20v.01M20 12v.01M7.75 7.75l.01.01M16.25 7.75l.01.01M7.75 16.25l.01.01M16.25 16.25l.01.01" />
+                        </svg>
+                        공유하기
+                      </button>
                     </div>
                   </div>
                 </div>

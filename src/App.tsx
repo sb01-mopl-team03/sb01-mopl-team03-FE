@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { MessageCircle } from 'lucide-react'
 import { Header } from './components/Header'
 import { Footer } from './components/Footer'
@@ -22,6 +22,7 @@ import { Button } from './components/ui/button'
 
 import { WatchRoomDto } from './types/watchRoom'
 import { watchRoomService } from './services/watchRoomService'
+import { useLocation, useSearchParams } from 'react-router-dom'
 
 // Window 객체에 headerRefreshUserProfile 함수 추가
 declare global {
@@ -64,6 +65,15 @@ export default function App() {
   })
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
+
+  const pathname = location.pathname
+  
+  const isOAuthCallback = window.location.pathname === '/oauth/callback'
+  const id = searchParams.get('id')
+  const isSharedPlaylistPage = pathname.startsWith('/playlist') && !!id
+
 
   // JWT 토큰에서 사용자 ID 추출하는 함수
   const extractUserIdFromToken = (token: string): string | null => {
@@ -722,7 +732,7 @@ export default function App() {
         setIsLoggedIn(true)
       }
       // OAuth 처리가 끝났으니 쿼리스트링 제거
-      window.history.replaceState({}, '', '/')
+      window.history.replaceState({}, '', window.location.pathname)
       return
     }
 
@@ -912,13 +922,15 @@ export default function App() {
       }
     }
 
-    // 초기 페이지 로드 시 브라우저 히스토리에 현재 상태 저장
-    const initializeHistory = () => {
-      // 헤더를 숨기는 페이지들은 초기 상태에서 안전한 페이지로 변경
-      const headerHiddenPages = ['watch-party', 'content-detail', 'user-profile']
-      let safePage = currentPage
-      
-      // 현재 페이지가 헤더 숨김 페이지인데 필요한 데이터가 없으면 홈으로
+   const initializeHistory = () => {
+    const headerHiddenPages = ['watch-party', 'content-detail', 'user-profile']
+    let safePage = currentPage
+
+    // ✅ 공유 페이지라면 무조건 플레이리스트 상세로 이동
+    if (isSharedPlaylistPage) {
+      safePage = 'playlist-detail'
+    } else {
+      // ✅ 공유 페이지가 아니라면, 헤더 숨김 페이지에서 안전성 체크
       if (headerHiddenPages.includes(currentPage)) {
         if (currentPage === 'watch-party' && !currentWatchRoomId) {
           safePage = 'home'
@@ -928,26 +940,26 @@ export default function App() {
           safePage = 'home'
         }
       }
-      
-      const initialState = {
-        page: safePage,
-        selectedPlaylistId,
-        selectedContentDetail,
-        selectedUserId,
-        currentWatchRoomId
-      }
-      
-      // 페이지가 변경되었다면 상태도 업데이트
-      if (safePage !== currentPage) {
-        setCurrentPage(safePage)
-        localStorage.setItem('currentPage', safePage)
-        console.log('⚠️ 초기 페이지를 안전한 페이지로 변경:', currentPage, '->', safePage)
-      }
-      
-      // 현재 히스토리 엔트리를 초기 상태로 교체
-      window.history.replaceState(initialState, '', window.location.pathname)
-      console.log('🔄 초기 히스토리 상태 설정:', initialState) // 디버깅용
     }
+
+    const initialState = {
+      page: safePage,
+      selectedPlaylistId: isSharedPlaylistPage ? searchParams.get('id') : selectedPlaylistId,
+      selectedContentDetail,
+      selectedUserId,
+      currentWatchRoomId
+    }
+
+    if (safePage !== currentPage) {
+      setCurrentPage(safePage)
+      localStorage.setItem('currentPage', safePage)
+      console.log('⚠️ 초기 페이지를 안전한 페이지로 변경:', currentPage, '->', safePage)
+    }
+
+    window.history.replaceState(initialState, '', window.location.pathname)
+    console.log('🔄 초기 히스토리 상태 설정:', initialState)
+  }
+
 
     // 컴포넌트 마운트 시 히스토리 초기화
     initializeHistory()
@@ -958,6 +970,32 @@ export default function App() {
       window.removeEventListener('popstate', handlePopState)
     }
   }, []) // 빈 의존성 배열로 한 번만 실행
+
+  useLayoutEffect(() => {
+    if (!isLoggedIn && isSharedPlaylistPage) {
+      const id = searchParams.get('id')
+      if (id) {
+        console.log('🎯 공유 페이지 진입 감지 → playlist-detail로 이동')
+        setSelectedPlaylistId(id)
+        console.log('🧩 setSelectedPlaylistId 직후 상태 (id):', id)
+        console.log('🧩 setSelectedPlaylistId 직후 selectedPlaylistId:', selectedPlaylistId)  
+        setCurrentPage('playlist-detail')
+        localStorage.setItem('currentPage', 'playlist-detail')
+
+        // 브라우저 히스토리에 상태 저장
+        const stateData = {
+          page: 'playlist-detail',
+          selectedPlaylistId: id,
+          selectedContentDetail,
+          selectedUserId,
+          currentWatchRoomId
+        }
+        window.history.replaceState(stateData, '', window.location.pathname)
+        console.log('📝 공유 페이지 히스토리 설정 완료:', stateData)
+      }
+    }
+  }, [isLoggedIn, isSharedPlaylistPage, searchParams])
+
 
   // 로그아웃 시 페이지 상태 초기화
   const handleLogout = () => {
@@ -1375,9 +1413,12 @@ export default function App() {
     }
   }
 
-  const isOAuthCallback = window.location.pathname === '/oauth/callback'
+  console.log('✅ isLoggedIn:', isLoggedIn)
+  console.log('📍 pathname:', pathname)
+  console.log('🔎 searchParams:', searchParams.toString())
+  console.log('🧪 isSharedPlaylistPage:', isSharedPlaylistPage)
 
-  if (!isLoggedIn && !isOAuthCallback) {
+  if (!isLoggedIn && !isOAuthCallback && !isSharedPlaylistPage) {
     console.log('🔍 로그인 상태 디버깅:', {
       isLoggedIn,
       accessToken: localStorage.getItem('accessToken'),
@@ -1417,6 +1458,11 @@ export default function App() {
           onUserProfileOpen={handleUserProfileOpen}
         />
       case 'playlist-detail':
+      console.log('🧭 renderCurrentPage - playlist-detail 진입, selectedPlaylistId:', selectedPlaylistId)
+      console.log('🎬 renderCurrentPage - playlist-detail 조건 체크', { selectedPlaylistId, isSharedPlaylistPage })
+        if (isSharedPlaylistPage && !selectedPlaylistId) {
+          return <div style={{ padding: '2rem', textAlign: 'center' }}>플레이리스트 불러오는 중...</div>
+        }
         return selectedPlaylistId ? (
           <PlaylistDetail 
             playlistId={selectedPlaylistId} 
