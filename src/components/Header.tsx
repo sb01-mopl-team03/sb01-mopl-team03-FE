@@ -26,7 +26,11 @@ interface HeaderProps {
   refreshUserProfile?: () => void // 사용자 프로필 새로고침 함수 추가
   deleteNotification: (notificationId: string) => Promise<void> // 개별 알림 삭제 함수
   deleteAllNotifications: () => Promise<void> // 모든 알림 삭제 함수
+
   refreshAccessToken: () => Promise<string | null> // 토큰 갱신 함수 추가 (SSE용)
+
+  isSharedAccess?: boolean // 공유 링크 접근 여부
+
 }
 
 // API 응답 타입 정의는 SSENotification 사용
@@ -42,7 +46,8 @@ interface UINotification {
   isRead: boolean
 }
 
-export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileClick, onCloseDM, onLogout, authenticatedFetch, userId, refreshUserProfile, deleteNotification, deleteAllNotifications, refreshAccessToken }: HeaderProps) {
+
+export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileClick, onCloseDM, onLogout, authenticatedFetch, userId, refreshUserProfile, deleteNotification, deleteAllNotifications, refreshAccessToken, isSharedAccess }: HeaderProps) {
   const [notifications, setNotifications] = useState<UINotification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
@@ -152,6 +157,12 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
       setUser(userData)
     } catch (error) {
       console.error('유저 정보 조회 오류:', error)
+      
+      // 공유 링크 접근 모드에서는 인증 에러 무시
+      if (isSharedAccess) {
+        console.log('🌐 공유 링크 접근 모드로 인증 에러 무시')
+        return
+      }
       
       // 토큰 만료나 사용자 조회 실패 시 로그아웃 처리
       if (error instanceof Error && (

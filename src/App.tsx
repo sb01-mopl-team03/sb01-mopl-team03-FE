@@ -458,13 +458,28 @@ export default function App() {
   const getPlaylistById = async (playlistId: string) => {
     try {
       const url = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists/${playlistId}`
-      console.log('🚀 플레이리스트 조회 API 호출:', url)
+      console.log('🚀 플레이리스트 조회 API 호출:', url, { isSharedAccess })
       
-      const response = await authenticatedFetch(url)
+      let response: Response
+      if (isSharedAccess) {
+        // 공유 링크 접근 시 인증 우회
+        console.log('🌐 공유 링크 접근으로 인증 우회하여 호출')
+        response = await fetch(url)
+      } else {
+        // 일반 접근 시 인증 사용
+        response = await authenticatedFetch(url)
+      }
       console.log('📡 응답 상태:', response.status, response.statusText)
       
       if (!response.ok) {
         let errorMessage = '플레이리스트 조회 실패'
+        
+        // 공유 링크 접근에서 401 에러인 경우 특별 처리
+        if (isSharedAccess && response.status === 401) {
+          console.log('🔒 비공개 플레이리스트 접근 시도')
+          throw new Error('비공개 플레이리스트입니다. 접근 권한이 없습니다.')
+        }
+        
         try {
           const errorData = await response.text()
           console.error('❌ 에러 응답:', errorData)
@@ -716,49 +731,87 @@ export default function App() {
   const [currentWatchRoomId, setCurrentWatchRoomId] = useState<string | null>(null)
   const [watchRoomAutoConnect, setWatchRoomAutoConnect] = useState(false) // 방 생성 시 자동 연결 여부
 
+  // 공유 접근 모드 상태
+  const [isSharedAccess, setIsSharedAccess] = useState(false)
 
- useEffect(() => {
-  const initializeAuth = async () => {
-    const params = new URLSearchParams(window.location.search)
-    const accessTokenFromQuery = params.get('access_token')
-
-    if (accessTokenFromQuery) {
-      // OAuth 콜백 상황이면 바로 로그인 처리
-      console.log('🔑 OAuth 콜백에서 accessToken 감지됨 → 로그인 처리 시작')
-      localStorage.setItem('accessToken', accessTokenFromQuery)
-      const userId = extractUserIdFromToken(accessTokenFromQuery)
-      if (userId) {
-        setUserId(userId)
-        setIsLoggedIn(true)
-      }
-      // OAuth 처리가 끝났으니 쿼리스트링 제거
-      window.history.replaceState({}, '', window.location.pathname)
-      return
-    }
-
-    // 로컬 스토리지에 accessToken 있는 경우
-    const accessToken = localStorage.getItem('accessToken')
-    if (accessToken) {
-      if (isTokenExpired(accessToken)) {
-        console.log('⚠️ 저장된 토큰이 만료됨 → 로그아웃 처리')
-        handleTokenExpiration()
-        return
-      }
-
-      const userId = extractUserIdFromToken(accessToken)
-      if (userId) {
-        setUserId(userId)
-        setIsLoggedIn(true)
+  // OAuth 콜백 처리 함수
+  const handleOAuthCallback = () => {
+    const currentUrl = new URL(window.location.href)
+    const pathname = currentUrl.pathname
+    
+    // OAuth 성공 처리 - 백엔드에서 /oauth/success?access_token=...로 리다이렉트
+    if (pathname === '/oauth/success') {
+      const accessToken = currentUrl.searchParams.get('access_token')
+      
+      if (accessToken) {
+        // 로그인 성공 처리
+        handleLogin(accessToken)
+        
+        // URL 정리 후 메인 페이지로 이동
+        window.history.replaceState({}, document.title, '/')
+        
+        console.log('OAuth 로그인 성공! 메인 페이지로 이동합니다.')
       } else {
-        console.log('❌ accessToken으로부터 userId 추출 실패')
-        localStorage.removeItem('accessToken')
-        handleTokenExpiration()
+        alert('로그인 중 오류가 발생했습니다. 액세스 토큰을 받지 못했습니다.')
+        window.history.replaceState({}, document.title, '/')
       }
     }
   }
 
-  initializeAuth()
-}, [])
+  // 공유 링크 처리 함수
+  const handleSharedPlaylistURL = () => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const playlistId = urlParams.get('playlist')
+    
+    if (playlistId) {
+      console.log('📋 공유 플레이리스트 링크 감지:', playlistId)
+      
+      // 공유 링크로 접근한 경우
+      setCurrentPage('playlist-detail')
+      setSelectedPlaylistId(playlistId)
+      setIsSharedAccess(true)
+      localStorage.setItem('currentPage', 'playlist-detail')
+      
+      // URL 파라미터 제거 (깔끔한 URL 유지)
+      window.history.replaceState({}, document.title, '/')
+      
+      console.log('✅ 플레이리스트 공유 링크 처리 완료')
+    }
+  }
+
+  // 초기 로드 시 로그인 상태 확인 및 OAuth 콜백 처리
+  useEffect(() => {
+    const initializeAuth = async () => {
+      // 먼저 OAuth 콜백 처리
+      handleOAuthCallback()
+      
+      // 공유 링크 처리
+      handleSharedPlaylistURL()
+      
+      const accessToken = localStorage.getItem('accessToken')
+      if (accessToken) {
+        // 토큰 만료 체크
+        if (isTokenExpired(accessToken)) {
+          console.log('저장된 토큰이 만료됨, 백엔드 연결 실패로 인해 로그아웃 처리')
+          // 백엔드 연결 실패 시 바로 로그아웃 처리
+          handleTokenExpiration()
+          return
+        }
+        
+        const userId = extractUserIdFromToken(accessToken)
+        if (userId) {
+          setUserId(userId)
+          setIsLoggedIn(true)
+        } else {
+          console.log('토큰에서 사용자 ID 추출 실패')
+          localStorage.removeItem('accessToken')
+          handleTokenExpiration()
+        }
+      }
+    }
+
+    initializeAuth()
+  }, [])
 
 
   // 주기적인 토큰 만료 체크
@@ -1471,6 +1524,8 @@ export default function App() {
             getPlaylistById={getPlaylistById}
             addPlaylistContents={addPlaylistContents}
             deletePlaylistContents={deletePlaylistContents}
+            currentUserId={userId || undefined}
+            isSharedAccess={isSharedAccess}
           />
         ) : (
           <Playlist 
@@ -1577,7 +1632,8 @@ export default function App() {
         refreshUserProfile={refreshUserProfile} // 사용자 프로필 새로고침 함수 전달
         deleteNotification={deleteNotification} // 개별 알림 삭제 함수 전달
         deleteAllNotifications={deleteAllNotifications} // 모든 알림 삭제 함수 전달
-        refreshAccessToken={async () => null} // 빈 토큰 갱신 함수 (SSE용)
+        refreshAccessToken={refreshAccessToken} // 토큰 갱신 함수 (SSE용)
+        isSharedAccess={isSharedAccess} // 공유 링크 접근 여부 전달
       />
       
       {/* Main content with click handler to close DM */}

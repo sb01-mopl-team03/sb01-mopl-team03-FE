@@ -30,6 +30,8 @@ interface PlaylistDetailProps {
   getPlaylistById: (playlistId: string) => Promise<any>
   addPlaylistContents: (playlistId: string, contentIds: string[]) => Promise<any>
   deletePlaylistContents: (playlistId: string, contentIds: string[]) => Promise<void>
+  currentUserId?: string // 현재 사용자 ID
+  isSharedAccess?: boolean // 공유 링크 접근 여부
 }
 
 // ========== API INTEGRATION POINT - START ==========
@@ -37,7 +39,7 @@ interface PlaylistDetailProps {
 // Example: const fetchPlaylistDetails = async (playlistId: string) => { ... }
 // ========== API INTEGRATION POINT - END ==========
 
-export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistById, addPlaylistContents, deletePlaylistContents }: PlaylistDetailProps) {
+export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistById, addPlaylistContents, deletePlaylistContents, currentUserId, isSharedAccess }: PlaylistDetailProps) {
   const [playlist, setPlaylist] = useState<any>(null)
   const [contents, setContents] = useState<PlaylistContent[]>([])
   const [isSubscribed, setIsSubscribed] = useState(false)
@@ -325,6 +327,26 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
     }
   }
 
+  // 플레이리스트 공유 함수
+  const handleShare = async () => {
+    try {
+      const shareUrl = `${window.location.origin}/?playlist=${playlistId}`
+      
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(shareUrl)
+        alert('플레이리스트 공유 링크가 클립보드에 복사되었습니다!')
+      } else {
+        // 클립보드 API를 지원하지 않는 브라우저의 경우 프롬프트로 표시
+        prompt('플레이리스트 공유 링크를 복사하세요:', shareUrl)
+      }
+      
+      console.log('📋 플레이리스트 공유 링크 생성:', shareUrl)
+    } catch (error) {
+      console.error('공유 링크 복사 실패:', error)
+      alert('공유 링크 복사에 실패했습니다.')
+    }
+  }
+
   const renderPlaylistCover = () => {
     if (playlist.coverImage === null) {
       return (
@@ -424,25 +446,40 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
                   셔플
                 </Button>
 
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={handleAddContent}
-                  className="border-white/20 hover:bg-white/10"
-                >
-                  <Plus className="w-5 h-5 mr-2" />
-                  콘텐츠 추가
-                </Button>
+                {/* 로그인한 사용자만 보이는 기능들 */}
+                {currentUserId ? (
+                  <>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      onClick={handleAddContent}
+                      className="border-white/20 hover:bg-white/10"
+                    >
+                      <Plus className="w-5 h-5 mr-2" />
+                      콘텐츠 추가
+                    </Button>
 
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={toggleMultiSelectMode}
-                  className={`border-white/20 hover:bg-white/10 ${isMultiSelectMode ? 'bg-white/10' : ''}`}
-                >
-                  <X className="w-5 h-5 mr-2" />
-                  {isMultiSelectMode ? '선택 취소' : '다중 선택'}
-                </Button>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      onClick={toggleMultiSelectMode}
+                      className={`border-white/20 hover:bg-white/10 ${isMultiSelectMode ? 'bg-white/10' : ''}`}
+                    >
+                      <X className="w-5 h-5 mr-2" />
+                      {isMultiSelectMode ? '선택 취소' : '다중 선택'}
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    onClick={() => alert(isSharedAccess ? '공유 링크로 접근하셨습니다. 로그인하여 더 많은 기능을 이용해보세요!' : '로그인 후 이용할 수 있습니다.')}
+                    className="border-white/20 hover:bg-white/10"
+                  >
+                    <Plus className="w-5 h-5 mr-2" />
+                    로그인하여 구독하기
+                  </Button>
+                )}
 
                 {isMultiSelectMode && (
                   <>
@@ -478,7 +515,12 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
                   <Heart className={`w-6 h-6 ${isSubscribed ? 'fill-current' : ''}`} />
                 </Button>
 
-                <Button variant="ghost" size="lg" className="p-3 hover:bg-white/10">
+                <Button 
+                  variant="ghost" 
+                  size="lg" 
+                  className="p-3 hover:bg-white/10"
+                  onClick={handleShare}
+                >
                   <Share className="w-6 h-6" />
                 </Button>
 
