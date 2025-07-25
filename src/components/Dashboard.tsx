@@ -18,7 +18,7 @@ interface DashboardProps {
 export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay, onJoinRoom }: DashboardProps) {
   const [liveRooms, setLiveRooms] = useState<WatchRoomDto[]>([])
   const [featuredContent, setFeaturedContent] = useState<ContentDto[]>([])
-  const [myPlaylists, setMyPlaylists] = useState<PlaylistDto[]>([])
+  const [subscribedPlaylists, setSubscribedPlaylists] = useState<PlaylistDto[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null)
   
@@ -53,15 +53,15 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay, onJoinR
     }
   }
 
-  const fetchMyPlaylists = async () => {
+  const fetchSubscribedPlaylists = async () => {
     try {
       // 백엔드 API를 통해 현재 사용자의 플레이리스트 조회
-      const data = await playlistService.getPlaylistByUser()
-      setMyPlaylists(data.slice(0, 4)) // 최대 4개까지만 표시
+      const data = await playlistService.getAllSubscribed()
+      setSubscribedPlaylists(data.slice(0, 4)) // 최대 4개까지만 표시
     } catch (error) {
       console.error('Failed to fetch my playlists:', error)
       // 에러 시 빈 배열로 설정
-      setMyPlaylists([])
+      setSubscribedPlaylists([])
     }
   }
 
@@ -71,7 +71,7 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay, onJoinR
       await Promise.all([
         fetchLiveRooms(),
         fetchFeaturedContent(),
-        fetchMyPlaylists()
+        fetchSubscribedPlaylists()
       ])
       setIsLoading(false)
     }
@@ -440,7 +440,7 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay, onJoinR
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
               <Clock className="w-6 h-6 text-[#4ecdc4]" />
-              <h2 className="text-2xl">내 플레이리스트</h2>
+              <h2 className="text-2xl">구독한 플레이리스트</h2>
             </div>
             <Button 
               variant="ghost" 
@@ -481,7 +481,7 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay, onJoinR
                   </div>
                 </div>
               ))
-            ) : myPlaylists.map((playlist, index) => {
+            ) : subscribedPlaylists.map((playlist, index) => {
               const gradientColors = [
                 'from-blue-500 to-purple-600',
                 'from-green-500 to-teal-600',
