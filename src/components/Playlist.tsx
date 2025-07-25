@@ -460,6 +460,10 @@ export function Playlist({
                         <span>{playlist.createdAt ? new Date(playlist.createdAt).toLocaleDateString('ko-KR') : '날짜 없음'}</span>
                       </div>
                     </div>
+                    <div className="mt-1 text-xs text-white/60 flex items-center space-x-1">
+                      <span>👥</span>
+                      <span>{playlist.subscriptions?.length ?? 0}명 구독</span>
+                    </div>
                   </div>
                 </div>
               ))}
