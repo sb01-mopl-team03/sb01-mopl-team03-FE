@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { ArrowLeft, Play, Shuffle, MoreVertical, Share, Heart, Clock, Calendar, X, Search, Plus } from 'lucide-react'
+import { ArrowLeft, Play, MoreVertical, Share, Heart, Clock, Calendar, X, Search, Plus } from 'lucide-react'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
@@ -234,15 +234,6 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
     alert(`"${playlist.name}" 전체 재생을 시작합니다.`)
   }
 
-  const handleShuffle = () => {
-    // ========== API INTEGRATION POINT - START ==========
-    // TODO: Replace with actual API call to shuffle play playlist
-    // Example: await shufflePlaylist(playlistId)
-    console.log(`Shuffling playlist: ${playlist.name}`)
-    // ========== API INTEGRATION POINT - END ==========
-
-    alert(`"${playlist.name}" 셔플 재생을 시작합니다.`)
-  }
 
   const handleAddContent = () => {
     setShowAddContentModal(true)
@@ -434,15 +425,6 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
                   재생
                 </Button>
                 
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={handleShuffle}
-                  className="border-white/20 hover:bg-white/10"
-                >
-                  <Shuffle className="w-5 h-5 mr-2" />
-                  셔플
-                </Button>
 
                 {/* 로그인한 사용자만 보이는 기능들 */}
                 {currentUserId ? (
