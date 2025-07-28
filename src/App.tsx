@@ -57,12 +57,6 @@ interface WatchPartyConfig {
 
 
 export default function App() {
-  // 페이지 상태를 localStorage에 저장/복원
-  const [currentPage, setCurrentPage] = useState(() => {
-    const savedPage = localStorage.getItem('currentPage') || 'home'
-    console.log('🔍 초기 페이지 로드:', savedPage) // 디버깅용
-    return savedPage
-  })
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const location = useLocation()
@@ -73,6 +67,18 @@ export default function App() {
   const isOAuthCallback = window.location.pathname === '/oauth/callback'
   const id = searchParams.get('id')
   const isSharedPlaylistPage = pathname.startsWith('/playlist') && !!id
+
+  // 페이지 상태를 localStorage에 저장/복원 (공유 링크 고려)
+  const [currentPage, setCurrentPage] = useState(() => {
+    // 공유 플레이리스트 페이지인 경우 playlist-detail로 시작
+    if (isSharedPlaylistPage) {
+      console.log('🔍 초기 페이지 로드: playlist-detail (공유 링크)') // 디버깅용
+      return 'playlist-detail'
+    }
+    const savedPage = localStorage.getItem('currentPage') || 'home'
+    console.log('🔍 초기 페이지 로드:', savedPage) // 디버깅용
+    return savedPage
+  })
 
 
   // JWT 토큰에서 사용자 ID 추출하는 함수
@@ -458,10 +464,12 @@ export default function App() {
   const getPlaylistById = async (playlistId: string) => {
     try {
       const url = `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists/${playlistId}`
-      console.log('🚀 플레이리스트 조회 API 호출:', url, { isSharedAccess })
+      // 공유 접근 여부를 실시간으로 체크
+      const isCurrentlySharedAccess = isSharedPlaylistPage
+      console.log('🚀 플레이리스트 조회 API 호출:', url, { isSharedAccess: isCurrentlySharedAccess, isSharedPlaylistPage })
       
       let response: Response
-      if (isSharedAccess) {
+      if (isCurrentlySharedAccess) {
         // 공유 링크 접근 시 인증 우회
         console.log('🌐 공유 링크 접근으로 인증 우회하여 호출')
         response = await fetch(url)
@@ -475,7 +483,7 @@ export default function App() {
         let errorMessage = '플레이리스트 조회 실패'
         
         // 공유 링크 접근에서 401 에러인 경우 특별 처리
-        if (isSharedAccess && response.status === 401) {
+        if (isCurrentlySharedAccess && response.status === 401) {
           console.log('🔒 비공개 플레이리스트 접근 시도')
           throw new Error('비공개 플레이리스트입니다. 접근 권한이 없습니다.')
         }
@@ -706,7 +714,10 @@ export default function App() {
   }
 
 
-  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null)
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(() => {
+    // 공유 플레이리스트 페이지인 경우 URL에서 ID 추출
+    return isSharedPlaylistPage ? searchParams.get('id') : null
+  })
   const [selectedContentDetail, setSelectedContentDetail] = useState<ContentItem | null>(null)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [isRegister, setIsRegister] = useState(false)
@@ -731,8 +742,8 @@ export default function App() {
   const [currentWatchRoomId, setCurrentWatchRoomId] = useState<string | null>(null)
   const [watchRoomAutoConnect, setWatchRoomAutoConnect] = useState(false) // 방 생성 시 자동 연결 여부
 
-  // 공유 접근 모드 상태
-  const [isSharedAccess, setIsSharedAccess] = useState(false)
+  // 공유 접근 모드 상태 - isSharedPlaylistPage와 동기화
+  const isSharedAccess = isSharedPlaylistPage
 
   // OAuth 콜백 처리 함수
   const handleOAuthCallback = () => {
@@ -769,7 +780,6 @@ export default function App() {
       // 공유 링크로 접근한 경우
       setCurrentPage('playlist-detail')
       setSelectedPlaylistId(playlistId)
-      setIsSharedAccess(true)
       localStorage.setItem('currentPage', 'playlist-detail')
       
       // URL 파라미터 제거 (깔끔한 URL 유지)
@@ -1547,7 +1557,14 @@ export default function App() {
             } : undefined}
           />
         ) : (
-          <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} />
+          // 공유 접근시에는 Dashboard 대신 에러 메시지 표시
+          isSharedAccess ? (
+            <div style={{ padding: '2rem', textAlign: 'center' }}>
+              <p>공유 링크로 접근하셨습니다. 플레이리스트만 조회 가능합니다.</p>
+            </div>
+          ) : (
+            <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} />
+          )
         )
       case 'watch-party':
         return currentWatchRoomId && userId ? (
@@ -1559,7 +1576,14 @@ export default function App() {
             onUserProfileOpen={handleUserProfileOpen}
           />
         ) : (
-          <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} />
+          // 공유 접근시에는 Dashboard 대신 에러 메시지 표시
+          isSharedAccess ? (
+            <div style={{ padding: '2rem', textAlign: 'center' }}>
+              <p>공유 링크로 접근하셨습니다. 플레이리스트만 조회 가능합니다.</p>
+            </div>
+          ) : (
+            <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} />
+          )
         )
       case 'user-profile':
         return selectedUserId ? (
@@ -1572,12 +1596,26 @@ export default function App() {
             onUserProfileOpen={handleUserProfileOpen}
           />
         ) : (
-          <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} />
+          // 공유 접근시에는 Dashboard 대신 에러 메시지 표시
+          isSharedAccess ? (
+            <div style={{ padding: '2rem', textAlign: 'center' }}>
+              <p>공유 링크로 접근하셨습니다. 플레이리스트만 조회 가능합니다.</p>
+            </div>
+          ) : (
+            <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} />
+          )
         )
       case 'live':
         return <LiveRooms onJoinRoom={handleJoinRoom} onCreateRoom={handleCreateRoomModal} currentUserId={userId} />
       default:
-        return <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} />
+        // 공유 접근시에는 Dashboard 대신 에러 메시지 표시
+        return isSharedAccess ? (
+          <div style={{ padding: '2rem', textAlign: 'center' }}>
+            <p>공유 링크로 접근하셨습니다. 플레이리스트만 조회 가능합니다.</p>
+          </div>
+        ) : (
+          <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} />
+        )
     }
   }
 
@@ -1654,24 +1692,29 @@ export default function App() {
         onPlaylistOpen={handlePlaylistDetailOpen} // 플레이리스트 열기 함수 전달
       />
 
-      <DMList 
-        isOpen={showDMList}
-        onClose={handleCloseDMList}
-        onOpenChat={handleOpenChat}
-        authenticatedFetch={authenticatedFetch}
-        currentUserId={userId}
-        getDmRooms={getDmRooms}
-        getOrCreateDmRoom={getOrCreateDmRoom}
-      />
+      {/* DM 관련 컴포넌트들 - 공유 접근시 비활성화 */}
+      {!isSharedAccess && (
+        <>
+          <DMList 
+            isOpen={showDMList}
+            onClose={handleCloseDMList}
+            onOpenChat={handleOpenChat}
+            authenticatedFetch={authenticatedFetch}
+            currentUserId={userId}
+            getDmRooms={getDmRooms}
+            getOrCreateDmRoom={getOrCreateDmRoom}
+          />
 
-      <ChatRoom
-        isOpen={showChatRoom}
-        onClose={handleCloseChatRoom}
-        onBack={handleBackToDMList}
-        user={currentChatUser}
-        currentUserId={userId}
-        getDmMessages={getDmMessages}
-      />
+          <ChatRoom
+            isOpen={showChatRoom}
+            onClose={handleCloseChatRoom}
+            onBack={handleBackToDMList}
+            user={currentChatUser}
+            currentUserId={userId}
+            getDmMessages={getDmMessages}
+          />
+        </>
+      )}
 
       {/* Watch Party Confirmation Modal */}
       <WatchPartyConfirmation
@@ -1699,18 +1742,20 @@ export default function App() {
         userId={userId || ''}
       />
 
-      {/* Floating Message Button */}
-      <Button
-        size="lg"
-        onClick={handleMessageClick}
-        className={`fixed bottom-6 right-6 rounded-full w-14 h-14 shadow-lg z-40 transition-all duration-200 ${
-          showDMList || showChatRoom
-            ? 'bg-[#26a69a] hover:bg-[#4ecdc4] text-white' 
-            : 'teal-gradient hover:opacity-80 text-black'
-        }`}
-      >
-        <MessageCircle className="w-6 h-6" />
-      </Button>
+      {/* Floating Message Button - 공유 접근시 비활성화 */}
+      {!isSharedAccess && (
+        <Button
+          size="lg"
+          onClick={handleMessageClick}
+          className={`fixed bottom-6 right-6 rounded-full w-14 h-14 shadow-lg z-40 transition-all duration-200 ${
+            showDMList || showChatRoom
+              ? 'bg-[#26a69a] hover:bg-[#4ecdc4] text-white' 
+              : 'teal-gradient hover:opacity-80 text-black'
+          }`}
+        >
+          <MessageCircle className="w-6 h-6" />
+        </Button>
+      )}
     </div>
   )
 }

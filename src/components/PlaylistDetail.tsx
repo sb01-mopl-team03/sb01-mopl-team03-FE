@@ -44,7 +44,6 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
   const [contents, setContents] = useState<PlaylistContent[]>([])
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null)
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAddContentModal, setShowAddContentModal] = useState(false)
@@ -75,7 +74,6 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
           console.error('JWT 토큰 파싱 오류:', error)
         }
       }
-      setCurrentUserId(userId)
       
       const playlistData = await getPlaylistById(playlistId)
       console.log('📋 플레이리스트 데이터 받음:', playlistData)
@@ -505,15 +503,17 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
                   </>
                 )}
 
-                <Button
-                  variant="ghost"
-                  size="lg"
-                  onClick={handleSubscribeToggle}
-                  className={`p-3 hover:bg-white/10 ${isSubscribed ? 'text-[#4ecdc4]' : 'text-white/60'}`}
-                  title={isSubscribed ? '구독 취소' : '구독'}
-                >
-                  <Heart className={`w-6 h-6 ${isSubscribed ? 'fill-current' : ''}`} />
-                </Button>
+                {currentUserId && (
+                  <Button
+                    variant="ghost"
+                    size="lg"
+                    onClick={handleSubscribeToggle}
+                    className={`p-3 hover:bg-white/10 ${isSubscribed ? 'text-[#4ecdc4]' : 'text-white/60'}`}
+                    title={isSubscribed ? '구독 취소' : '구독'}
+                  >
+                    <Heart className={`w-6 h-6 ${isSubscribed ? 'fill-current' : ''}`} />
+                  </Button>
+                )}
 
                 <Button 
                   variant="ghost" 
@@ -637,16 +637,18 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
 
                   {/* Actions */}
                   <div className="col-span-1">
-                    <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveContent(content.id)}
-                        className="p-2 hover:bg-red-500/20 hover:text-red-400"
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
+                    {currentUserId && (
+                      <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveContent(content.id)}
+                          className="p-2 hover:bg-red-500/20 hover:text-red-400"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

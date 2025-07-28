@@ -5,7 +5,6 @@ import { Input } from './ui/input'
 import { ImageWithFallback } from './figma/ImageWithFallback'
 import { OverlappingThumbnails } from './OverlappingThumbnails'
 import { PlaylistCreationModal } from './PlaylistCreationModal'
-import { useSearchParams } from 'react-router-dom'
 
 interface PlaylistItem {
   id: string
@@ -67,8 +66,6 @@ export function Playlist({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [viewType, setViewType] = useState<'all' | 'subscribed'>('all')
-  const [searchParams] = useSearchParams()
-  const sharedId = searchParams.get('id')
 
   // UUID 유효성 검사 함수
   const isValidUUID = (str: string): boolean => {
