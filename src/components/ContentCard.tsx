@@ -97,7 +97,7 @@ export function ContentCard({
           <div className="flex items-center space-x-4 text-xs text-white/60 mb-2">
             {rating !== undefined && (
               <div className="flex items-center space-x-1">
-                <Star className="w-3 h-3 text-yellow-500 fill-current" />
+                <Star className={`w-3 h-3 ${rating > 0 ? 'text-yellow-500 fill-current' : 'text-white/40'}`} />
                 <span>{rating.toFixed(2)}</span>
               </div>
             )}

@@ -274,9 +274,9 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: Creat
                         
                         {/* Rating and Type */}
                         <div className="flex items-center justify-between">
-                          {item.avgRating && (
+                          {item.avgRating !== undefined && (
                             <div className="flex items-center gap-1">
-                              <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                              <Star className={`w-3 h-3 ${item.avgRating > 0 ? 'fill-yellow-400 text-yellow-400' : 'text-white/40'}`} />
                               <span className="text-xs">{item.avgRating.toFixed(2)}</span>
                             </div>
                           )}
@@ -359,9 +359,9 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: Creat
                     <h3 className="font-medium mb-1">{selectedContent.title}</h3>
                     <p className="text-sm text-white/60 mb-2">{selectedContent.duration}</p>
                     <div className="flex items-center gap-3">
-                      {selectedContent.avgRating && (
+                      {selectedContent.avgRating !== undefined && (
                         <div className="flex items-center gap-1">
-                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                          <Star className={`w-4 h-4 ${selectedContent.avgRating > 0 ? 'fill-yellow-400 text-yellow-400' : 'text-white/40'}`} />
                           <span className="text-sm">{selectedContent.avgRating.toFixed(2)}</span>
                         </div>
                       )}

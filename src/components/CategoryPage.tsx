@@ -273,9 +273,9 @@ export function CategoryPage({ category, onContentPlay, onContentDetail, onAddTo
                     
                     {/* Rating and Year */}
                     <div className="flex items-center justify-between mb-3">
-                      {content.avgRating && (
+                      {content.avgRating !== undefined && (
                         <div className="flex items-center gap-1">
-                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                          <Star className={`w-4 h-4 ${content.avgRating > 0 ? 'fill-yellow-400 text-yellow-400' : 'text-white/40'}`} />
                           <span className="text-sm">{content.avgRating.toFixed(2)}</span>
                           {content.reviewCount && (
                             <span className="text-xs text-white/40">({content.reviewCount})</span>
