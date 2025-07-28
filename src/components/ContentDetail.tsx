@@ -301,10 +301,18 @@ export function ContentDetail({ content, onBack, onPlay, currentUser }: ContentD
           {/* Left: Placeholder */}
           <div className="lg:col-span-1">
             <div className="aspect-[3/4] rounded-lg overflow-hidden bg-gradient-to-br from-[#4ecdc4] to-[#44b3a7] border border-white/10 flex items-center justify-center">
+             {content.thumbnail ? (
+                <img 
+                src= {content.thumbnail}
+                alt= {content.title}
+                className="w-full h-full object-cover"
+                />
+             ) : (
               <div className="text-center text-black">
                 <div className="text-4xl font-bold opacity-60">MOPL</div>
                 <div className="text-sm opacity-40 mt-2">{getTypeLabel(content.type)}</div>
               </div>
+             )}
             </div>
           </div>
 
