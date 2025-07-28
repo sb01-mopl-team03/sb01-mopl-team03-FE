@@ -528,7 +528,6 @@ export default function App() {
         description: request.description || '',
         isPublic: request.isPublic ?? true
       }
-
       console.log('🚀 플레이리스트 생성 요청:', playlistCreateRequest)
       
       const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists`, {
@@ -750,7 +749,7 @@ export default function App() {
     const currentUrl = new URL(window.location.href)
     const pathname = currentUrl.pathname
     
-    // OAuth 성공 처리 - 백엔드에서 /oauth/callback?access_token=...로 리다이렉트
+    // OAuth 성공 처리 - 백엔드에서 /oauth/success?access_token=...로 리다이렉트
     if (pathname === '/oauth/callback') {
       const accessToken = currentUrl.searchParams.get('access_token')
       
@@ -860,6 +859,7 @@ export default function App() {
     const userId = extractUserIdFromToken(accessToken)
     if (userId) {
       setUserId(userId)
+      setIsLoggedIn(true)
     } else {
       // 토큰 파싱 실패 시 로그아웃 처리
       localStorage.removeItem('accessToken')
