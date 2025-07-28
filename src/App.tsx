@@ -1,5 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { MessageCircle } from 'lucide-react'
+import { Toaster } from 'sonner'
 import { Header } from './components/Header'
 import { Footer } from './components/Footer'
 import { Login } from './components/Login'
@@ -1756,6 +1757,9 @@ export default function App() {
           <MessageCircle className="w-6 h-6" />
         </Button>
       )}
+      
+      {/* Toast Notifications */}
+      <Toaster richColors position="top-center" />
     </div>
   )
 }

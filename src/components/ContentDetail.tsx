@@ -5,6 +5,7 @@ import { Textarea } from './ui/textarea'
 import { Badge } from './ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { ReviewDto, ReviewCreateRequest, ReviewUpdateRequest } from '../types/content'
+import { toast } from 'sonner'
 
 interface ContentItem {
   id: string
@@ -120,6 +121,7 @@ export function ContentDetail({ content, onBack, onPlay, currentUser }: ContentD
   const [reviews, setReviews] = useState<ReviewDto[]>([])
   const [isLoadingReviews, setIsLoadingReviews] = useState(false)
   const [isSubmittingReview, setIsSubmittingReview] = useState(false)
+  const [reviewError, setReviewError] = useState<string | null>(null)
   
   // 리뷰 수정 관련 state
   const [editingReview, setEditingReview] = useState<ReviewDto | null>(null)
@@ -163,6 +165,7 @@ export function ContentDetail({ content, onBack, onPlay, currentUser }: ContentD
     if (!reviewText.trim() || reviewRating === 0 || !currentUser) return
     
     setIsSubmittingReview(true)
+    setReviewError(null) // 에러 메시지 초기화
     try {
       // ========== API INTEGRATION POINT - START ==========
       // 실제 API 호출로 리뷰 생성
@@ -191,9 +194,44 @@ export function ContentDetail({ content, onBack, onPlay, currentUser }: ContentD
       setReviews([newReview, ...reviews])
       setReviewText('')
       setReviewRating(0)
+      toast.success('리뷰가 성공적으로 등록되었습니다')
       // ========== API INTEGRATION POINT - END ==========
     } catch (error) {
       console.error('리뷰 작성 실패:', error)
+      console.log('Error type:', typeof error)
+      console.log('Error message:', error instanceof Error ? error.message : String(error))
+      
+      if (error instanceof Error) {
+        if (error.message === 'DUPLICATE_REVIEW') {
+          const errorMsg = '이미 리뷰를 남긴 콘텐츠입니다. 한 콘텐츠당 하나의 리뷰만 작성할 수 있습니다.'
+          setReviewError(errorMsg)
+          alert(errorMsg) // 확실한 표시를 위해 alert 추가
+          toast.error('이미 리뷰를 남긴 콘텐츠입니다', {
+            description: '한 콘텐츠당 하나의 리뷰만 작성할 수 있습니다.'
+          })
+        } else if (error.message.includes('중복') || error.message.includes('이미')) {
+          const errorMsg = '이미 리뷰를 남긴 콘텐츠입니다. 한 콘텐츠당 하나의 리뷰만 작성할 수 있습니다.'
+          setReviewError(errorMsg)
+          alert(errorMsg) // 확실한 표시를 위해 alert 추가
+          toast.error('이미 리뷰를 남긴 콘텐츠입니다', {
+            description: '한 콘텐츠당 하나의 리뷰만 작성할 수 있습니다.'
+          })
+        } else {
+          const errorMsg = error.message || '리뷰 작성에 실패했습니다. 잠시 후 다시 시도해주세요.'
+          setReviewError(errorMsg)
+          alert(errorMsg) // 확실한 표시를 위해 alert 추가
+          toast.error('리뷰 작성에 실패했습니다', {
+            description: error.message || '잠시 후 다시 시도해주세요.'
+          })
+        }
+      } else {
+        const errorMsg = '리뷰 작성에 실패했습니다. 잠시 후 다시 시도해주세요.'
+        setReviewError(errorMsg)
+        alert(errorMsg) // 확실한 표시를 위해 alert 추가
+        toast.error('리뷰 작성에 실패했습니다', {
+          description: '잠시 후 다시 시도해주세요.'
+        })
+      }
     } finally {
       setIsSubmittingReview(false)
     }
@@ -374,11 +412,21 @@ export function ContentDetail({ content, onBack, onPlay, currentUser }: ContentD
                 <label className="block text-sm mb-2">리뷰 내용</label>
                 <Textarea
                   value={reviewText}
-                  onChange={(e) => setReviewText(e.target.value)}
+                  onChange={(e) => {
+                    setReviewText(e.target.value)
+                    if (reviewError) setReviewError(null) // 입력 시 에러 메시지 클리어
+                  }}
                   placeholder="이 작품에 대한 솔직한 리뷰를 남겨주세요..."
                   className="min-h-24 bg-white/5 border-white/20 focus:border-[#4ecdc4] resize-none"
                 />
               </div>
+
+              {/* Error Message */}
+              {reviewError && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                  <p className="text-red-400 text-sm">{reviewError}</p>
+                </div>
+              )}
 
               {/* Submit Button */}
               <Button

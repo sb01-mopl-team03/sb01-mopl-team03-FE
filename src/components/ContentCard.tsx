@@ -98,7 +98,7 @@ export function ContentCard({
             {rating !== undefined && (
               <div className="flex items-center space-x-1">
                 <Star className="w-3 h-3 text-yellow-500 fill-current" />
-                <span>{rating.toFixed(1)}</span>
+                <span>{rating.toFixed(2)}</span>
               </div>
             )}
             {reviewCount !== undefined && (
