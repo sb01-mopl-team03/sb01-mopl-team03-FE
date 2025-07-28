@@ -750,8 +750,8 @@ export default function App() {
     const currentUrl = new URL(window.location.href)
     const pathname = currentUrl.pathname
     
-    // OAuth 성공 처리 - 백엔드에서 /oauth/success?access_token=...로 리다이렉트
-    if (pathname === '/oauth/success') {
+    // OAuth 성공 처리 - 백엔드에서 /oauth/callback?access_token=...로 리다이렉트
+    if (pathname === '/oauth/callback') {
       const accessToken = currentUrl.searchParams.get('access_token')
       
       if (accessToken) {
