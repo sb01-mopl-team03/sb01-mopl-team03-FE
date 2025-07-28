@@ -61,7 +61,9 @@ export class SSEManager {
     this.startSSEConnection(token)
   }
 
+  
   private startSSEConnection(token: string): void {
+    
     this.disconnect()
     
     const url = `${this.apiBaseUrl}/api/notifications/subscribe`
@@ -106,6 +108,11 @@ export class SSEManager {
         }
       }
 
+      this.eventSource.addEventListener('dm_received', (event: any) => {
+        console.log('📱 dm_received 이벤트 감지 (이벤트 리스너)');
+        this.handleMessage(event);
+      });
+
       // 커스텀 이벤트 리스너
       this.eventSource.addEventListener('auth-error', (event: any) => {
         console.warn('인증 오류:', event.data)
@@ -126,23 +133,39 @@ export class SSEManager {
   }
 
   private handleMessage(event: any): void {
+    // 원시 이벤트 데이터 로깅
+    console.log('📡 SSE 이벤트 수신:', {
+      type: event.type,
+      event: event.event, // 이벤트 유형
+      lastEventId: event.lastEventId,
+      data: event.data
+    });
+    
     // ping/pong 메시지 무시
     if (event.data === 'ping' || event.data === 'heartbeat') {
-      return
+      return;
     }
     
     try {
-      const notification: SSENotification = JSON.parse(event.data)
+      const notification: SSENotification = JSON.parse(event.data);
       
       // 연결 확인 메시지 무시
       if (notification.notificationType === 'CONNECTED') {
-        return
+        return;
       }
       
-      console.log('SSE 알림 수신:', notification)
-      this.onNotification?.(notification)
+      // 중요: 백엔드 데이터에 이벤트 타입 정보 추가
+      // DM 관련 이벤트라면 notificationType 확인 (대/소문자 차이 해결)
+      if (event.type === 'dm_received') {
+        console.log('📱 DM 메시지 이벤트 감지 (이벤트 타입 기준)');
+        // notificationType 변경 (대소문자 일치 문제 해결)
+        notification.notificationType = 'DM_RECEIVED';
+      }
+      
+      console.log('🔔 SSE 알림 수신:', notification);
+      this.onNotification?.(notification);
     } catch (error) {
-      console.error('SSE 메시지 파싱 오류:', error, 'Raw data:', event.data)
+      console.error('SSE 메시지 파싱 오류:', error, 'Raw data:', event.data);
     }
   }
 

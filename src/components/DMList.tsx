@@ -42,10 +42,11 @@ interface DMListProps {
   currentUserId: string | null
   getDmRooms: () => Promise<any>
   getOrCreateDmRoom: (userBId: string) => Promise<string>
+  refreshTrigger?: number
 }
 
 
-export function DMList({ isOpen, onClose, onOpenChat, authenticatedFetch, currentUserId, getDmRooms, getOrCreateDmRoom }: DMListProps) {
+export function DMList({ isOpen, onClose, onOpenChat, authenticatedFetch, currentUserId, getDmRooms, getOrCreateDmRoom, refreshTrigger }: DMListProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [showChatPartnerSelection, setShowChatPartnerSelection] = useState(false)
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -161,6 +162,28 @@ export function DMList({ isOpen, onClose, onOpenChat, authenticatedFetch, curren
       loadChatPartners()
     }
   }, [isOpen, currentUserId])
+
+  // Refresh DM rooms when refreshTrigger changes
+  useEffect(() => {
+    console.log('DMList - refreshTrigger 변경 감지:', refreshTrigger);
+    
+    if (isOpen && currentUserId && refreshTrigger !== undefined && refreshTrigger > 0) {
+      console.log('DMList - DM 방 목록 갱신 시작 - 트리거:', refreshTrigger);
+      
+      // 갱신 중 상태 표시 (UI에 로딩 상태 반영)
+      setLoading(true);
+      setError(null);
+      
+      // DM 방 목록 즉시 갱신
+      loadDMRooms()
+        .then(() => {
+          console.log('✅ DM 방 목록 갱신 완료');
+        })
+        .catch(error => {
+          console.error('❌ DM 방 목록 갱신 실패:', error);
+        });
+    }
+  }, [refreshTrigger, isOpen, currentUserId]);
 
   const loadDMRooms = async () => {
     try {

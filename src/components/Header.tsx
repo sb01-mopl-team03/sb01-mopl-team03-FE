@@ -30,6 +30,7 @@ interface HeaderProps {
   refreshAccessToken: () => Promise<string | null> // 토큰 갱신 함수 추가 (SSE용)
 
   isSharedAccess?: boolean // 공유 링크 접근 여부
+  onDMReceived?: () => void // DM 수신 시 채팅방 목록 갱신 콜백
 
 }
 
@@ -47,7 +48,7 @@ interface UINotification {
 }
 
 
-export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileClick, onCloseDM, onLogout, authenticatedFetch, userId, refreshUserProfile, deleteNotification, deleteAllNotifications, refreshAccessToken, isSharedAccess }: HeaderProps) {
+export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileClick, onCloseDM, onLogout, authenticatedFetch, userId, refreshUserProfile, deleteNotification, deleteAllNotifications, refreshAccessToken, isSharedAccess, onDMReceived }: HeaderProps) {
   const [notifications, setNotifications] = useState<UINotification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
@@ -60,11 +61,21 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
     disabled: isSharedAccess, // 공유 접근시 SSE 연결 비활성화
     onNotification: (notification) => {
       if (notification.notificationType === 'CONNECTED') {
-        return
+        return;
       }
-      
-      const newNotification = convertToUINotification(notification)
-      setNotifications(prev => [newNotification, ...prev])
+    
+      // DM 관련 알림 처리 - 다양한 케이스 감지
+      const type = notification.notificationType;
+      if (type === 'DM_RECEIVED' || type === 'dm_received') {
+        console.log('📬 DM 메시지 수신 감지 - 즉시 갱신 시작:', type);
+        if (onDMReceived) {
+          onDMReceived();
+        } else {
+          console.error('❌ onDMReceived 콜백이 없습니다!');
+        }
+      }
+      const newNotification = convertToUINotification(notification);
+      setNotifications(prev => [newNotification, ...prev]);
     },
     onAuthRequired: () => {
       // 공유 접근 모드에서는 SSE 인증 오류 무시
@@ -96,14 +107,14 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
   // SSENotification을 UINotification으로 변환하는 함수
   const convertToUINotification = (dto: SSENotification): UINotification => {
     const getTypeFromNotificationType = (type: string) => {
-      switch (type) {
-        case 'DM_RECEIVED':
-        case 'NEW_DM_ROOM':
+      switch (type.toLowerCase()) {
+        case 'dm_received':
+        case 'new_dm_room':
           return 'message'
-        case 'FOLLOWED':
+        case 'followed':
           return 'follow'
-        case 'PLAYLIST_SUBSCRIBED':
-        case 'FOLLOWING_POSTED_PLAYLIST':
+        case 'playlist_subscribed':
+        case 'following_posted_playlist':
           return 'like'
         default:
           return 'notification'
@@ -112,17 +123,17 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
 
     const getTitleFromNotificationType = (type: string) => {
       switch (type) {
-        case 'DM_RECEIVED':
+        case 'dm_received':
           return '새로운 메시지가 도착했습니다'
-        case 'NEW_DM_ROOM':
+        case 'new_dm_room':
           return '새로운 채팅방이 생성되었습니다'
-        case 'FOLLOWED':
+        case 'followed':
           return '새로운 팔로워가 생겼습니다'
-        case 'PLAYLIST_SUBSCRIBED':
+        case 'playlist_subscribed':
           return '플레이리스트를 구독했습니다'
-        case 'FOLLOWING_POSTED_PLAYLIST':
+        case 'following_posted_playlist':
           return '팔로우한 사용자가 플레이리스트를 게시했습니다'
-        case 'ROLE_CHANGED':
+        case 'role_changed':
           return '권한이 변경되었습니다'
         default:
           return '새로운 알림'
@@ -205,8 +216,8 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
 
       const responseData = await response.json()
       
-      // CursorPageResponseDto 구조로 받은 경우 content 배열 추출
-      const notificationDtos = responseData.content || responseData
+      // CursorPageResponseDto 구조로 받은 경우 배열 추출
+      const notificationDtos = responseData.data || responseData
       
       // 배열인지 확인
       if (!Array.isArray(notificationDtos)) {

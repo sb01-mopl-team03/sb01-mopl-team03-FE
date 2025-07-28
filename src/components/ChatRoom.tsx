@@ -33,10 +33,11 @@ interface ChatRoomProps {
   user: ChatUser | null
   currentUserId: string | null
   getDmMessages: (roomId: string, pagingDto?: DmPagingDto) => Promise<CursorPageResponseDto<DmDto>>
+  refreshTrigger?: number // 이 속성 추가
 }
 
 
-export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMessages }: ChatRoomProps) {
+export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMessages, refreshTrigger }: ChatRoomProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [isTyping] = useState(false)
@@ -47,8 +48,8 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
   const inputRef = useRef<HTMLInputElement>(null) 
   
   
-  // WebSocket connection
-  const { isConnected, sendMessage } = useDmWebSocket({
+  // WebSocket connection  
+  const { isConnected, sendMessage, enterRoom: _enterRoom, exitRoom: _exitRoom } = useDmWebSocket({
     roomId: user?.roomId || null,
     userId: currentUserId,
     onMessageReceived: (dmMessage: DmDto) => {
@@ -92,6 +93,7 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  
   // Focus input when chat opens
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -105,6 +107,14 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
       loadMessages()
     }
   }, [user?.roomId])
+
+  // refreshTrigger로 메시지 갱신
+  useEffect(() => {
+    if (isOpen && user && refreshTrigger && refreshTrigger > 0) {
+      console.log('🔄 채팅방 메시지 갱신 트리거 감지:', refreshTrigger)
+      loadMessages()
+    }
+  }, [refreshTrigger, isOpen, user])
 
   // useDmWebSocket 내부 로직에만 웹소켓 연결 관리를 위임하여 중복 연결 방지
 
