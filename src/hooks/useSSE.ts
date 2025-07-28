@@ -11,6 +11,7 @@ export interface UseSSEOptions {
   onConnectionError?: (error: Event) => void
   onTokenRefresh?: () => Promise<string | null>
   autoConnect?: boolean
+  disabled?: boolean  // SSE 연결을 완전히 비활성화
 }
 
 export interface UseSSEReturn {
@@ -32,7 +33,8 @@ export const useSSE = (options: UseSSEOptions): UseSSEReturn => {
     onConnectionOpen,
     onConnectionError,
     onTokenRefresh,
-    autoConnect = true
+    autoConnect = true,
+    disabled = false
   } = options
 
   const sseManagerRef = useRef<SSEManager | null>(null)
@@ -78,10 +80,10 @@ export const useSSE = (options: UseSSEOptions): UseSSEReturn => {
   }, [])
 
   const connect = useCallback(() => {
-    if (sseManagerRef.current && userId) {
+    if (sseManagerRef.current && userId && !disabled) {
       sseManagerRef.current.connect()
     }
-  }, [userId])
+  }, [userId, disabled])
 
   const disconnect = useCallback(() => {
     if (sseManagerRef.current) {
@@ -104,7 +106,7 @@ export const useSSE = (options: UseSSEOptions): UseSSEReturn => {
   }, [])
 
   useEffect(() => {
-    if (userId) {
+    if (userId && !disabled) {
       const config: SSEManagerConfig = {
         userId,
         apiBaseUrl,
@@ -141,6 +143,7 @@ export const useSSE = (options: UseSSEOptions): UseSSEReturn => {
         sseManagerRef.current = null
       }
     } else {
+      // disabled이거나 userId가 없는 경우 연결 해제
       if (sseManagerRef.current) {
         sseManagerRef.current.disconnect()
         sseManagerRef.current = null
@@ -150,6 +153,7 @@ export const useSSE = (options: UseSSEOptions): UseSSEReturn => {
     }
   }, [
     userId,
+    disabled,
     apiBaseUrl,
     maxReconnectAttempts,
     autoConnect,

@@ -26,7 +26,11 @@ interface HeaderProps {
   refreshUserProfile?: () => void // 사용자 프로필 새로고침 함수 추가
   deleteNotification: (notificationId: string) => Promise<void> // 개별 알림 삭제 함수
   deleteAllNotifications: () => Promise<void> // 모든 알림 삭제 함수
+
   refreshAccessToken: () => Promise<string | null> // 토큰 갱신 함수 추가 (SSE용)
+
+  isSharedAccess?: boolean // 공유 링크 접근 여부
+
 }
 
 // API 응답 타입 정의는 SSENotification 사용
@@ -42,7 +46,8 @@ interface UINotification {
   isRead: boolean
 }
 
-export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileClick, onCloseDM, onLogout, authenticatedFetch, userId, refreshUserProfile, deleteNotification, deleteAllNotifications, refreshAccessToken }: HeaderProps) {
+
+export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileClick, onCloseDM, onLogout, authenticatedFetch, userId, refreshUserProfile, deleteNotification, deleteAllNotifications, refreshAccessToken, isSharedAccess }: HeaderProps) {
   const [notifications, setNotifications] = useState<UINotification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
@@ -52,6 +57,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
   // SSE 연결 관리
   useSSE({
     userId,
+    disabled: isSharedAccess, // 공유 접근시 SSE 연결 비활성화
     onNotification: (notification) => {
       if (notification.notificationType === 'CONNECTED') {
         return
@@ -61,6 +67,12 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
       setNotifications(prev => [newNotification, ...prev])
     },
     onAuthRequired: () => {
+      // 공유 접근 모드에서는 SSE 인증 오류 무시
+      if (isSharedAccess) {
+        console.log('🌐 공유 링크 접근 모드 - SSE 인증 오류 무시')
+        return
+      }
+      
       console.warn('SSE 인증 오류 발생 - 토큰 재발급 시도 후 재연결 시도')
       // SSE 연결 실패가 바로 로그아웃을 의미하지는 않음
       // 토큰 재발급이 실패하면 그 때 로그아웃 처리
@@ -145,7 +157,11 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
 
   // 유저 정보 조회 함수
   const fetchUserInfo = async () => {
-    if (!userId) return
+    // 공유 링크 접근 모드에서는 유저 정보 조회하지 않음
+    if (!userId || isSharedAccess) {
+      console.log('🌐 공유 링크 접근 모드 또는 사용자 ID 없음 - 유저 정보 조회 스킵')
+      return
+    }
 
     try {
       const userData = await userService.getUser(userId)
@@ -168,7 +184,11 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
 
   // 알림 목록 조회 함수
   const fetchNotifications = async () => {
-    if (!userId) return
+    // 공유 링크 접근 모드에서는 알림 조회하지 않음
+    if (!userId || isSharedAccess) {
+      console.log('🌐 공유 링크 접근 모드 또는 사용자 ID 없음 - 알림 조회 스킵')
+      return
+    }
 
     try {
       const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/notifications`)
@@ -351,40 +371,50 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
         </div>
         
         {/* Navigation */}
-        <ul className="hidden md:flex items-center space-x-8">
-          {navItems.map(item => (
-            <li key={item.id}>
-              <button
-                onClick={() => handleNavClick(item.id)}
-                className={`transition-colors hover:text-[#4ecdc4] ${
-                  currentPage === item.id 
-                    ? 'text-[#4ecdc4] font-medium' 
-                    : 'text-white/80'
-                }`}
-              >
-                {item.label}
-              </button>
-            </li>
-          ))}
-        </ul>
+        {!isSharedAccess && (
+          <ul className="hidden md:flex items-center space-x-8">
+            {navItems.map(item => (
+              <li key={item.id}>
+                <button
+                  onClick={() => handleNavClick(item.id)}
+                  className={`transition-colors hover:text-[#4ecdc4] ${
+                    currentPage === item.id 
+                      ? 'text-[#4ecdc4] font-medium' 
+                      : 'text-white/80'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        
+        {/* Shared Access Info */}
+        {isSharedAccess && (
+          <div className="text-white/60 text-sm">
+            공유된 플레이리스트
+          </div>
+        )}
 
         {/* Right Actions */}
         <div className="flex items-center space-x-4">
           {/* Notifications */}
-          <div className="relative notification-container">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleNotificationToggle}
-              className="relative p-2 hover:bg-white/10"
-            >
-              <Bell className="w-5 h-5" />
-              {unreadCount > 0 && (
-                <div className="absolute -top-1 -right-1 bg-[#4ecdc4] text-black text-xs font-medium rounded-full w-5 h-5 flex items-center justify-center">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </div>
-              )}
-            </Button>
+          {!isSharedAccess && (
+            <div className="relative notification-container">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleNotificationToggle}
+                className="relative p-2 hover:bg-white/10"
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <div className="absolute -top-1 -right-1 bg-[#4ecdc4] text-black text-xs font-medium rounded-full w-5 h-5 flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </div>
+                )}
+              </Button>
 
             {/* Notification Dropdown */}
             {showNotifications && (
@@ -486,28 +516,30 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
                 </div>
               </div>
             )}
-          </div>
+            </div>
+          )}
 
           {/* User Profile */}
-          <div className="relative profile-container">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation()
-                setShowProfile(!showProfile)
-                setShowNotifications(false)
-              }}
-              className="flex items-center space-x-2 p-2 hover:bg-white/10"
-            >
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={user?.profileImage || ''} />
-                <AvatarFallback className="bg-[#4ecdc4] text-black">
-                  {user?.name.charAt(0) || 'U'}
-                </AvatarFallback>
-              </Avatar>
-              <span className="hidden md:block text-sm">{user?.name || '사용자'}</span>
-            </Button>
+          {!isSharedAccess ? (
+            <div className="relative profile-container">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowProfile(!showProfile)
+                  setShowNotifications(false)
+                }}
+                className="flex items-center space-x-2 p-2 hover:bg-white/10"
+              >
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={user?.profileImage || ''} />
+                  <AvatarFallback className="bg-[#4ecdc4] text-black">
+                    {user?.name.charAt(0) || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="hidden md:block text-sm">{user?.name || '사용자'}</span>
+              </Button>
 
             {/* Profile Dropdown */}
             {showProfile && (
@@ -554,7 +586,18 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
                 </Button>
               </div>
             )}
-          </div>
+            </div>
+          ) : (
+            // 공유 접근시 로그인 버튼 표시
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.location.href = '/'}
+              className="border-[#4ecdc4] text-[#4ecdc4] hover:bg-[#4ecdc4] hover:text-black"
+            >
+              로그인
+            </Button>
+          )}
         </div>
       </nav>
     </header>
