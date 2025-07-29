@@ -97,6 +97,14 @@ export interface WatchRoomSearchOptions {
   offset?: number
 }
 
+export interface CursorPageResponseDto<T> {
+  data: T[]
+  nextCursor: string | null
+  size: number
+  totalElements: number
+  hasNext: boolean
+}
+
 // 백엔드 WebSocket 응답 타입 (실제 백엔드 구조에 맞춤)
 export interface BackendParticipantDto {
   id: string // UUID (문자열로 받음)
