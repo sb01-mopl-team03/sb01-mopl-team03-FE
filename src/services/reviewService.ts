@@ -82,7 +82,43 @@ export class ReviewService {
       })
       
       if (!response.ok) {
-        throw new Error(`리뷰 생성에 실패했습니다. Status: ${response.status}`)
+        console.log('HTTP 응답 상태:', response.status)
+        console.log('HTTP 응답 상태 텍스트:', response.statusText)
+        
+        // 응답 본문을 읽어서 에러 메시지 확인
+        let errorMessage = `리뷰 생성에 실패했습니다. Status: ${response.status}`
+        let errorResponse = null
+        try {
+          errorResponse = await response.json()
+          console.log('백엔드 에러 응답:', errorResponse)
+          errorMessage = errorResponse.message || errorMessage
+        } catch (parseError) {
+          console.log('에러 응답 JSON 파싱 실패:', parseError)
+          // JSON 파싱이 실패하면 텍스트로 읽어보기
+          try {
+            const errorText = await response.text()
+            console.log('에러 응답 텍스트:', errorText)
+            errorMessage = errorText || errorMessage
+          } catch (textError) {
+            console.log('에러 응답 텍스트 읽기 실패:', textError)
+          }
+        }
+        
+        console.log('최종 에러 메시지:', errorMessage)
+        
+        // 409 Conflict 또는 에러 메시지에 중복 관련 키워드 포함 여부 확인
+        if (response.status === 409 || 
+            response.status === 400 ||  // 400 Bad Request도 체크
+            errorMessage.includes('중복') || 
+            errorMessage.includes('이미') || 
+            errorMessage.includes('duplicate') ||
+            errorMessage.includes('already') ||
+            errorMessage.includes('DuplicateReview')) {
+          console.log('중복 리뷰 에러로 판단됨')
+          throw new Error('DUPLICATE_REVIEW')
+        }
+        
+        throw new Error(errorMessage)
       }
       
       const review = await response.json()

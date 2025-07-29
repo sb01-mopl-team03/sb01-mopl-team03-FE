@@ -502,8 +502,8 @@ export function Curation({ onContentPlay, onContentDetail, onAddToPlaylist, user
                         {/* Rating and Year */}
                         <div className="flex items-center gap-3 mb-2">
                           <div className="flex items-center gap-1">
-                            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                            <span className="text-sm">{item.rating}</span>
+                            <Star className={`w-4 h-4 ${item.rating > 0 ? 'fill-yellow-400 text-yellow-400' : 'text-white/40'}`} />
+                            <span className="text-sm">{item.rating.toFixed(2)}</span>
                           </div>
                           <div className="flex items-center gap-1 text-white/60">
                             <MessageSquare className="w-3 h-3" />
