@@ -3,7 +3,6 @@ import { ArrowLeft, Users, Heart, PlayCircle, UserPlus, UserMinus } from 'lucide
 import { Button } from './ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
-import { useNavigate } from 'react-router-dom'
 
 // API 응답 타입 정의
 interface UserResponse {
