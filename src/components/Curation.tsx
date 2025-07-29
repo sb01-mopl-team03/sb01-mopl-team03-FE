@@ -458,9 +458,7 @@ export function Curation({ onContentPlay, onContentDetail, onAddToPlaylist, user
                       
                       {/* Content Info */}
                       <div className="p-4">
-                        <h3 className="font-medium mb-2 line-clamp-1">{item.title}</h3>
-                        <p className="text-sm text-white/60 mb-2">{item.duration}</p>
-                        
+                        <h3 className="font-medium mb-2 line-clamp-1">{item.title}</h3>                        
                         {/* Rating and Year */}
                         <div className="flex items-center gap-3 mb-2">
                           <div className="flex items-center gap-1">
