@@ -151,6 +151,22 @@ export const useDmWebSocket = ({ roomId, userId, onMessageReceived, onError }: U
           { 'Authorization': `Bearer ${token}` } 
         );
         
+        // 연결 완료 후 자동으로 룸에 입장
+        console.log('🚪 DM 룸 입장 요청:', {
+          roomId,
+          hasToken: true,
+          tokenPrefix: token.substring(0, 10) + '...'
+        });
+
+        client.publish({
+          destination: `/app/dmRooms/${roomId}/enter`,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({})
+        });
+        
         console.log('✅ DM WebSocket 설정 완료');
       },
       onDisconnect: () => {
@@ -222,7 +238,109 @@ export const useDmWebSocket = ({ roomId, userId, onMessageReceived, onError }: U
     client.activate();
   }, [roomId, userId, onMessageReceived, onError, reconnectAttempts, connectionStatus]);
 
+  const enterRoom = useCallback(() => {
+    const token = getAuthToken();
+    
+    if (!token) {
+      console.error('❌ 룸 입장 실패: 액세스 토큰이 없습니다.');
+      onError?.('인증이 만료되었습니다. 다시 로그인해주세요.');
+      return;
+    }
+
+    if (!clientRef.current?.connected) {
+      console.error('❌ 룸 입장 실패: WebSocket에 연결되지 않았습니다.');
+      return;
+    }
+
+    if (!roomId) {
+      console.error('❌ 룸 입장 실패: roomId가 없습니다.');
+      return;
+    }
+
+    // UUID 형식 검증
+    if (!isValidUUID(roomId)) {
+      console.error('❌ 룸 입장 실패: 유효하지 않은 UUID 형식:', { roomId });
+      return;
+    }
+
+    console.log('🚪 DM 룸 입장 요청:', {
+      roomId,
+      hasToken: true,
+      tokenPrefix: token.substring(0, 10) + '...'
+    });
+
+    clientRef.current.publish({
+      destination: `/app/dmRooms/${roomId}/enter`,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({})
+    });
+  }, [roomId, onError]);
+
+  const exitRoom = useCallback(() => {
+    const token = getAuthToken();
+    
+    if (!token) {
+      console.error('❌ 룸 퇴장 실패: 액세스 토큰이 없습니다.');
+      return;
+    }
+
+    if (!clientRef.current?.connected) {
+      console.error('❌ 룸 퇴장 실패: WebSocket에 연결되지 않았습니다.');
+      return;
+    }
+
+    if (!roomId) {
+      console.error('❌ 룸 퇴장 실패: roomId가 없습니다.');
+      return;
+    }
+
+    // UUID 형식 검증
+    if (!isValidUUID(roomId)) {
+      console.error('❌ 룸 퇴장 실패: 유효하지 않은 UUID 형식:', { roomId });
+      return;
+    }
+
+    console.log('🚪 DM 룸 퇴장 요청:', {
+      roomId,
+      hasToken: true,
+      tokenPrefix: token.substring(0, 10) + '...'
+    });
+
+    clientRef.current.publish({
+      destination: `/app/dmRooms/${roomId}/exit`,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({})
+    });
+  }, [roomId]);
+
   const disconnect = useCallback(() => {
+    // 연결 종료 전에 룸에서 퇴장
+    if (clientRef.current?.connected && roomId) {
+      const token = getAuthToken();
+      if (token && isValidUUID(roomId)) {
+        console.log('🚪 DM 룸 퇴장 요청:', {
+          roomId,
+          hasToken: true,
+          tokenPrefix: token.substring(0, 10) + '...'
+        });
+
+        clientRef.current.publish({
+          destination: `/app/dmRooms/${roomId}/exit`,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({})
+        });
+      }
+    }
+    
     if (clientRef.current) {
       clientRef.current.deactivate();
       clientRef.current = null;
@@ -236,7 +354,7 @@ export const useDmWebSocket = ({ roomId, userId, onMessageReceived, onError }: U
     setIsConnected(false);
     setConnectionStatus('disconnected');
     setReconnectAttempts(0);
-  }, []);
+  }, [roomId]);
 
   const sendMessage = useCallback((content: string) => {
     const token = getAuthToken(); // 전송 시점의 최신 토큰 가져오기
@@ -355,6 +473,8 @@ export const useDmWebSocket = ({ roomId, userId, onMessageReceived, onError }: U
     connectionStatus,
     connect,
     disconnect,
+    enterRoom,
+    exitRoom,
     sendMessage,
     reconnectAttempts,
     connectionAttempts

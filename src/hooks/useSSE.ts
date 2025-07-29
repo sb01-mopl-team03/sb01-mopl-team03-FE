@@ -26,7 +26,7 @@ export interface UseSSEReturn {
 export const useSSE = (options: UseSSEOptions): UseSSEReturn => {
   const {
     userId,
-    apiBaseUrl = 'http://localhost:8080',
+    apiBaseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080',
     maxReconnectAttempts = 5,
     onNotification,
     onAuthRequired,
