@@ -613,7 +613,6 @@ export default function App() {
       if (!contentIds || contentIds.length === 0) {
         throw new Error('삭제할 콘텐츠를 선택해주세요.')
       }
-
       const deleteContentsRequest = {
         contentIds: contentIds
       }
@@ -726,6 +725,7 @@ export default function App() {
   const [showDMList, setShowDMList] = useState(false)
   const [showChatRoom, setShowChatRoom] = useState(false)
   const [currentChatUser, setCurrentChatUser] = useState<ChatUser | null>(null)
+  const [dmRefreshTrigger, setDmRefreshTrigger] = useState(0)
   
   // Watch Party State
   const [showWatchPartyConfirmation, setShowWatchPartyConfirmation] = useState(false)
@@ -1477,6 +1477,16 @@ export default function App() {
     }
   }
 
+  const handleDMReceived = () => {
+    console.log('App.tsx - handleDMReceived 호출됨')
+    console.log('📬 DM 수신 감지 - DM 방 목록 갱신 트리거')
+    setDmRefreshTrigger(prev => {
+      const newValue = prev + 1
+      console.log(`dmRefreshTrigger 업데이트: ${prev} -> ${newValue}`)
+      return newValue
+    })
+  }
+
   console.log('✅ isLoggedIn:', isLoggedIn)
   console.log('📍 pathname:', pathname)
   console.log('🔎 searchParams:', searchParams.toString())
@@ -1673,6 +1683,7 @@ export default function App() {
         deleteAllNotifications={deleteAllNotifications} // 모든 알림 삭제 함수 전달
         refreshAccessToken={refreshAccessToken} // 토큰 갱신 함수 (SSE용)
         isSharedAccess={isSharedAccess} // 공유 링크 접근 여부 전달
+        onDMReceived={handleDMReceived} // DM 수신 시 채팅방 목록 갱신 콜백
       />
       
       {/* Main content with click handler to close DM */}
@@ -1704,6 +1715,7 @@ export default function App() {
             currentUserId={userId}
             getDmRooms={getDmRooms}
             getOrCreateDmRoom={getOrCreateDmRoom}
+            refreshTrigger={dmRefreshTrigger}
           />
 
           <ChatRoom
@@ -1713,6 +1725,7 @@ export default function App() {
             user={currentChatUser}
             currentUserId={userId}
             getDmMessages={getDmMessages}
+            refreshTrigger={dmRefreshTrigger} // 이 속성 추가
           />
         </>
       )}
