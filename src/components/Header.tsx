@@ -122,15 +122,17 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
     const getTypeFromNotificationType = (type: string) => {
       switch (type.toLowerCase()) {
         case 'dm_received':
+          return '새로운 DM 알림'
         case 'new_dm_room':
-          return 'message'
+          return '새로운 DM 방 알림'
         case 'followed':
-          return 'follow'
+          return '팔로우'
         case 'playlist_subscribed':
+          return '플레이리스트 구독'
         case 'following_posted_playlist':
-          return 'like'
+          return '플레이리스트 업데이트'
         default:
-          return 'notification'
+          return '알림'
       }
     }
 
