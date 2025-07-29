@@ -53,7 +53,7 @@ export interface CursorPageResponseDtoContentDto {
 export interface ContentSearchOptions {
   query?: string
   type?: 'MOVIE' | 'TV' | 'SPORTS'
-  sortBy?: string
+  sortBy?: 'TITLE' | 'RELEASE_AT' | 'AVG_RATING'
   direction?: 'ASC' | 'DESC'
   cursor?: string
   size?: number
