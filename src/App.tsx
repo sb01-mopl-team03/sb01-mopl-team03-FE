@@ -1624,6 +1624,7 @@ export default function App() {
             onBack={handleBackFromUserProfile}
             authenticatedFetch={authenticatedFetch}
             onUserProfileOpen={handleUserProfileOpen}
+            onPlaylistOpen={handlePlaylistDetailOpen}
           />
         ) : (
           // 공유 접근시에는 Dashboard 대신 에러 메시지 표시
