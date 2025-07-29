@@ -1068,7 +1068,8 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
             </AlertDialogTitle>
             <AlertDialogDescription className="text-white/70">
               {isHost 
-                ? "방장이 나가면 시청방이 삭제됩니다. 정말로 나가시겠습니까?"
+                ? participants.length>= 2 ? "방장 권한이 양도됩니다. 정말로 나가시겠습니까?"
+                : "방장이 나가면 시청방이 삭제됩니다. 정말로 나가시겠습니까?"
                 : "시청방에서 나가시겠습니까?"
               }
             </AlertDialogDescription>
