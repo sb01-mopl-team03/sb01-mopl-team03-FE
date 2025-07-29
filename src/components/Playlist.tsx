@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Play, MoreVertical, Plus, Search, Clock, Calendar, Palette, Heart } from 'lucide-react'
+import { Play, Plus, Search, Clock, Calendar, Palette, Heart } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { ImageWithFallback } from './figma/ImageWithFallback'
@@ -42,6 +42,7 @@ interface PlaylistProps {
   createPlaylist: (request: { name: string; description?: string; isPublic?: boolean }) => Promise<PlaylistItem>
   subscribePlaylist?: (playlistId: string) => Promise<void>
   unsubscribePlaylist?: (subscriptionId: string) => Promise<void>
+  deletePlaylist?: (playlistId: string) => Promise<void>
   currentUserId?: string
   onUserProfileOpen?: (userId: string) => void
 }
@@ -394,15 +395,6 @@ export function Playlist({
                       </Button>
                     )}
 
-                    {/* More Options */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute top-3 left-3 p-2 bg-black/50 hover:bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
                   </div>
 
                   {/* Content */}
