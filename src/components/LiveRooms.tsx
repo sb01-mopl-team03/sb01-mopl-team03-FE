@@ -6,6 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { WatchRoomDto } from '../types/watchRoom'
 import { watchRoomService } from '../services/watchRoomService'
 
+type SortOption = 
+  | 'participants_desc'    // 시청자 많은 순
+  | 'participants_asc'     // 시청자 적은 순  
+  | 'latest'              // 최신순 (createdAt desc)
+  | 'oldest'              // 오래된 순 (createdAt asc)
+  | 'title_asc'           // 제목 오름차순
+  | 'title_desc'          // 제목 내림차순
+
 interface LiveRoomsProps {
   onJoinRoom?: (room: WatchRoomDto) => void
   onCreateRoom?: () => void
@@ -14,18 +22,30 @@ interface LiveRoomsProps {
 
 export function LiveRooms({ onJoinRoom, onCreateRoom, currentUserId }: LiveRoomsProps) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [sortBy, setSortBy] = useState<'participants' | 'latest' | 'oldest'>('participants')
+  const [sortBy, setSortBy] = useState<SortOption>('participants_desc')
   const [rooms, setRooms] = useState<WatchRoomDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   // 추가: 참여 중인 방 id 상태
   const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null)
-  const [direction, setDirection] = useState<'asc' | 'desc'>('desc')
   const [cursor, setCursor] = useState<string | null>(null)
   const [hasNext, setHasNext] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [totalElements, setTotalElements] = useState(0)
+
+  // 정렬 옵션에 따른 sortBy와 direction 반환
+  const getSortParams = (sortOption: SortOption) => {
+    switch (sortOption) {
+      case 'participants_desc': return { sortBy: 'participantCount', direction: 'desc' as const }
+      case 'participants_asc': return { sortBy: 'participantCount', direction: 'asc' as const }
+      case 'latest': return { sortBy: 'createdAt', direction: 'desc' as const }
+      case 'oldest': return { sortBy: 'createdAt', direction: 'asc' as const }
+      case 'title_asc': return { sortBy: 'title', direction: 'asc' as const }
+      case 'title_desc': return { sortBy: 'title', direction: 'desc' as const }
+      default: return { sortBy: 'participantCount', direction: 'desc' as const }
+    }
+  }
 
   // 시청방 목록 로드 (초기 로드 또는 무한 스크롤)
   const loadRooms = async (isInitialLoad = true, isLoadMore = false) => {
@@ -40,10 +60,12 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, currentUserId }: LiveRooms
       }
       setError(null)
       
+      const { sortBy: apiSortBy, direction: apiDirection } = getSortParams(sortBy)
+      
       const roomsData = await watchRoomService.getWatchRooms({
         query: searchQuery,
-        sortBy: sortBy === 'participants' ? 'participantCount' : sortBy === 'latest' ? 'createdAt' : 'createdAt',
-        direction: direction == 'asc'? 'asc' :'desc',
+        sortBy: apiSortBy,
+        direction: apiDirection,
         cursor: isInitialLoad ? null : cursor,
         size: 20,
       })
@@ -89,7 +111,7 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, currentUserId }: LiveRooms
     }, 300) // 300ms 디바운스
     
     return () => clearTimeout(timeoutId)
-  }, [searchQuery, sortBy, direction])
+  }, [searchQuery, sortBy])
 
   // 초기 로드
   useEffect(() => {
@@ -197,14 +219,17 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, currentUserId }: LiveRooms
             </div>
             
             <div className="flex gap-3">
-              <Select value={sortBy} onValueChange={(value) => setSortBy(value as 'participants' | 'latest' | 'oldest')}>
-                <SelectTrigger className="w-40 bg-white/5 border-white/20">
+              <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
+                <SelectTrigger className="w-48 bg-white/5 border-white/20">
                   <SelectValue placeholder="정렬" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="participants">시청자 많은 순</SelectItem>
+                  <SelectItem value="participants_desc">시청자 많은 순</SelectItem>
+                  <SelectItem value="participants_asc">시청자 적은 순</SelectItem>
                   <SelectItem value="latest">최신순</SelectItem>
                   <SelectItem value="oldest">오래된 순</SelectItem>
+                  <SelectItem value="title_asc">제목 오름차순</SelectItem>
+                  <SelectItem value="title_desc">제목 내림차순</SelectItem>
                 </SelectContent>
               </Select>
             </div>
