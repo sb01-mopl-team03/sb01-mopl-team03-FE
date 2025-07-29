@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ChevronLeft, ChevronRight, Play, X, Plus, Check, Target, Users, TrendingUp, Star, Eye, MessageSquare } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Play, X, Plus, Check, Target, Star, Eye } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Badge } from './ui/badge'
@@ -17,14 +17,9 @@ interface ContentItem {
   title: string
   thumbnail: string
   type: 'movie' | 'tv' | 'sports'
-  duration?: string
   description: string
   rating: number
   year: number
-  genres: string[]
-  displayGenres: string[]
-  viewerCount: number
-  reviewCount?: number
   icon?: string
 }
 
@@ -42,14 +37,9 @@ const convertContentDtoToItem = (dto: ContentDto): ContentItem => {
     title: dto.title,
     thumbnail: dto.thumbnailUrl || `https://via.placeholder.com/300x400/1a1a1a/ffffff?text=${encodeURIComponent(dto.title)}`,
     type: dto.contentType.toLowerCase() as 'movie' | 'tv' | 'sports',
-    duration: '2시간 30분',
     description: dto.description,
-    rating: Math.floor(Math.random() * 50) / 10 + 5,
+    rating: dto.avgRating !== undefined ? dto.avgRating : 0,
     year: new Date(dto.releaseDate).getFullYear(),
-    genres: ['액션', '드라마'],
-    displayGenres: ['액션', '드라마'],
-    viewerCount: Math.floor(Math.random() * 10000) + 1000,
-    reviewCount: Math.floor(Math.random() * 500) + 50
   }
 }
 
@@ -59,7 +49,6 @@ interface CurationSection {
   items: ContentItem[]
   category: string
 }
-
 
 
 // 기본 키워드 목록 (제거)
@@ -244,13 +233,6 @@ export function Curation({ onContentPlay, onContentDetail, onAddToPlaylist, user
     }
   }
 
-  const formatViewerCount = (count: number) => {
-    if (count >= 10000) {
-      return `${Math.floor(count / 1000)}K`
-    }
-    return count.toLocaleString()
-  }
-
   const handleAddToPlaylist = (item: ContentItem) => {
     onAddToPlaylist?.(item)
     console.log(`Opening playlist modal for: ${item.title}`)
@@ -383,10 +365,6 @@ export function Curation({ onContentPlay, onContentDetail, onAddToPlaylist, user
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl flex items-center gap-2">
                     {section.title}
-                    <Badge variant="outline" className="border-[#4ecdc4]/30 text-[#4ecdc4]">
-                      <Users className="w-3 h-3 mr-1" />
-                      인기순
-                    </Badge>
                   </h2>
                   
                   {/* Scroll Controls */}
@@ -475,22 +453,6 @@ export function Curation({ onContentPlay, onContentDetail, onAddToPlaylist, user
                               상세
                             </Button>
                           )}
-                          
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleAddToPlaylist(item)}
-                            className="border-white/20 hover:bg-white/10"
-                            title="플레이리스트에 추가"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </Button>
-                        </div>
-
-                        {/* Viewer Count */}
-                        <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm rounded px-2 py-1 flex items-center gap-1">
-                          <TrendingUp className="w-3 h-3 text-[#4ecdc4]" />
-                          <span className="text-xs">{formatViewerCount(item.viewerCount)}</span>
                         </div>
                       </div>
                       
@@ -505,20 +467,8 @@ export function Curation({ onContentPlay, onContentDetail, onAddToPlaylist, user
                             <Star className={`w-4 h-4 ${item.rating > 0 ? 'fill-yellow-400 text-yellow-400' : 'text-white/40'}`} />
                             <span className="text-sm">{item.rating.toFixed(2)}</span>
                           </div>
-                          <div className="flex items-center gap-1 text-white/60">
-                            <MessageSquare className="w-3 h-3" />
-                            <span className="text-xs">{item.reviewCount}</span>
-                          </div>
                         </div>
-                        
-                        <div className="flex flex-wrap gap-1 mb-3">
-                          {item.displayGenres.slice(0, 2).map(genre => (
-                            <Badge key={genre} variant="outline" className="text-xs border-white/20 text-white/60">
-                              {genre}
-                            </Badge>
-                          ))}
-                        </div>
-                        
+
                         <p className="text-xs text-white/40 line-clamp-2 mb-3">{item.description}</p>
                         
                         {/* Action buttons for mobile */}
