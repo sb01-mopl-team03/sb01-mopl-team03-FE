@@ -254,7 +254,7 @@ export function Playlist({
               placeholder="플레이리스트 검색..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-14 h-12 px-4 text-base bg-white/5 border-white/20 focus:border-[#4ecdc4]"
+              className="pl-14 h-12 bg-white/5 border-white/20 focus:border-[#4ecdc4]"
             />
           </div>
 
