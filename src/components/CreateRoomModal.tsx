@@ -4,7 +4,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 import { Input } from './ui/input'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { WatchRoomCreateRequest, WatchRoomDto } from '../types/watchRoom'
 import { watchRoomService } from '../services/watchRoomService'
 import { ContentDto } from '../types/content'
@@ -21,7 +20,6 @@ interface CreateRoomModalProps {
 
 export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: CreateRoomModalProps) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterType, setFilterType] = useState('all')
   const [selectedContent, setSelectedContent] = useState<ContentDto | null>(null)
   const [roomTitle, setRoomTitle] = useState('')
   const [step, setStep] = useState<'select' | 'create'>('select')
@@ -44,7 +42,6 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: Creat
       setError(null)
       
       const response = await contentService.getContents({
-        type: filterType === 'all' ? undefined : filterType.toUpperCase() as 'MOVIE' | 'TV' | 'SPORTS',
         query: searchQuery || undefined,
         cursor: isLoadMore ? nextCursor : undefined,
         size: 20
@@ -83,7 +80,7 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: Creat
     }, 300)
     
     return () => clearTimeout(timeoutId)
-  }, [searchQuery, filterType, isOpen])
+  }, [searchQuery, isOpen])
   
   // 더 보기 핸들러
   const handleLoadMore = () => {
@@ -137,7 +134,6 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: Creat
 
   const handleClose = () => {
     setSearchQuery('')
-    setFilterType('all')
     setSelectedContent(null)
     setRoomTitle('')
     setStep('select')
@@ -193,18 +189,6 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: Creat
                     className="pl-10 bg-white/5 border-white/20 focus:border-[#4ecdc4]"
                   />
                 </div>
-                
-                <Select value={filterType} onValueChange={setFilterType}>
-                  <SelectTrigger className="w-40 bg-white/5 border-white/20">
-                    <SelectValue placeholder="카테고리" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">전체</SelectItem>
-                    <SelectItem value="movie">영화</SelectItem>
-                    <SelectItem value="tv">TV/드라마</SelectItem>
-                    <SelectItem value="sports">스포츠</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
 
               {/* Loading State */}
@@ -320,7 +304,6 @@ export function CreateRoomModal({ isOpen, onClose, onCreateRoom, userId }: Creat
                     variant="outline"
                     onClick={() => {
                       setSearchQuery('')
-                      setFilterType('all')
                     }}
                     className="border-white/20 hover:bg-white/5"
                   >
