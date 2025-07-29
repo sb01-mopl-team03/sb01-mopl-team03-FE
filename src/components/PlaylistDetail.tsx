@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { ArrowLeft, Play, Shuffle, MoreVertical, Share, Heart, Clock, Calendar, X, Search, Plus } from 'lucide-react'
+import { ArrowLeft, Play, MoreVertical, Share, Heart, Clock, Calendar, X, Search, Plus } from 'lucide-react'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
@@ -199,6 +199,12 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
   }
 
   const handleRemoveContent = (contentId: string) => {
+    // Check if current user is the owner of the playlist
+    if (currentUserId !== playlist.userId) {
+      alert('플레이리스트 소유자만 콘텐츠를 삭제할 수 있습니다.')
+      return
+    }
+    
     // ========== API INTEGRATION POINT - START ==========
     // TODO: Replace with actual API call to remove content from playlist
     // Example: await removeContentFromPlaylist(playlistId, contentId)
@@ -234,17 +240,13 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
     alert(`"${playlist.name}" 전체 재생을 시작합니다.`)
   }
 
-  const handleShuffle = () => {
-    // ========== API INTEGRATION POINT - START ==========
-    // TODO: Replace with actual API call to shuffle play playlist
-    // Example: await shufflePlaylist(playlistId)
-    console.log(`Shuffling playlist: ${playlist.name}`)
-    // ========== API INTEGRATION POINT - END ==========
-
-    alert(`"${playlist.name}" 셔플 재생을 시작합니다.`)
-  }
 
   const handleAddContent = () => {
+    // Check if current user is the owner of the playlist
+    if (currentUserId !== playlist.userId) {
+      alert('플레이리스트 소유자만 콘텐츠를 추가할 수 있습니다.')
+      return
+    }
     setShowAddContentModal(true)
     loadAvailableContents()
   }
@@ -305,6 +307,12 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
   }
 
   const handleBulkDelete = async () => {
+    // Check if current user is the owner of the playlist
+    if (currentUserId !== playlist.userId) {
+      alert('플레이리스트 소유자만 콘텐츠를 삭제할 수 있습니다.')
+      return
+    }
+    
     if (selectedContentForDelete.length === 0) {
       alert('삭제할 콘텐츠를 선택해주세요.')
       return
@@ -434,38 +442,34 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
                   재생
                 </Button>
                 
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={handleShuffle}
-                  className="border-white/20 hover:bg-white/10"
-                >
-                  <Shuffle className="w-5 h-5 mr-2" />
-                  셔플
-                </Button>
 
                 {/* 로그인한 사용자만 보이는 기능들 */}
                 {currentUserId ? (
                   <>
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      onClick={handleAddContent}
-                      className="border-white/20 hover:bg-white/10"
-                    >
-                      <Plus className="w-5 h-5 mr-2" />
-                      콘텐츠 추가
-                    </Button>
+                    {/* 플레이리스트 소유자만 콘텐츠 관리 가능 */}
+                    {currentUserId === playlist.userId ? (
+                      <>
+                        <Button
+                          size="lg"
+                          variant="outline"
+                          onClick={handleAddContent}
+                          className="border-white/20 hover:bg-white/10"
+                        >
+                          <Plus className="w-5 h-5 mr-2" />
+                          콘텐츠 추가
+                        </Button>
 
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      onClick={toggleMultiSelectMode}
-                      className={`border-white/20 hover:bg-white/10 ${isMultiSelectMode ? 'bg-white/10' : ''}`}
-                    >
-                      <X className="w-5 h-5 mr-2" />
-                      {isMultiSelectMode ? '선택 취소' : '다중 선택'}
-                    </Button>
+                        <Button
+                          size="lg"
+                          variant="outline"
+                          onClick={toggleMultiSelectMode}
+                          className={`border-white/20 hover:bg-white/10 ${isMultiSelectMode ? 'bg-white/10' : ''}`}
+                        >
+                          <X className="w-5 h-5 mr-2" />
+                          {isMultiSelectMode ? '선택 취소' : '다중 선택'}
+                        </Button>
+                      </>
+                    ) : null}
                   </>
                 ) : (
                   <Button
@@ -637,7 +641,7 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
 
                   {/* Actions */}
                   <div className="col-span-1">
-                    {currentUserId && (
+                    {currentUserId === playlist.userId && (
                       <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button
                           variant="ghost"
@@ -659,13 +663,15 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
           {contents.length === 0 && (
             <div className="p-12 text-center">
               <p className="text-white/60 mb-4">이 플레이리스트에는 콘텐츠가 없습니다</p>
-              <Button 
-                variant="outline" 
-                className="border-white/20 hover:bg-white/5"
-                onClick={handleAddContent}
-              >
-                콘텐츠 추가하기
-              </Button>
+              {currentUserId === playlist.userId && (
+                <Button 
+                  variant="outline" 
+                  className="border-white/20 hover:bg-white/5"
+                  onClick={handleAddContent}
+                >
+                  콘텐츠 추가하기
+                </Button>
+              )}
             </div>
           )}
         </div>
