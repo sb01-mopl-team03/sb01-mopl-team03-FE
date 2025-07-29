@@ -528,7 +528,6 @@ export default function App() {
         description: request.description || '',
         isPublic: request.isPublic ?? true
       }
-
       console.log('🚀 플레이리스트 생성 요청:', playlistCreateRequest)
       
       const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/playlists`, {
@@ -860,6 +859,7 @@ export default function App() {
     const userId = extractUserIdFromToken(accessToken)
     if (userId) {
       setUserId(userId)
+      setIsLoggedIn(true)
     } else {
       // 토큰 파싱 실패 시 로그아웃 처리
       localStorage.removeItem('accessToken')
