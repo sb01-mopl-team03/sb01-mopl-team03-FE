@@ -159,7 +159,7 @@ export class WatchRoomService {
         },
         participantsInfoDto: {
           participantDtoList: [],
-          participantCount: 0
+          participantCount: room.headCount  // API의 headCount를 직접 사용
         }
       }
     } catch (error) {
