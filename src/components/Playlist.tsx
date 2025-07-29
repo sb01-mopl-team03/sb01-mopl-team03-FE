@@ -107,14 +107,6 @@ export function Playlist({
   // 검색은 서버에서 처리하므로 클라이언트 필터링 제거
   const filteredPlaylists = playlists
 
-  const handlePlayPlaylist = (playlistId: string) => {
-    // ========== API INTEGRATION POINT - START ==========
-    // TODO: Replace with actual API call to start playlist
-    // Example: await startPlaylist(playlistId)
-    console.log(`Starting playlist with ID: ${playlistId}`)
-    // ========== API INTEGRATION POINT - END ==========
-  }
-
   const handleCreatePlaylist = () => {
     setShowCreationModal(true)
   }
@@ -341,31 +333,6 @@ export function Playlist({
                   <div className="relative aspect-video">
                     {renderPlaylistThumbnail(playlist)}
                     
-                    {/* Play Button Overlay */}
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Button
-                        size="lg"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handlePlayPlaylist(playlist.id)
-                        }}
-                        className="rounded-full w-16 h-16 teal-gradient hover:opacity-80 text-black"
-                      >
-                        <Play className="w-8 h-8 fill-current" />
-                      </Button>
-                    </div>
-
-                    {/* Privacy Badge */}
-                    <div className="absolute top-3 right-3">
-                      <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        playlist.isPublic 
-                          ? 'bg-black/20 text-black/50' 
-                          : 'bg-gray-500/20 text-gray-400'
-                      }`}>
-                        {playlist.isPublic ? '공개' : '비공개'}
-                      </div>
-                    </div>
-
                     {/* Subscribe Button - only show for other users' playlists */}
                     {playlist.userId && playlist.userId !== currentUserId && isValidUUID(playlist.userId) && 
                      subscribePlaylist && unsubscribePlaylist && (
@@ -405,28 +372,36 @@ export function Playlist({
                       </span>
                     </div>
 
-                    {/* User Info - show for other users' playlists */}
-                    {playlist.userId && playlist.userId !== currentUserId && isValidUUID(playlist.userId) && (
+                    {/* User Info - always show if userId is valid */}
+                    {playlist.userId && isValidUUID(playlist.userId) && (
                       <div className="mb-3 pb-3 border-b border-white/10">
                         <div 
                           className={`flex items-center space-x-2 transition-colors ${
-                            currentUserId 
+                            currentUserId && playlist.userId !== currentUserId // 본인 플레이리스트는 커서 및 호버 효과 없음
                               ? 'cursor-pointer hover:text-[#4ecdc4]' 
                               : 'cursor-default text-white/60'
                           }`}
                           onClick={(e) => {
                             e.stopPropagation()
-                            if (currentUserId) {
-                              onUserProfileOpen?.(playlist.userId!)
-                            } else {
+                            // Only navigate to user profile if it's not the current user's profile
+                            // And onUserProfileOpen is provided
+                            if (onUserProfileOpen && playlist.userId !== currentUserId) {
+                              onUserProfileOpen(playlist.userId)
+                            } else if (!currentUserId) {
                               alert('로그인이 필요한 기능입니다. 로그인 후 이용해주세요.')
                             }
                           }}
                         >
-                          <div className="w-6 h-6 rounded-full bg-[#4ecdc4] flex items-center justify-center text-black text-xs font-medium">
-                            {playlist.username ? playlist.username.charAt(0).toUpperCase() : '?'}
-                          </div>
-                          <span className="text-sm">{playlist.username || '플레이리스트 작성자'}</span>
+                          {/* 본인 플레이리스트의 경우 원형 배경을 렌더링하지 않음 */}
+                          {playlist.userId !== currentUserId && playlist.username && (
+                            <div className="w-6 h-6 rounded-full bg-[#4ecdc4] flex items-center justify-center text-black text-xs font-medium">
+                              {playlist.username.charAt(0).toUpperCase()} 
+                            </div>
+                          )}
+                          <span className="text-sm">
+                            {playlist.userId === currentUserId ? '' : playlist.username || '알 수 없는 작성자'} {/* 본인 플레이리스트의 사용자 이름 빈칸 */}
+                            {playlist.userId === currentUserId && "ㅤ"}
+                          </span>
                         </div>
                       </div>
                     )}

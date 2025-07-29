@@ -368,6 +368,16 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
                       <div className="text-xs opacity-40 mt-1">플레이리스트</div>
                     </div>
                   </div>
+
+                  {/* Privacy Badge */}
+                  {!playlist.isPublic && ( // isPublic이 false일 때만 렌더링
+                    <div className="absolute top-3 right-3"> {/* 위치 지정 */}
+                        <div className="px-2 py-1 rounded-full text-xs font-medium bg-black/20 text-black/50">
+                            비공개
+                        </div>
+                    </div>
+                  )}
+
                   <div className="p-4">
                     <h3 className="font-semibold mb-2">{playlist.name || playlist.title}</h3>
                     <p className="text-white/60 text-sm mb-2">{playlist.description}</p>
