@@ -44,7 +44,7 @@ const convertContentDtoToItem = (dto: ContentDto): ContentItem => {
     type: dto.contentType.toLowerCase() as 'movie' | 'tv' | 'sports',
     duration: '2시간 30분',
     description: dto.description,
-    rating: dto.avgRating || Math.floor(Math.random() * 50) / 10 + 5,
+    rating: Math.floor(Math.random() * 50) / 10 + 5,
     year: new Date(dto.releaseDate).getFullYear(),
     genres: ['액션', '드라마'],
     displayGenres: ['액션', '드라마'],
