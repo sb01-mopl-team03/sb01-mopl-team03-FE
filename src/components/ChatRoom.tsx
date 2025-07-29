@@ -1,5 +1,5 @@
 // ChatRoom.tsx
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { ArrowLeft, Send, Image, Smile, X } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -33,20 +33,23 @@ interface ChatRoomProps {
   user: ChatUser | null
   currentUserId: string | null
   getDmMessages: (roomId: string, pagingDto?: DmPagingDto) => Promise<CursorPageResponseDto<DmDto>>
-  refreshTrigger?: number // 이 속성 추가
+  refreshTrigger?: number
 }
-
 
 export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMessages, refreshTrigger }: ChatRoomProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [isTyping] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [authError, setAuthError] = useState<string | null>(null) // 인증 에러 전용 상태
+  const [authError, setAuthError] = useState<string | null>(null)
+  const [hasMore, setHasMore] = useState(true)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null) 
-  
+  const inputRef = useRef<HTMLInputElement>(null)
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const previousScrollHeight = useRef<number>(0)
   
   // WebSocket connection  
   const { isConnected, sendMessage, enterRoom: _enterRoom, exitRoom: _exitRoom } = useDmWebSocket({
@@ -88,12 +91,13 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
     }
   })
 
-  // Auto scroll to bottom when new messages arrive
+  // Auto scroll to bottom when new messages arrive (only for new messages, not loaded ones)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    if (!loadingMore) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages.length, loadingMore])
 
-  
   // Focus input when chat opens
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -104,7 +108,7 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
   // Load messages when room changes
   useEffect(() => {
     if (user?.roomId) {
-      loadMessages()
+      resetAndLoadMessages()
     }
   }, [user?.roomId])
 
@@ -112,11 +116,9 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
   useEffect(() => {
     if (isOpen && user && refreshTrigger && refreshTrigger > 0) {
       console.log('🔄 채팅방 메시지 갱신 트리거 감지:', refreshTrigger)
-      loadMessages()
+      resetAndLoadMessages()
     }
   }, [refreshTrigger, isOpen, user])
-
-  // useDmWebSocket 내부 로직에만 웹소켓 연결 관리를 위임하여 중복 연결 방지
 
   const formatTimestamp = (dateString: string) => {
     const date = new Date(dateString)
@@ -127,15 +129,46 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
     })
   }
 
-  const loadMessages = async () => {
+  const resetAndLoadMessages = async () => {
+    setMessages([])
+    setNextCursor(null)
+    setHasMore(true)
+    await loadMessages(true)
+  }
+
+  const loadMessages = async (isInitial = false) => {
     if (!user?.roomId) return
     
     try {
-      setLoading(true)
+      if (isInitial) {
+        setLoading(true)
+      } else {
+        setLoadingMore(true)
+      }
       setError(null)
-      const response = await getDmMessages(user.roomId, { size: 50 })
       
-      const messageList: Message[] = response.data
+      // 초기 로딩시에는 50개, 추가 로딩시에도 50개씩
+      const pagingDto: DmPagingDto = { 
+        size: 20,
+        ...(nextCursor && !isInitial && { cursor: nextCursor })
+      }
+      
+      console.log('📊 메시지 로딩 요청:', { 
+        roomId: user.roomId, 
+        isInitial, 
+        cursor: nextCursor,
+        size: pagingDto.size 
+      })
+      
+      const response = await getDmMessages(user.roomId, pagingDto)
+      
+      console.log('📊 메시지 로딩 응답:', { 
+        dataLength: response.data.length,
+        hasNext: response.hasNext,
+        nextCursor: response.nextCursor
+      })
+      
+      const newMessages: Message[] = response.data
         .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
         .map((dm: DmDto) => ({
           id: dm.id,
@@ -147,14 +180,63 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
           isOwnMessage: dm.senderId === currentUserId
         }))
       
-      setMessages(messageList)
+      if (isInitial) {
+        setMessages(newMessages)
+      } else {
+        // 이전 메시지들을 앞에 추가 (중복 체크)
+        setMessages(prev => {
+          const existingIds = new Set(prev.map(msg => msg.id))
+          const uniqueNewMessages = newMessages.filter(msg => !existingIds.has(msg.id))
+          return [...uniqueNewMessages, ...prev]
+        })
+      }
+      
+      // 페이지네이션 정보 업데이트
+      setHasMore(response.hasNext)
+      setNextCursor(response.nextCursor)
+      
     } catch (error) {
       console.error('Error loading messages:', error)
       setError('메시지를 불러올 수 없습니다.')
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
   }
+
+  // 스크롤 이벤트 핸들러 - 디바운스 추가
+  const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    const scrollElement = event.currentTarget
+    const { scrollTop, scrollHeight } = scrollElement
+    
+    // 스크롤이 최상단 근처에 도달했고, 더 불러올 메시지가 있으며, 현재 로딩 중이 아닐 때
+    // scrollTop <= 10으로 약간의 여유를 둠
+    if (scrollTop <= 10 && hasMore && !loadingMore && !loading && messages.length > 0) {
+      console.log('📜 스크롤 최상단 도달, 이전 메시지 로드', {
+        scrollTop,
+        hasMore,
+        loadingMore,
+        loading,
+        messagesCount: messages.length,
+        nextCursor
+      })
+      previousScrollHeight.current = scrollHeight
+      loadMessages(false)
+    }
+  }, [hasMore, loadingMore, loading, messages.length, nextCursor])
+
+  // 이전 메시지 로드 후 스크롤 위치 유지
+  useEffect(() => {
+    if (loadingMore && scrollAreaRef.current) {
+      const scrollElement = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]')
+      if (scrollElement && previousScrollHeight.current > 0) {
+        const newScrollHeight = scrollElement.scrollHeight
+        const scrollDiff = newScrollHeight - previousScrollHeight.current
+        scrollElement.scrollTop = scrollDiff
+        previousScrollHeight.current = 0
+      }
+    }
+  }, [messages, loadingMore])
 
   const handleSendMessage = () => {
     if (!newMessage.trim() || !user || !isConnected) {
@@ -235,7 +317,6 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
             </div>
           </div>
 
-          {/* Only X button */}
           <Button 
             variant="ghost" 
             size="sm" 
@@ -248,8 +329,29 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
 
         {/* Messages - Fixed height with proper scrolling */}
         <div className="flex-1 overflow-hidden">
-          <ScrollArea className="h-full">
+          <ScrollArea 
+            ref={scrollAreaRef}
+            className="h-full" 
+            onScrollCapture={handleScroll}
+          >
             <div className="p-4 space-y-4">
+              {/* 이전 메시지 로딩 인디케이터 */}
+              {loadingMore && (
+                <div className="flex items-center justify-center py-2 text-white/60">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 border-2 border-white/20 border-t-white/60 rounded-full animate-spin"></div>
+                    <span className="text-sm">이전 메시지 불러오는 중...</span>
+                  </div>
+                </div>
+              )}
+
+              {/* 더 이상 불러올 메시지가 없을 때 */}
+              {!hasMore && messages.length > 0 && !loading && (
+                <div className="flex items-center justify-center py-2 text-white/40">
+                  <span className="text-sm">대화의 시작입니다</span>
+                </div>
+              )}
+
               {loading && (
                 <div className="flex items-center justify-center h-32 text-white/60">
                   메시지를 불러오는 중...
@@ -267,7 +369,6 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
                     <Button 
                       onClick={() => {
                         setAuthError(null);
-                        // useDmWebSocket이 자동으로 연결 관리하므로 에러만 클리어
                       }}
                       size="sm"
                       className="bg-orange-500 hover:bg-orange-600 text-white"
@@ -277,11 +378,12 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
                   </div>
                 </div>
               )}
-              {!loading && !error && !authError && messages.length === 0 && (
+              {!loading && !error && !authError && messages.length === 0 && !loadingMore && (
                 <div className="flex items-center justify-center h-32 text-white/60">
                   아직 메시지가 없습니다.
                 </div>
               )}
+              
               {messages.map((message, index) => {
                 const showTime = index === 0 || 
                   messages[index - 1].timestamp !== message.timestamp ||
