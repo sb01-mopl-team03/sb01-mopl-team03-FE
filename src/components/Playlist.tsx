@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Play, Plus, Search, Clock, Calendar, Palette, Heart } from 'lucide-react'
+import { Play, Plus, Search, Clock, Calendar, Heart } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
-import { ImageWithFallback } from './figma/ImageWithFallback'
 import { OverlappingThumbnails } from './OverlappingThumbnails'
 import { PlaylistCreationModal } from './PlaylistCreationModal'
 
@@ -206,26 +205,18 @@ export function Playlist({
   }
 
   const renderPlaylistThumbnail = (playlist: PlaylistItem) => {
-    if (playlist.thumbnail === null) {
-      // Show gradient background when no image
-      return (
-        <div className="w-full h-full teal-gradient flex items-center justify-center">
-          <div className="text-center text-black/80">
-            <Palette className="w-8 h-8 mx-auto mb-2" />
-            <p className="text-sm font-medium">{playlist.name.charAt(0)}</p>
-          </div>
-        </div>
-      )
-    }
-    
+    const defaultColor = '#4ECDC4';
+    const fallbackText = playlist.name;
+
     return (
-      <ImageWithFallback
-        src={playlist.thumbnail}
-        alt={playlist.name}
-        className="w-full h-full object-cover"
-      />
-    )
-  }
+      <div
+        className="w-full h-full flex items-center justify-center text-white text-2xl font-bold"
+        style={{ backgroundColor: defaultColor }}
+      >
+        {fallbackText}
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen p-6">
@@ -368,7 +359,7 @@ export function Playlist({
                     <div className="absolute top-3 right-3">
                       <div className={`px-2 py-1 rounded-full text-xs font-medium ${
                         playlist.isPublic 
-                          ? 'bg-green-500/20 text-green-400' 
+                          ? 'bg-black/20 text-black/50' 
                           : 'bg-gray-500/20 text-gray-400'
                       }`}>
                         {playlist.isPublic ? '공개' : '비공개'}

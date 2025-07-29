@@ -13,13 +13,13 @@ import { ContentDto } from '../types/content'
 interface PlaylistContent {
   id: string
   title: string
-  thumbnail: string
+  thumbnailUrl: string
   type: 'movie' | 'tv' | 'sports'
   genre: string[]
   duration: string
   year: number
   rating: number
-  addedDate: string
+  addedDate: string,
   description: string
 }
 
@@ -86,7 +86,24 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
       }
       
       setPlaylist(playlistData)
-      setContents(playlistData.playlistContents || [])
+      setContents(
+        playlistData.playlistContents.map((content: any) => {
+          console.log("콘텐츠 썸네일: ", content.thumbnailUrl);
+        
+        return {
+          id: content.id,
+          title: content.title,
+          thumbnailUrl: content.thumbnailUrl,
+          type: content.contentType.toLowerCase() as 'movie' | 'tv' | 'sports', // 백엔드 contentType을 소문자로 변환
+          genre: content.genre,
+          duration: content.duration,
+          year: content.year,
+          rating: content.avgRating, // avgRating 사용
+          addedDate: content.addedDate,
+          description: content.description || '',
+        };
+      }) || []
+      );
       
       // Check if current user is subscribed to this playlist
       if (userId && playlistData.subscriptions) {
@@ -220,7 +237,7 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
       onContentPlay({
         id: content.id,
         title: content.title,
-        thumbnail: content.thumbnail,
+        thumbnail: content.thumbnailUrl,
         type: content.type,
         duration: content.duration,
         description: content.description
@@ -387,27 +404,6 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
     }
   }
 
-  const renderPlaylistCover = () => {
-    if (playlist.coverImage === null) {
-      return (
-        <div className="w-full h-full teal-gradient flex items-center justify-center">
-          <div className="text-center text-black/80">
-            <h3 className="text-4xl font-bold mb-2">{playlist.name.charAt(0)}</h3>
-            <p className="text-sm font-medium">플레이리스트</p>
-          </div>
-        </div>
-      )
-    }
-    
-    return (
-      <ImageWithFallback
-        src={playlist.coverImage}
-        alt={playlist.name}
-        className="w-full h-full object-cover"
-      />
-    )
-  }
-
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
@@ -427,21 +423,12 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
           </Button>
 
           {/* Playlist Info */}
-          <div className="flex flex-col lg:flex-row gap-8 items-start lg:items-end">
-            {/* Cover Image */}
-            <div className="w-80 h-80 rounded-2xl overflow-hidden shadow-2xl flex-shrink-0">
-              {renderPlaylistCover()}
-            </div>
+          <div className="pl-4 flex flex-col lg:flex-row gap-8 items-start lg:items-end">
 
             {/* Info */}
-            <div className="flex-1 space-y-4">
-              <Badge variant="secondary" className="bg-white/10 text-white">
-                플레이리스트
-              </Badge>
+            <div className="flex-1 space-y-4 pt-5">
               
-              <h1 className="text-5xl font-bold leading-tight">{playlist.name}</h1>
-              
-              <p className="text-lg text-white/80 max-w-2xl">{playlist.description}</p>
+              <h1 className="text-5xl py-5 font-bold leading-tight">{playlist.name}</h1>
 
               {/* Creator & Stats */}
               <div className="flex items-center space-x-4 text-white/60">
@@ -578,16 +565,15 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
       </div>
 
       {/* Content List */}
-      <div className="container mx-auto px-6 pb-12">
+      <div className="container mx-auto px-9 pb-12">
         <div className="glass-effect rounded-2xl overflow-hidden">
           {/* List Header */}
           <div className="px-6 py-4 border-b border-white/10">
             <div className="grid grid-cols-12 gap-4 text-sm text-white/60 font-medium">
               <div className="col-span-1">#</div>
-              <div className="col-span-9">제목</div>
-              <div className="col-span-1">
-              </div>
-              <div className="col-span-1"></div>
+              <div className="col-span-4">제목</div> {/* Adjusted from col-span-9 to col-span-4 */}
+              <div className="col-span-6">줄거리</div> {/* New column for description */}
+              <div className="col-span-1"></div> {/* For actions */}
             </div>
           </div>
 
@@ -637,11 +623,11 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
                   </div>
 
                   {/* Title & Thumbnail */}
-                  <div className="col-span-9">
+                  <div className="col-span-4"> {/* Adjusted from col-span-9 to col-span-4 */}
                     <div className="flex items-center space-x-4">
                       <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
                         <ImageWithFallback
-                          src={content.thumbnail}
+                          src={content.thumbnailUrl}
                           alt={content.title}
                           className="w-full h-full object-cover"
                         />
@@ -654,8 +640,11 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
                     </div>
                   </div>
 
-                  {/* Duration */}
-                  <div className="col-span-1">
+                  {/* Description */}
+                  <div className="col-span-6 text-white/70 text-sm overflow-hidden">
+                    <p className="line-clamp-2-custom">
+                      {content.description}
+                    </p>
                   </div>
 
                   {/* Actions */}
@@ -745,7 +734,7 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
                   >
                     <div className="flex-shrink-0">
                       <img
-                        src={content.thumbnail || '/placeholder-content.jpg'}
+                        src={content.thumbnailUrl || '/placeholder-content.jpg'}
                         alt={content.title}
                         className="w-12 h-8 object-cover rounded"
                       />
