@@ -23,6 +23,7 @@ import { Button } from './components/ui/button'
 
 import { WatchRoomDto } from './types/watchRoom'
 import { watchRoomService } from './services/watchRoomService'
+import { playlistService } from './services/playlistService'
 import { useLocation, useSearchParams } from 'react-router-dom'
 
 // Window 객체에 headerRefreshUserProfile 함수 추가
@@ -564,7 +565,23 @@ export default function App() {
     }
   }
 
+  // 플레이리스트 삭제 함수
+  const deletePlaylist = async (playlistId: string) => {
+    try {
+      if (!userId) {
+        throw new Error('로그인이 필요합니다.')
+      }
 
+      console.log('🗑️ 플레이리스트 삭제 요청:', playlistId)
+      
+      await playlistService.deletePlaylist(playlistId)
+      
+      console.log('✅ 플레이리스트 삭제 성공:', playlistId)
+    } catch (error) {
+      console.error('❌ 플레이리스트 삭제 실패:', error)
+      throw error
+    }
+  }
 
   // 플레이리스트 콘텐츠 추가 함수
   const addPlaylistContents = async (playlistId: string, contentIds: string[]) => {
@@ -1528,6 +1545,7 @@ export default function App() {
           createPlaylist={createPlaylist}
           subscribePlaylist={subscribePlaylist}
           unsubscribePlaylist={unsubscribePlaylist}
+          deletePlaylist={deletePlaylist}
           currentUserId={userId || undefined}
           onUserProfileOpen={handleUserProfileOpen}
         />
@@ -1545,6 +1563,7 @@ export default function App() {
             getPlaylistById={getPlaylistById}
             addPlaylistContents={addPlaylistContents}
             deletePlaylistContents={deletePlaylistContents}
+            deletePlaylist={deletePlaylist}
             currentUserId={userId || undefined}
             isSharedAccess={isSharedAccess}
           />
@@ -1605,6 +1624,7 @@ export default function App() {
             onBack={handleBackFromUserProfile}
             authenticatedFetch={authenticatedFetch}
             onUserProfileOpen={handleUserProfileOpen}
+            onPlaylistOpen={handlePlaylistDetailOpen}
           />
         ) : (
           // 공유 접근시에는 Dashboard 대신 에러 메시지 표시

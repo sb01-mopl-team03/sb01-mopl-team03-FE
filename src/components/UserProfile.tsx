@@ -20,10 +20,11 @@ interface UserProfileProps {
   onBack: () => void
   authenticatedFetch: (url: string, options?: RequestInit) => Promise<Response>
   onUserProfileOpen?: (targetUserId: string) => void
+  onPlaylistOpen: (playlistId: string) => void 
 }
 
 
-export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch, onUserProfileOpen }: UserProfileProps) {
+export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch, onUserProfileOpen, onPlaylistOpen }: UserProfileProps) {
   
   const [userInfo, setUserInfo] = useState<UserResponse | null>(null)
   const [followers, setFollowers] = useState<UserResponse[]>([])
@@ -356,13 +357,27 @@ export function UserProfile({ userId, currentUserId, onBack, authenticatedFetch,
           <TabsContent value="playlists" className="mt-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {playlists.map((playlist) => (
-                <div key={playlist.id} className="glass-effect rounded-lg overflow-hidden hover:scale-105 transition-transform">
+                <div 
+                key={playlist.id} 
+                className="glass-effect rounded-lg overflow-hidden hover:scale-105 transition-transform"
+                onClick={() =>onPlaylistOpen(playlist.id)} 
+                >
                   <div className="w-full h-40 bg-gradient-to-br from-[#4ecdc4] to-[#44b3a7] flex items-center justify-center">
                     <div className="text-center text-black">
                       <div className="text-lg font-bold opacity-60">MOPL</div>
                       <div className="text-xs opacity-40 mt-1">플레이리스트</div>
                     </div>
                   </div>
+
+                  {/* Privacy Badge */}
+                  {!playlist.isPublic && ( // isPublic이 false일 때만 렌더링
+                    <div className="absolute top-3 right-3"> {/* 위치 지정 */}
+                        <div className="px-2 py-1 rounded-full text-xs font-medium bg-black/20 text-black/50">
+                            비공개
+                        </div>
+                    </div>
+                  )}
+
                   <div className="p-4">
                     <h3 className="font-semibold mb-2">{playlist.name || playlist.title}</h3>
                     <p className="text-white/60 text-sm mb-2">{playlist.description}</p>

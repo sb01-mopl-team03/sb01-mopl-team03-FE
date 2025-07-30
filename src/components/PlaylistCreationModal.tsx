@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { X, Lock, Globe, Image as ImageIcon, Check, Palette } from 'lucide-react'
+import { X, Lock, Globe, Check } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
-import { Textarea } from './ui/textarea'
 
 interface PlaylistCreationModalProps {
   isOpen: boolean
@@ -16,17 +15,10 @@ interface PlaylistCreationModalProps {
   }) => void
 }
 
-// Cover image options - null represents default gradient
-const coverImageOptions: (string | null)[] = [
-  null // Only gradient option - use MOPL service colors
-]
-
 export function PlaylistCreationModal({ isOpen, onClose, onCreatePlaylist }: PlaylistCreationModalProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [isPublic, setIsPublic] = useState(true)
-  const [selectedCoverImage, setSelectedCoverImage] = useState(0)
-  const [showCoverPicker, setShowCoverPicker] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,7 +40,7 @@ export function PlaylistCreationModal({ isOpen, onClose, onCreatePlaylist }: Pla
       title: title.trim(),
       description: description.trim(),
       isPublic,
-      coverImage: coverImageOptions[selectedCoverImage]
+      coverImage: null
     })
     // ========== API INTEGRATION POINT - END ==========
 
@@ -59,15 +51,13 @@ export function PlaylistCreationModal({ isOpen, onClose, onCreatePlaylist }: Pla
       title: title.trim(),
       description: description.trim(),
       isPublic,
-      coverImage: coverImageOptions[selectedCoverImage]
+      coverImage: null
     })
 
     // Reset form
     setTitle('')
     setDescription('')
     setIsPublic(true)
-    setSelectedCoverImage(0)
-    setShowCoverPicker(false)
     setIsSubmitting(false)
     
     onClose()
@@ -80,52 +70,7 @@ export function PlaylistCreationModal({ isOpen, onClose, onCreatePlaylist }: Pla
     setTitle('')
     setDescription('')
     setIsPublic(true)
-    setSelectedCoverImage(0)
-    setShowCoverPicker(false)
     onClose()
-  }
-
-  const renderCoverPreview = () => {
-    const selectedCover = coverImageOptions[selectedCoverImage]
-    
-    if (selectedCover === null) {
-      // Show gradient when no image is selected
-      return (
-        <div className="w-full h-full teal-gradient flex items-center justify-center">
-          <div className="text-center text-black/80">
-            <Palette className="w-8 h-8 mx-auto mb-2" />
-            <p className="text-sm font-medium">테마 색상</p>
-          </div>
-        </div>
-      )
-    }
-    
-    return (
-      <img
-        src={selectedCover}
-        alt="플레이리스트 커버"
-        className="w-full h-full object-cover"
-      />
-    )
-  }
-
-  const renderCoverOption = (cover: string | null, index: number) => {
-    if (cover === null) {
-      // Gradient option
-      return (
-        <div className="w-full h-full teal-gradient flex items-center justify-center">
-          <Palette className="w-3 h-3 text-black/80" />
-        </div>
-      )
-    }
-    
-    return (
-      <img
-        src={cover}
-        alt={`커버 옵션 ${index + 1}`}
-        className="w-full h-full object-cover"
-      />
-    )
   }
 
   if (!isOpen) return null
@@ -155,57 +100,6 @@ export function PlaylistCreationModal({ isOpen, onClose, onCreatePlaylist }: Pla
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Cover Image Section */}
-          <div>
-            <Label className="text-sm mb-3 block">커버 이미지</Label>
-            
-            {/* Selected Cover Preview - Reduced size */}
-            <div className="relative w-full h-32 rounded-lg overflow-hidden mb-3 bg-white/5 border border-white/10">
-              {renderCoverPreview()}
-              
-              {/* Upload Button Overlay */}
-              <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setShowCoverPicker(!showCoverPicker)}
-                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm"
-                >
-                  <ImageIcon className="w-4 h-4 mr-2" />
-                  {coverImageOptions[selectedCoverImage] === null ? '이미지 선택' : '이미지 변경'}
-                </Button>
-              </div>
-            </div>
-            
-            {/* Cover Image Picker */}
-            {showCoverPicker && (
-              <div className="grid grid-cols-4 gap-2 p-3 bg-black/20 rounded-lg border border-white/10">
-                {coverImageOptions.map((cover, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => {
-                      setSelectedCoverImage(index)
-                      setShowCoverPicker(false)
-                    }}
-                    className={`relative w-full h-16 rounded overflow-hidden transition-all duration-200 ${
-                      selectedCoverImage === index 
-                        ? 'ring-2 ring-[#4ecdc4] scale-105' 
-                        : 'hover:scale-105'
-                    }`}
-                  >
-                    {renderCoverOption(cover, index)}
-                    {selectedCoverImage === index && (
-                      <div className="absolute inset-0 bg-[#4ecdc4]/20 flex items-center justify-center">
-                        <Check className="w-3 h-3 text-[#4ecdc4]" />
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Title */}
           <div>
             <Label htmlFor="title" className="text-sm">플레이리스트 제목 *</Label>
@@ -220,23 +114,6 @@ export function PlaylistCreationModal({ isOpen, onClose, onCreatePlaylist }: Pla
             />
             <div className="text-xs text-white/60 mt-1">
               {title.length}/50자
-            </div>
-          </div>
-          
-          {/* Description */}
-          <div>
-            <Label htmlFor="description" className="text-sm">설명</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="플레이리스트에 대한 설명을 입력해주세요..."
-              className="mt-1 bg-white/5 border-white/20 focus:border-[#4ecdc4] resize-none"
-              rows={3}
-              maxLength={200}
-            />
-            <div className="text-xs text-white/60 mt-1">
-              {description.length}/200자
             </div>
           </div>
           

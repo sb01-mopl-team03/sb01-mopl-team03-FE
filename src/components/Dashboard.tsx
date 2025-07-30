@@ -30,12 +30,12 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay, onJoinR
   // ========== API INTEGRATION POINT - START ==========
   const fetchLiveRooms = async () => {
     try {
-      const data = await watchRoomService.getWatchRooms({ limit: 9 })
-      // 배열인지 확인 후 설정
-      if (Array.isArray(data)) {
-        setLiveRooms(data)
+      const response = await watchRoomService.getWatchRooms({ size: 9 })
+      // CursorPageResponseDto에서 실제 데이터 배열 추출
+      if (Array.isArray(response.data)) {
+        setLiveRooms(response.data)
       } else {
-        console.error('Live rooms data is not an array:', data)
+        console.error('Live rooms data is not an array:', response.data)
         setLiveRooms([])
       }
     } catch (error) {
@@ -166,7 +166,8 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay, onJoinR
               <TrendingUp className="w-6 h-6 text-[#4ecdc4]" />
               <h2 className="text-2xl">실시간 같이 보기</h2>
             </div>
-            <Button variant="ghost" className="text-[#4ecdc4] hover:bg-white/5">
+            <Button variant="ghost" className="text-[#4ecdc4] hover:bg-white/5"
+             onClick={()=> onPageChange && onPageChange('live')}>
               모두 보기
               <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
@@ -299,7 +300,8 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay, onJoinR
               <Star className="w-6 h-6 text-[#4ecdc4]" />
               <h2 className="text-2xl">추천 콘텐츠</h2>
             </div>
-            <Button variant="ghost" className="text-[#4ecdc4] hover:bg-white/5">
+            <Button variant="ghost" className="text-[#4ecdc4] hover:bg-white/5"
+             onClick={() => onPageChange && onPageChange('curation')}>
               모두 보기
               <ChevronRight className="w-4 h-4 ml-1" />
             </Button>

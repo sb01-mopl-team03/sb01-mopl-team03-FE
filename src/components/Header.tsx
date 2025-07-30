@@ -1,18 +1,20 @@
-import React, { useState, useEffect } from 'react'
-import { Bell, User, LogOut, Trash2, MessageSquare, UserPlus, Heart, Play } from 'lucide-react'
+import { useState, useCallback, useRef, useEffect } from 'react';
+//import { Bell, User, LogOut, Trash2, MessageSquare, UserPlus, Heart, Play } from 'lucide-react'
+import { Bell, User, LogOut, Trash2} from 'lucide-react'
 import { Button } from './ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { userService } from '../services/userService'
 import { UserResponse } from '../types/user'
 import { useSSE } from '../hooks/useSSE'
 import { SSENotification } from '../services/sseService'
+import { NotificationDto } from '../services/notificationService'
 
 // Window 객체에 headerRefreshUserProfile 함수 추가
 declare global {
   interface Window {
     headerRefreshUserProfile?: () => void
   }
-} 
+}
 
 interface HeaderProps {
   currentPage: string
@@ -40,10 +42,10 @@ interface HeaderProps {
 interface UINotification {
   id: string
   type: string
-  title: string
+  //title: string
   content: string
-  avatar: string
-  timestamp: string
+  //avatar: string
+  createdAt: string
   isRead: boolean
 }
 
@@ -53,7 +55,18 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [user, setUser] = useState<UserResponse | null>(null)
-  
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasNext, setHasNext] = useState(true); // 다음 페이지 여부
+  const [loading, setLoading] = useState(false);
+  const loader = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!userId || isSharedAccess) return;
+    setNotifications([]); // 로그아웃/유저변경시 초기화
+    setNextCursor(null);
+    setHasNext(true);
+    fetchMoreNotifications(); // 커서 없이 첫 페이지 호출
+  }, [userId]);
 
   // SSE 연결 관리
   useSSE({
@@ -63,7 +76,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
       if (notification.notificationType === 'CONNECTED') {
         return;
       }
-    
+
       // DM 관련 알림 처리 - 다양한 케이스 감지
       const type = notification.notificationType;
       if (type === 'DM_RECEIVED' || type === 'dm_received') {
@@ -74,7 +87,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
           console.error('❌ onDMReceived 콜백이 없습니다!');
         }
       }
-      const newNotification = convertToUINotification(notification);
+      const newNotification = SseConvertToUINotification(notification);
       setNotifications(prev => [newNotification, ...prev]);
     },
     onAuthRequired: () => {
@@ -83,7 +96,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
         console.log('🌐 공유 링크 접근 모드 - SSE 인증 오류 무시')
         return
       }
-      
+
       console.warn('SSE 인증 오류 발생 - 토큰 재발급 시도 후 재연결 시도')
       // SSE 연결 실패가 바로 로그아웃을 의미하지는 않음
       // 토큰 재발급이 실패하면 그 때 로그아웃 처리
@@ -105,23 +118,25 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
   })
 
   // SSENotification을 UINotification으로 변환하는 함수
-  const convertToUINotification = (dto: SSENotification): UINotification => {
+  const SseConvertToUINotification = (dto: SSENotification): UINotification => {
     const getTypeFromNotificationType = (type: string) => {
       switch (type.toLowerCase()) {
         case 'dm_received':
+          return '새로운 DM 알림'
         case 'new_dm_room':
-          return 'message'
+          return '새로운 DM 방 알림'
         case 'followed':
-          return 'follow'
+          return '팔로우'
         case 'playlist_subscribed':
+          return '플레이리스트 구독'
         case 'following_posted_playlist':
-          return 'like'
+          return '플레이리스트 업데이트'
         default:
-          return 'notification'
+          return '알림'
       }
     }
 
-    const getTitleFromNotificationType = (type: string) => {
+    /*const getTitleFromNotificationType = (type: string) => {
       switch (type) {
         case 'dm_received':
           return '새로운 메시지가 도착했습니다'
@@ -138,7 +153,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
         default:
           return '새로운 알림'
       }
-    }
+    }*/
 
     const formatTimestamp = (dateString: string) => {
       const date = new Date(dateString)
@@ -158,11 +173,72 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
     return {
       id: dto.id,
       type: getTypeFromNotificationType(dto.notificationType),
-      title: getTitleFromNotificationType(dto.notificationType),
+      //title: getTitleFromNotificationType(dto.notificationType),
       content: dto.content,
-      avatar: '', // 기본 아바타 제거
-      timestamp: formatTimestamp(dto.createdAt),
+      //avatar: '', // 기본 아바타 제거
+      createdAt: formatTimestamp(dto.createdAt),
       isRead: false // 새로 받은 알림은 읽지 않음으로 표시
+    }
+  }
+  // ApiNotification을 UINotification으로 변환하는 함수
+  const ApiConvertToUINotification = (dto: NotificationDto): UINotification => {
+    const getTypeFromNotificationType = (type: string) => {
+      switch (type.toLowerCase()) {
+        case 'dm_received':
+          return '새로운 DM 알림'
+        case 'new_dm_room':
+          return '새로운 DM 방 알림'
+        case 'followed':
+          return '팔로우'
+        case 'playlist_subscribed':
+          return '플레이리스트 업데이트'
+        case 'following_posted_playlist':
+          return '플레이리스트 구독'
+        default:
+          return '알림'
+      }
+    }
+
+    /*const getTitleFromNotificationType = (type: string) => {
+      switch (type) {
+        case 'dm_received':
+          return '새로운 메시지가 도착했습니다'
+        case 'new_dm_room':
+          return '새로운 채팅방이 생성되었습니다'
+        case 'followed':
+          return '새로운 팔로워가 생겼습니다'
+        case 'playlist_subscribed':
+          return '플레이리스트를 구독했습니다'
+        case 'following_posted_playlist':
+          return '팔로우한 사용자가 플레이리스트를 게시했습니다'
+        case 'role_changed':
+          return '권한이 변경되었습니다'
+        default:
+          return '새로운 알림'
+      }
+    }*/
+
+    const formatTimestamp = (dateString: string) => {
+      const date = new Date(dateString)
+      const now = new Date()
+      const diff = now.getTime() - date.getTime()
+      const minutes = Math.floor(diff / (1000 * 60))
+      const hours = Math.floor(diff / (1000 * 60 * 60))
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+
+      if (minutes < 1) return '방금 전'
+      if (minutes < 60) return `${minutes}분 전`
+      if (hours < 24) return `${hours}시간 전`
+      if (days === 1) return '어제'
+      return `${days}일 전`
+    }
+
+    return {
+      id: dto.id,
+      type: getTypeFromNotificationType(dto.notificationType),
+      content: dto.content,
+      createdAt: formatTimestamp(dto.createdAt),
+      isRead: dto.isRead ?? false //기능 있나?
     }
   }
 
@@ -179,11 +255,11 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
       setUser(userData)
     } catch (error) {
       console.error('유저 정보 조회 오류:', error)
-      
+
       // 토큰 만료나 사용자 조회 실패 시 로그아웃 처리
       if (error instanceof Error && (
-        error.message.includes('not found') || 
-        error.message.includes('401') || 
+        error.message.includes('not found') ||
+        error.message.includes('401') ||
         error.message.includes('403')
       )) {
         localStorage.removeItem('accessToken')
@@ -203,7 +279,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
 
     try {
       const response = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/notifications`)
-      
+
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
           localStorage.removeItem('accessToken')
@@ -215,22 +291,29 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
       }
 
       const responseData = await response.json()
-      
+
       // CursorPageResponseDto 구조로 받은 경우 배열 추출
       const notificationDtos = responseData.data || responseData
-      
+
       // 배열인지 확인
       if (!Array.isArray(notificationDtos)) {
         console.error('알림 데이터가 배열이 아닙니다:', responseData)
         setNotifications([])
         return
       }
-      
-      const uiNotifications = notificationDtos.map(dto => ({
-        ...convertToUINotification(dto),
-        isRead: true // 알림 목록 조회 시 백엔드에서 자동으로 읽음 처리됨
-      }))
-      setNotifications(uiNotifications)
+
+      const uiNotifications = notificationDtos.map(ApiConvertToUINotification);
+      setNotifications(prev => {
+        // [1] 서버에서 온 새 알림 + [2] 기존 알림을 합침
+        // 단, id로 중복 제거 (신규→상단)
+        const combined = [...uiNotifications, ...prev];
+        const seen = new Set();
+        return combined.filter(n => {
+          if (seen.has(n.id)) return false;
+          seen.add(n.id);
+          return true;
+        });
+      });
     } catch (error) {
       console.error('알림 목록 조회 오류:', error)
       // 인증 오류인 경우 빈 배열로 설정
@@ -240,6 +323,45 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
     }
   }
 
+  const fetchMoreNotifications = useCallback(async () => {
+    if (!userId || loading || !hasNext) return;
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (nextCursor) params.append('cursor', nextCursor);
+      params.append('size', '20');
+      const res = await authenticatedFetch(`/api/notifications?${params.toString()}`);
+      if (!res.ok) throw new Error("알림 목록을 가져오지 못했습니다.");
+      const { data, nextCursor: newCursor, hasNext: next } = await res.json();
+      const pageNotifs = data.map(ApiConvertToUINotification);
+      setNotifications((prev: UINotification[]) => {
+        const seen = new Set(prev.map((n: UINotification) => n.id));
+        return [...prev, ...pageNotifs.filter((n: UINotification) => !seen.has(n.id))];
+      });
+      setNextCursor(newCursor);
+      setHasNext(next);
+    } catch (e) {
+      // 에러 핸들링
+    } finally {
+      setLoading(false);
+    }
+  }, [userId, loading, hasNext, authenticatedFetch, nextCursor]);
+
+  useEffect(() => {
+    if (!showNotifications || !hasNext || loading) return;
+    const observer = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting) {
+            fetchMoreNotifications();
+          }
+        },
+        { threshold: 1.0 }
+    );
+    if (loader.current) observer.observe(loader.current);
+    return () => {
+      if (loader.current) observer.unobserve(loader.current);
+    };
+  }, [hasNext, loading, fetchMoreNotifications, showNotifications]);
 
   // 컴포넌트 마운트 시 유저 정보, 알림 목록 조회
   useEffect(() => {
@@ -255,7 +377,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
       // refreshUserProfile 함수 참조를 업데이트
       window.headerRefreshUserProfile = fetchUserInfo
     }
-        
+
     return () => {
       if (window.headerRefreshUserProfile) {
         delete window.headerRefreshUserProfile
@@ -274,7 +396,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
   ]
 
   const unreadCount = notifications.filter(n => !n.isRead).length
-  
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -289,7 +411,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
     return () => document.removeEventListener('click', handleClickOutside)
   }, [])
 
-  const getNotificationIcon = (type: string) => {
+  /*const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'message': return <MessageSquare className="w-4 h-4" />
       case 'follow': return <UserPlus className="w-4 h-4" />
@@ -297,7 +419,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
       case 'watch': return <Play className="w-4 h-4" />
       default: return <Bell className="w-4 h-4" />
     }
-  }
+  }*/
 
   const handleDeleteNotification = async (notificationId: string) => {
     try {
@@ -308,25 +430,46 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
     }
   }
 
-  const handleNotificationClick = (notificationId: string) => {
-    // 알림 클릭 시 읽음 처리 (UI에서만 처리)
-    setNotifications(prev => prev.map(notification => 
-      notification.id === notificationId 
-        ? { ...notification, isRead: true }
-        : notification
-    ))
-  }
+  const handleNotificationClick = async (notificationId: string) => {
+    try {
+      // 1. 백엔드에 읽음 처리 요청 보내기
+      await authenticatedFetch(
+          `/api/notifications/${notificationId}`,  // 엔드포인트 맞게 확인!
+          { method: 'POST' }
+      );
+      // 2. 성공 시 프론트에서도 isRead 변경
+      setNotifications(prev =>
+          prev.map(notification =>
+              notification.id === notificationId
+                  ? { ...notification, isRead: true }
+                  : notification
+          )
+      );
+    } catch (error) {
+      console.error('알림 읽음 처리 실패:', error);
+      // 실패 시 원래대로 무시하거나, 토스트 알림 띄워도 됨
+    }
+  };
+
 
   const handleMarkAllRead = async () => {
-    // 모든 알림 읽음 처리 - 알림 목록 API를 다시 호출하면 백엔드에서 자동으로 읽음 처리됨
     try {
-      await fetchNotifications()
-      // UI에서도 모든 알림을 읽음으로 표시
-      setNotifications(prev => prev.map(notification => ({ ...notification, isRead: true })))
+      // 1. 서버에 "모든 알림 읽음" 요청
+      const response = await authenticatedFetch(
+          `${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/notifications/`,
+          { method: 'POST' }
+      );
+      if (!response.ok) throw new Error('모든 알림 읽음 처리 실패');
+
+      // 2. 성공하면 다시 목록 갱신 (최신 상태로)
+      await fetchNotifications();
+
+      // (선택) UI상에서 즉시 모든 알림을 읽음으로 마킹
+      setNotifications(prev => prev.map(notification => ({ ...notification, isRead: true })));
     } catch (error) {
-      console.error('알림 읽음 처리 오류:', error)
+      console.error('알림 읽음 처리 오류:', error);
     }
-  }
+  };
 
   const handleNavClick = (pageId: string) => {
     // Close DM when navigating to different pages
@@ -359,7 +502,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
 
       // 로그아웃 성공 시 드롭다운 닫기
       setShowProfile(false)
-      
+
       // 부모 컴포넌트에 로그아웃 이벤트 전달
       onLogout()
     } catch (error) {
@@ -374,13 +517,13 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
     <header className="glass-effect border-b border-white/10 px-6 py-4 sticky top-0 z-50">
       <nav className="flex items-center justify-between max-w-7xl mx-auto">
         {/* Logo */}
-        <div 
+        <div
           className="gradient-text cursor-pointer text-2xl font-bold"
           onClick={() => handleNavClick('home')}
         >
           모플
         </div>
-        
+
         {/* Navigation */}
         {!isSharedAccess && (
           <ul className="hidden md:flex items-center space-x-8">
@@ -400,7 +543,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
             ))}
           </ul>
         )}
-        
+
         {/* Shared Access Info */}
         {isSharedAccess && (
           <div className="text-white/60 text-sm">
@@ -464,7 +607,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
                     </Button>
                   </div>
                 </div>
-                
+
                 {/* Notifications List with Scrolling */}
                 <div className={`overflow-y-auto ${notifications.length > 4 ? 'max-h-96' : ''}`}>
                   {notifications.length === 0 ? (
@@ -480,7 +623,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
                           onClick={() => handleNotificationClick(notification.id)}
                         >
                           {/* Avatar with Icon Badge */}
-                          <div className="relative flex-shrink-0">
+                          {/*<div className="relative flex-shrink-0">
                             <Avatar className="h-12 w-12">
                               <AvatarImage src={notification.avatar} />
                               <AvatarFallback className="bg-[#4ecdc4] text-black">
@@ -490,19 +633,19 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
                             <div className="absolute -bottom-0.5 -right-0.5 bg-[#4ecdc4] text-black rounded-full w-5 h-5 flex items-center justify-center">
                               {getNotificationIcon(notification.type)}
                             </div>
-                          </div>
-                          
+                          </div>*/}
+
                           {/* Notification Info */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between mb-1">
                               <p className={`text-sm leading-tight ${notification.isRead ? 'text-white/60' : 'font-medium'}`}>
-                                {notification.title}
+                                {notification.type}
                               </p>
-                              <span className="text-xs text-white/60 flex-shrink-0 ml-2">{notification.timestamp}</span>
+                              <span className="text-xs text-white/60 flex-shrink-0 ml-2">{notification.createdAt}</span>
                             </div>
                             <p className="text-xs text-white/60 truncate">{notification.content}</p>
                           </div>
-                          
+
                           {/* Delete Button */}
                           <Button
                             variant="ghost"
@@ -515,13 +658,14 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
                           >
                             <Trash2 className="w-3 h-3" />
                           </Button>
-                          
+
                           {/* Unread Indicator */}
                           {!notification.isRead && (
                             <div className="absolute top-3 right-3 bg-[#4ecdc4] rounded-full w-2 h-2"></div>
                           )}
                         </div>
                       ))}
+                      <div ref={loader} style={{ height: 1 }} />
                     </div>
                   )}
                 </div>
@@ -583,9 +727,9 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
                   <User className="w-4 h-4" />
                   <span>회원정보 수정</span>
                 </Button>
-                
+
                 <div className="my-1 h-px bg-white/10" />
-                
+
                 <Button
                   variant="ghost"
                   size="sm"

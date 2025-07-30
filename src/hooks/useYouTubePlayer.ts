@@ -348,21 +348,20 @@ export function useYouTubePlayer({
 
   
   if (videoSync.action === 'PLAY' || videoSync.isPlaying === true) {
-    // 재생 시 볼륨 제어로 자연스러운 재생 시작
-    playerRef.current.setVolume(0); // 음소거로 재생 시작
+    // 재생 직전 사용자 볼륨 기억
+    const prevVolume = playerRef.current.getVolume();
+    // 자연스러운 재생 시작
+    playerRef.current.setVolume(0); // 음소거로 시작
     playerRef.current.playVideo();
     console.log('▶️ 동기화 재생 시작 (음소거)');
-    
-    // 100ms 후 볼륨 복원
+
+    // 약간의 지연 후 사용자 볼륨으로 복원
     setTimeout(() => {
       if (playerRef.current) {
-        playerRef.current.setVolume(80);
-        console.log('🔊 볼륨 복원');
+        playerRef.current.setVolume(prevVolume);
+        console.log('🔊 볼륨 복원(사용자 설정):', prevVolume);
       }
-    }, 100);
-  } else if (videoSync.action === 'PAUSE') {
-    playerRef.current.pauseVideo();
-    console.log('⏸️ 동기화 일시정지');
+    }, 120);
   }
   
   // Reset flag after a short delay to allow player state to update

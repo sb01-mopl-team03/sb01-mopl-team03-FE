@@ -138,6 +138,27 @@ export class PlaylistService {
 
     return await response.json()
   }
+
+  /**
+   * 플레이리스트 삭제
+   */
+  async deletePlaylist(playlistId: string): Promise<void> {
+    console.log('🌐 PlaylistService: 삭제 요청 시작:', playlistId)
+    
+    const response = await this.authenticatedFetch(`${this.baseUrl}/${playlistId}`, {
+      method: 'DELETE'
+    })
+
+    console.log('🌐 PlaylistService: 삭제 응답 상태:', response.status, response.statusText)
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error')
+      console.error('🌐 PlaylistService: 삭제 실패 응답:', errorText)
+      throw new Error(`플레이리스트 삭제에 실패했습니다. Status: ${response.status}, Message: ${errorText}`)
+    }
+    
+    console.log('🌐 PlaylistService: 삭제 성공')
+  }
 }
 
 // 전역 서비스 인스턴스

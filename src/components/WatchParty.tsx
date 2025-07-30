@@ -95,6 +95,7 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
   const [showHostLeaveConfirm, setShowHostLeaveConfirm] = useState(false) // State for host leave confirmation
 
   // Data State
+  const [preJoinRoomData, setPreJoinRoomData] = useState<WatchRoomDto | null>(null)  // 입장 전 데이터
   const [roomData, setRoomData] = useState<WatchRoomDto | null>(null)
   const [contentData, setContentData] = useState<ContentDto | null>(null)
   const [participants, setParticipants] = useState<Participant[]>([])
@@ -335,6 +336,12 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
       setLoading(true)
       setError(null)
       try {
+        // 입장 전 시청방 정보 조회
+        console.log('🎬 시청방 정보 조회 시작:', roomId)
+        const preJoinData = await watchRoomService.getWatchRoom(roomId)
+        setPreJoinRoomData(preJoinData)  // API 응답 직접 설정
+        console.log('✅ 입장 전 시청방 정보 조회 완료', { headCount: preJoinData.headCount })
+
         const roomInfo = await watchRoomService.joinWatchRoom(roomId)
         console.log('📋 Room info loaded:', roomInfo)
 
@@ -612,7 +619,7 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
             <div className="flex items-center justify-center gap-4 text-sm text-white/60 mb-6">
               <div className="flex items-center gap-1">
                 <Users className="w-4 h-4" />
-                <span>{roomData?.headCount || 0}명 시청 중</span>
+                <span>{preJoinRoomData?.headCount || 0}명 시청 중</span>
               </div>
               <span>•</span>
               <div className="flex items-center gap-1">
@@ -1061,7 +1068,8 @@ export function WatchParty({ roomId, onBack, userId, shouldConnect = false, onUs
             </AlertDialogTitle>
             <AlertDialogDescription className="text-white/70">
               {isHost 
-                ? "방장이 나가면 시청방이 삭제됩니다. 정말로 나가시겠습니까?"
+                ? participants.length>= 2 ? "방장 권한이 양도됩니다. 정말로 나가시겠습니까?"
+                : "방장이 나가면 시청방이 삭제됩니다. 정말로 나가시겠습니까?"
                 : "시청방에서 나가시겠습니까?"
               }
             </AlertDialogDescription>
