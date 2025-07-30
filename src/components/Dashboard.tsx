@@ -66,6 +66,8 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay, onJoinR
   }
 
   useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    if(!token) return;
     const loadData = async () => {
       setIsLoading(true)
       await Promise.all([
