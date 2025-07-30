@@ -50,7 +50,7 @@ export class WatchRoomService {
     const url = new URL(this.baseUrl);
     
     // URL에 파라미터 추가
-    if (params.query) url.searchParams.append('query', params.query);
+    if (params.query) url.searchParams.append('searchKeyword', params.query);
     if (params.sortBy) url.searchParams.append('sortBy', params.sortBy);
     if (params.direction) url.searchParams.append('direction', params.direction);
     if (params.cursor) url.searchParams.append('cursor', params.cursor);

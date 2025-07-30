@@ -33,6 +33,7 @@ interface HeaderProps {
 
   isSharedAccess?: boolean // 공유 링크 접근 여부
   onDMReceived?: () => void // DM 수신 시 채팅방 목록 갱신 콜백
+  onPlaylistRefresh?: () => void // 플레이리스트 새로고침 콜백
 
 }
 
@@ -50,7 +51,7 @@ interface UINotification {
 }
 
 
-export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileClick, onCloseDM, onLogout, authenticatedFetch, userId, refreshUserProfile, deleteNotification, deleteAllNotifications, refreshAccessToken, isSharedAccess, onDMReceived }: HeaderProps) {
+export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileClick, onCloseDM, onLogout, authenticatedFetch, userId, refreshUserProfile, deleteNotification, deleteAllNotifications, refreshAccessToken, isSharedAccess, onDMReceived, onPlaylistRefresh }: HeaderProps) {
   const [notifications, setNotifications] = useState<UINotification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
@@ -77,14 +78,51 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
         return;
       }
 
-      // DM 관련 알림 처리 - 다양한 케이스 감지
+      // 알림 유형별 서비스 새로고침 처리
       const type = notification.notificationType;
+      console.log('🔔 알림 수신 - 타입별 서비스 새로고침 처리:', type);
+      
+      // DM 관련 알림 처리
       if (type === 'DM_RECEIVED' || type === 'dm_received') {
-        console.log('📬 DM 메시지 수신 감지 - 즉시 갱신 시작:', type);
+        console.log('📬 DM 메시지 수신 감지 - DM 서비스 갱신 시작:', type);
         if (onDMReceived) {
           onDMReceived();
         } else {
           console.error('❌ onDMReceived 콜백이 없습니다!');
+        }
+      }
+      
+      // 새 DM 방 생성 알림 처리
+      else if (type === 'NEW_DM_ROOM' || type === 'new_dm_room') {
+        console.log('🏠 새 DM 방 생성 감지 - DM 서비스 갱신 시작:', type);
+        if (onDMReceived) {
+          onDMReceived();
+        }
+      }
+      
+      // 팔로우 알림 처리
+      else if (type === 'FOLLOWED' || type === 'followed') {
+        console.log('👤 팔로우 알림 감지 - 유저 프로필 갱신 시작:', type);
+        if (refreshUserProfile) {
+          refreshUserProfile();
+        }
+      }
+      
+      // 플레이리스트 구독 알림 처리
+      else if (type === 'PLAYLIST_SUBSCRIBED' || type === 'playlist_subscribed') {
+        console.log('📋 플레이리스트 구독 알림 감지 - 플레이리스트 새로고침 필요:', type);
+        // 플레이리스트 페이지가 열려있다면 새로고침
+        if (onPlaylistRefresh) {
+          onPlaylistRefresh();
+        }
+      }
+      
+      // 팔로잉 사용자 플레이리스트 업데이트 알림 처리
+      else if (type === 'FOLLOWING_POSTED_PLAYLIST' || type === 'following_posted_playlist') {
+        console.log('📋 팔로잉 사용자 플레이리스트 업데이트 감지 - 플레이리스트 새로고침 필요:', type);
+        // 홈 페이지나 플레이리스트 페이지 새로고침
+        if (onPlaylistRefresh) {
+          onPlaylistRefresh();
         }
       }
       const newNotification = SseConvertToUINotification(notification);
@@ -330,7 +368,8 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
       const params = new URLSearchParams();
       if (nextCursor) params.append('cursor', nextCursor);
       params.append('size', '20');
-      const res = await authenticatedFetch(`/api/notifications?${params.toString()}`);
+      const res = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/notifications?${params.toString()}`);
+
       if (!res.ok) throw new Error("알림 목록을 가져오지 못했습니다.");
       const { data, nextCursor: newCursor, hasNext: next } = await res.json();
       const pageNotifs = data.map(ApiConvertToUINotification);
@@ -433,8 +472,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
   const handleNotificationClick = async (notificationId: string) => {
     try {
       // 1. 백엔드에 읽음 처리 요청 보내기
-      await authenticatedFetch(
-          `/api/notifications/${notificationId}`,  // 엔드포인트 맞게 확인!
+      await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/notifications/${notificationId}`,  // 엔드포인트 맞게 확인!
           { method: 'POST' }
       );
       // 2. 성공 시 프론트에서도 isRead 변경

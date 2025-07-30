@@ -44,6 +44,7 @@ interface PlaylistProps {
   deletePlaylist?: (playlistId: string) => Promise<void>
   currentUserId?: string
   onUserProfileOpen?: (userId: string) => void
+  refreshTrigger?: number
 }
 
 // ========== API INTEGRATION POINT - START ==========
@@ -58,7 +59,8 @@ export function Playlist({
   subscribePlaylist,
   unsubscribePlaylist,
   currentUserId,
-  onUserProfileOpen
+  onUserProfileOpen,
+  refreshTrigger
 }: PlaylistProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [playlists, setPlaylists] = useState<PlaylistItem[]>([])
@@ -76,7 +78,7 @@ export function Playlist({
   // Load playlists on component mount
   useEffect(() => {
     loadPlaylists()
-  }, [])
+  }, [refreshTrigger])
 
   // 검색어 변경 시 검색 실행
   useEffect(() => {
