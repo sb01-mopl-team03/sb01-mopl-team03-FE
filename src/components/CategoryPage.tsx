@@ -44,6 +44,7 @@ export function CategoryPage({ category, onContentPlay, onContentDetail, onAddTo
   const [hasNext, setHasNext] = useState(false)
   const [nextCursor, setNextCursor] = useState<string | undefined>()
   const [loadingMore, setLoadingMore] = useState(false)
+  const [totalCount, setTotalCount] = useState<number>(0)
 
   const categoryTitle = getCategoryTitle(category)
 
@@ -84,6 +85,7 @@ export function CategoryPage({ category, onContentPlay, onContentDetail, onAddTo
         setContents(response.data)
       }
       
+      setTotalCount(response.totalElements ?? 0)
       setHasNext(response.hasNext)
       setNextCursor(response.nextCursor)
     } catch (error) {
@@ -177,7 +179,8 @@ export function CategoryPage({ category, onContentPlay, onContentDetail, onAddTo
 
           {/* Stats */}
           <div className="flex items-center gap-4 text-white/60">
-            <span>{loading ? '로딩 중...' : `${contents.length}개 콘텐츠`}</span>
+            <span>{loading ? '로딩 중...' 
+            : `총${totalCount}개 콘텐츠 중 ${contents.length}개`}</span>
             <Badge variant="outline" className={contentService.getTypeColor(getContentType(category))}>
               {categoryTitle}
             </Badge>
