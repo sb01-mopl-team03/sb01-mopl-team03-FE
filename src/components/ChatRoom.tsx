@@ -52,7 +52,7 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
   const previousScrollHeight = useRef<number>(0)
   
   // WebSocket connection  
-  const { isConnected, sendMessage, enterRoom: _enterRoom, exitRoom: _exitRoom } = useDmWebSocket({
+  const { isConnected, sendMessage } = useDmWebSocket({
     roomId: user?.roomId || null,
     userId: currentUserId,
     onMessageReceived: (dmMessage: DmDto) => {
@@ -105,21 +105,6 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
     }
   }, [isOpen])
 
-  // Load messages when room changes
-  useEffect(() => {
-    if (user?.roomId) {
-      resetAndLoadMessages()
-    }
-  }, [user?.roomId])
-
-  // refreshTrigger로 메시지 갱신
-  useEffect(() => {
-    if (isOpen && user && refreshTrigger && refreshTrigger > 0) {
-      console.log('🔄 채팅방 메시지 갱신 트리거 감지:', refreshTrigger)
-      resetAndLoadMessages()
-    }
-  }, [refreshTrigger, isOpen, user])
-
   const formatTimestamp = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleTimeString('ko-KR', { 
@@ -129,14 +114,7 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
     })
   }
 
-  const resetAndLoadMessages = async () => {
-    setMessages([])
-    setNextCursor(null)
-    setHasMore(true)
-    await loadMessages(true)
-  }
-
-  const loadMessages = async (isInitial = false) => {
+  const loadMessages = useCallback(async (isInitial = false) => {
     if (!user?.roomId) return
     
     try {
@@ -202,7 +180,29 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
       setLoading(false)
       setLoadingMore(false)
     }
-  }
+  }, [user?.roomId, user?.name, nextCursor, currentUserId, getDmMessages])
+
+  const resetAndLoadMessages = useCallback(async () => {
+    setMessages([])
+    setNextCursor(null)
+    setHasMore(true)
+    await loadMessages(true)
+  }, [loadMessages])
+
+  // Load messages when room changes
+  useEffect(() => {
+    if (user?.roomId) {
+      resetAndLoadMessages()
+    }
+  }, [user?.roomId, resetAndLoadMessages])
+
+  // refreshTrigger로 메시지 갱신
+  useEffect(() => {
+    if (isOpen && user && refreshTrigger && refreshTrigger > 0) {
+      console.log('🔄 채팅방 메시지 갱신 트리거 감지:', refreshTrigger)
+      resetAndLoadMessages()
+    }
+  }, [refreshTrigger, isOpen, user, resetAndLoadMessages])
 
   // 스크롤 이벤트 핸들러 - 디바운스 추가
   const handleScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
@@ -223,7 +223,7 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
       previousScrollHeight.current = scrollHeight
       loadMessages(false)
     }
-  }, [hasMore, loadingMore, loading, messages.length, nextCursor])
+  }, [hasMore, loadingMore, loading, messages.length, nextCursor, loadMessages])
 
   // 이전 메시지 로드 후 스크롤 위치 유지
   useEffect(() => {

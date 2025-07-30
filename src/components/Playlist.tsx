@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Clock, Calendar, Heart } from 'lucide-react'
+import { Plus, Search, Calendar, Heart } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { OverlappingThumbnails } from './OverlappingThumbnails'
@@ -409,10 +409,6 @@ export function Playlist({
 
                     {/* Metadata */}
                     <div className="flex items-center justify-between text-xs text-white/60">
-                      <div className="flex items-center space-x-1">
-                        <Clock className="w-3 h-3" />
-                        <span>{playlist.totalDuration || '0분'}</span>
-                      </div>
                       <div className="flex items-center space-x-1">
                         <Calendar className="w-3 h-3" />
                         <span>{playlist.createdAt ? new Date(playlist.createdAt).toLocaleDateString('ko-KR') : '날짜 없음'}</span>
