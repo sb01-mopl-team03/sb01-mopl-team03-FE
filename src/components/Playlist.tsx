@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Clock, Calendar, Heart } from 'lucide-react'
+import { Plus, Search, Calendar, Heart } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { OverlappingThumbnails } from './OverlappingThumbnails'
