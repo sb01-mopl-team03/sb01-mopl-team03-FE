@@ -37,7 +37,7 @@ const getCategoryTitle = (category: string) => {
 
 export function CategoryPage({ category, onContentPlay, onContentDetail, onAddToPlaylist }: CategoryPageProps) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [sortBy, setSortBy] = useState('latest')
+  const [sortBy, setSortBy] = useState('RELEASE_AT')
   const [contents, setContents] = useState<ContentDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -71,10 +71,8 @@ export function CategoryPage({ category, onContentPlay, onContentDetail, onAddTo
       const response = await contentService.getContents({
         type: getContentType(category),
         query: searchQuery || undefined,
-        sortBy: sortBy === 'latest' ? 'RELEASE_AT' : 
-               sortBy === 'rating' ? 'RELEASE_AT' : 
-               sortBy === 'title' ? 'TITLE' : 'RELEASE_AT',
-        direction: sortBy === 'title' ? 'ASC' : 'DESC',
+        sortBy: sortBy === 'RELEASE_AT' ? 'RELEASE_AT' : sortBy === 'AVG_RATING' ? 'AVG_RATING' : 'TITLE',
+        direction: 'DESC', //sortBy === 'title' ? 'ASC' :
         cursor: isLoadMore ? nextCursor : undefined,
         size: 20
       })
@@ -169,9 +167,9 @@ export function CategoryPage({ category, onContentPlay, onContentDetail, onAddTo
                   <SelectValue placeholder="정렬" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="latest">최신순</SelectItem>
-                  <SelectItem value="rating">평점 높은 순</SelectItem>
-                  <SelectItem value="title">제목순</SelectItem>
+                  <SelectItem value="RELEASE_AT">최신순</SelectItem>
+                  <SelectItem value="AVG_RATING">평점 높은 순</SelectItem>
+                  <SelectItem value="TITLE">제목순</SelectItem>
                 </SelectContent>
               </Select>
             </div>
