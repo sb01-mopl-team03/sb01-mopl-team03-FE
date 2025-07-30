@@ -82,6 +82,10 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
         if (existingMessage) {
           return prev;
         }
+
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 50);
         return [...prev, message];
       });
     },
