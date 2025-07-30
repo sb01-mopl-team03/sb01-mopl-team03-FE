@@ -166,7 +166,8 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay, onJoinR
               <TrendingUp className="w-6 h-6 text-[#4ecdc4]" />
               <h2 className="text-2xl">실시간 같이 보기</h2>
             </div>
-            <Button variant="ghost" className="text-[#4ecdc4] hover:bg-white/5">
+            <Button variant="ghost" className="text-[#4ecdc4] hover:bg-white/5"
+             onClick={()=> onPageChange && onPageChange('live')}>
               모두 보기
               <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
@@ -299,7 +300,8 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay, onJoinR
               <Star className="w-6 h-6 text-[#4ecdc4]" />
               <h2 className="text-2xl">추천 콘텐츠</h2>
             </div>
-            <Button variant="ghost" className="text-[#4ecdc4] hover:bg-white/5">
+            <Button variant="ghost" className="text-[#4ecdc4] hover:bg-white/5"
+             onClick={() => onPageChange && onPageChange('curation')}>
               모두 보기
               <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
