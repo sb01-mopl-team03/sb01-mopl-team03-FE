@@ -112,6 +112,31 @@ export class SSEManager {
         console.log('📱 dm_received 이벤트 감지 (이벤트 리스너)');
         this.handleMessage(event);
       });
+      this.eventSource.addEventListener('followed', (event: any) => {
+        console.log('📱 followed 이벤트 감지 (이벤트 리스너)');
+        this.handleMessage(event);
+      });
+      this.eventSource.addEventListener('unfollowed', (event: any) => {
+        console.log('📱 unfollowed 이벤트 감지 (이벤트 리스너)');
+        this.handleMessage(event);
+      });
+      this.eventSource.addEventListener('play_subscribed', (event: any) => {
+        console.log('📱 play_subscribed 이벤트 감지 (이벤트 리스너)');
+        this.handleMessage(event);
+      });
+      this.eventSource.addEventListener('following_posted_playlist', (event: any) => {
+        console.log('📱 following_posted_playlist 이벤트 감지 (이벤트 리스너)');
+        this.handleMessage(event);
+      });
+      this.eventSource.addEventListener('created new DM room', (event: any) => {
+        console.log('📱 following_posted_playlist 이벤트 감지 (이벤트 리스너)');
+        this.handleMessage(event);
+      });
+      this.eventSource.addEventListener('playlist_updated', (event: any) => {
+        console.log('📱 following_posted_playlist 이벤트 감지 (이벤트 리스너)');
+        this.handleMessage(event);
+      });
+      
 
       // 커스텀 이벤트 리스너
       this.eventSource.addEventListener('auth-error', (event: any) => {
@@ -160,6 +185,36 @@ export class SSEManager {
         console.log('📱 DM 메시지 이벤트 감지 (이벤트 타입 기준)');
         // notificationType 변경 (대소문자 일치 문제 해결)
         notification.notificationType = 'DM_RECEIVED';
+      }
+      if (event.type === 'followed') {
+        console.log('📱 팔로우 이벤트 감지 (이벤트 타입 기준)');
+        // notificationType 변경 (대소문자 일치 문제 해결)
+        notification.notificationType = 'FOLLOWED';
+      }
+      if (event.type === 'unfollowed') {
+        console.log('📱 언팔로우 이벤트 감지 (이벤트 타입 기준)');
+        // notificationType 변경 (대소문자 일치 문제 해결)
+        notification.notificationType = 'UNFOLLOWED';
+      }
+      if (event.type === 'play_subscribed') {
+        console.log('📱 플레이리스트 구독 이벤트 감지 (이벤트 타입 기준)');
+        // notificationType 변경 (대소문자 일치 문제 해결)
+        notification.notificationType = 'PLAY_SUBSCRIBED';
+      }
+      if (event.type === 'following_posted_playlist') {
+        console.log('📱 플레이리스트 구독한 유저가 플레이리스트 콘텐츠 추가 이벤트 감지 (이벤트 타입 기준)');
+        // notificationType 변경 (대소문자 일치 문제 해결)
+        notification.notificationType = 'following_posted_playlist';
+      }
+      if (event.type === 'created new DM room') {
+        console.log('📱 새로운 DM 방 생성 이벤트 감지 (이벤트 타입 기준)');
+        // notificationType 변경 (대소문자 일치 문제 해결)
+        notification.notificationType = 'CREATED NEW DM ROOM';
+      }
+      if (event.type === 'playlist_updated') {
+        console.log('📱 플레이리스트 업데이트 이벤트 감지 (이벤트 타입 기준)');
+        // notificationType 변경 (대소문자 일치 문제 해결)
+        notification.notificationType = 'playlist_updated';
       }
       
       console.log('🔔 SSE 알림 수신:', notification);
