@@ -299,7 +299,7 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, currentUserId }: LiveRooms
                     {room.contentDto?.thumbnailUrl ? (
                       <img 
                         src={room.contentDto.thumbnailUrl} 
-                        alt={room.contentDto.title}
+                        alt={room.title}
                         className="w-full h-full object-cover"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
