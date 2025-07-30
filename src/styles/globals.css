@@ -244,6 +244,14 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  .line-clamp-2-custom {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2; /* 텍스트를 두 줄로 제한 */
+    -webkit-box-orient: vertical; /* 텍스트 방향을 수직으로 설정 */
+    text-overflow: ellipsis; /* 두 줄을 넘어가면 말줄임표 (...) 표시 */
+  }
 }
 
 /**

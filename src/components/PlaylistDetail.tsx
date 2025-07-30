@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { ArrowLeft, Play, MoreVertical, Share, Heart, Clock, Calendar, X, Search, Plus } from 'lucide-react'
+import { ArrowLeft, Play, Share, Heart, Calendar, X, Search, Plus, Trash2 } from 'lucide-react'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
@@ -13,13 +13,13 @@ import { ContentDto } from '../types/content'
 interface PlaylistContent {
   id: string
   title: string
-  thumbnail: string
+  thumbnailUrl: string
   type: 'movie' | 'tv' | 'sports'
   genre: string[]
   duration: string
   year: number
   rating: number
-  addedDate: string
+  addedDate: string,
   description: string
 }
 
@@ -30,6 +30,7 @@ interface PlaylistDetailProps {
   getPlaylistById: (playlistId: string) => Promise<any>
   addPlaylistContents: (playlistId: string, contentIds: string[]) => Promise<any>
   deletePlaylistContents: (playlistId: string, contentIds: string[]) => Promise<void>
+  deletePlaylist?: (playlistId: string) => Promise<void>
   currentUserId?: string // 현재 사용자 ID
   isSharedAccess?: boolean // 공유 링크 접근 여부
 }
@@ -39,7 +40,7 @@ interface PlaylistDetailProps {
 // Example: const fetchPlaylistDetails = async (playlistId: string) => { ... }
 // ========== API INTEGRATION POINT - END ==========
 
-export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistById, addPlaylistContents, deletePlaylistContents, currentUserId, isSharedAccess }: PlaylistDetailProps) {
+export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistById, addPlaylistContents, deletePlaylistContents, deletePlaylist, currentUserId, isSharedAccess }: PlaylistDetailProps) {
   const [playlist, setPlaylist] = useState<any>(null)
   const [contents, setContents] = useState<PlaylistContent[]>([])
   const [isSubscribed, setIsSubscribed] = useState(false)
@@ -85,7 +86,24 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
       }
       
       setPlaylist(playlistData)
-      setContents(playlistData.playlistContents || [])
+      setContents(
+        playlistData.playlistContents.map((content: any) => {
+          console.log("콘텐츠 썸네일: ", content.thumbnailUrl);
+        
+        return {
+          id: content.id,
+          title: content.title,
+          thumbnailUrl: content.thumbnailUrl,
+          type: content.contentType.toLowerCase() as 'movie' | 'tv' | 'sports', // 백엔드 contentType을 소문자로 변환
+          genre: content.genre,
+          duration: content.duration,
+          year: content.year,
+          rating: content.avgRating, // avgRating 사용
+          addedDate: content.addedDate,
+          description: content.description || '',
+        };
+      }) || []
+      );
       
       // Check if current user is subscribed to this playlist
       if (userId && playlistData.subscriptions) {
@@ -219,7 +237,7 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
       onContentPlay({
         id: content.id,
         title: content.title,
-        thumbnail: content.thumbnail,
+        thumbnail: content.thumbnailUrl,
         type: content.type,
         duration: content.duration,
         description: content.description
@@ -353,25 +371,37 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
     }
   }
 
-  const renderPlaylistCover = () => {
-    if (playlist.coverImage === null) {
-      return (
-        <div className="w-full h-full teal-gradient flex items-center justify-center">
-          <div className="text-center text-black/80">
-            <h3 className="text-4xl font-bold mb-2">{playlist.name.charAt(0)}</h3>
-            <p className="text-sm font-medium">플레이리스트</p>
-          </div>
-        </div>
-      )
+  // 플레이리스트 삭제 함수
+  const handleDeletePlaylist = async () => {
+    console.log('🗑️ 삭제 버튼 클릭됨:', { deletePlaylist: !!deletePlaylist, currentUserId, playlistUserId: playlist?.userId })
+    
+    if (!deletePlaylist || !currentUserId) {
+      alert('삭제 권한이 없습니다.')
+      return
     }
     
-    return (
-      <ImageWithFallback
-        src={playlist.coverImage}
-        alt={playlist.name}
-        className="w-full h-full object-cover"
-      />
-    )
+    if (currentUserId !== playlist?.userId) {
+      alert('플레이리스트 소유자만 삭제할 수 있습니다.')
+      return
+    }
+    
+    if (!confirm(`정말로 "${playlist?.name}" 플레이리스트를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) {
+      console.log('❌ 사용자가 삭제를 취소함')
+      return
+    }
+    
+    try {
+      console.log('🚀 플레이리스트 삭제 시작:', playlistId)
+      await deletePlaylist(playlistId)
+      console.log('✅ 플레이리스트 삭제 성공')
+      alert('플레이리스트가 삭제되었습니다.')
+      
+      // 플레이리스트 목록으로 돌아가기
+      onBack()
+    } catch (error) {
+      console.error('❌ 플레이리스트 삭제 실패:', error)
+      alert('플레이리스트 삭제에 실패했습니다.')
+    }
   }
 
   return (
@@ -393,21 +423,12 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
           </Button>
 
           {/* Playlist Info */}
-          <div className="flex flex-col lg:flex-row gap-8 items-start lg:items-end">
-            {/* Cover Image */}
-            <div className="w-80 h-80 rounded-2xl overflow-hidden shadow-2xl flex-shrink-0">
-              {renderPlaylistCover()}
-            </div>
+          <div className="pl-4 flex flex-col lg:flex-row gap-8 items-start lg:items-end">
 
             {/* Info */}
-            <div className="flex-1 space-y-4">
-              <Badge variant="secondary" className="bg-white/10 text-white">
-                플레이리스트
-              </Badge>
+            <div className="flex-1 space-y-4 pt-5">
               
-              <h1 className="text-5xl font-bold leading-tight">{playlist.name}</h1>
-              
-              <p className="text-lg text-white/80 max-w-2xl">{playlist.description}</p>
+              <h1 className="text-5xl py-5 font-bold leading-tight">{playlist.name}</h1>
 
               {/* Creator & Stats */}
               <div className="flex items-center space-x-4 text-white/60">
@@ -422,9 +443,6 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
                 </div>
                 <span>•</span>
                 <span>{contents.length}개 콘텐츠</span>
-                <span>•</span>
-                <span>{playlist.totalDuration || '0분'}</span>
-                <span>•</span>
                 <div className="flex items-center space-x-1">
                   <Calendar className="w-4 h-4" />
                   <span>{playlist.createdAt ? new Date(playlist.createdAt).toLocaleDateString('ko-KR') : '날짜 없음'}</span>
@@ -528,9 +546,18 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
                   <Share className="w-6 h-6" />
                 </Button>
 
-                <Button variant="ghost" size="lg" className="p-3 hover:bg-white/10">
-                  <MoreVertical className="w-6 h-6" />
-                </Button>
+                {/* Delete Button - only show for owner's playlists */}
+                {currentUserId === playlist?.userId && deletePlaylist && !isSharedAccess && (
+                  <Button 
+                    variant="ghost" 
+                    size="lg" 
+                    className="p-3 hover:bg-red-500/20 text-red-400 hover:text-red-300"
+                    onClick={handleDeletePlaylist}
+                    title="플레이리스트 삭제"
+                  >
+                    <Trash2 className="w-6 h-6" />
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -538,19 +565,15 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
       </div>
 
       {/* Content List */}
-      <div className="container mx-auto px-6 pb-12">
+      <div className="container mx-auto px-9 pb-12">
         <div className="glass-effect rounded-2xl overflow-hidden">
           {/* List Header */}
           <div className="px-6 py-4 border-b border-white/10">
             <div className="grid grid-cols-12 gap-4 text-sm text-white/60 font-medium">
               <div className="col-span-1">#</div>
-              <div className="col-span-5">제목</div>
-              <div className="col-span-2">장르</div>
-              <div className="col-span-2">추가한 날짜</div>
-              <div className="col-span-1">
-                <Clock className="w-4 h-4" />
-              </div>
-              <div className="col-span-1"></div>
+              <div className="col-span-4">제목</div> {/* Adjusted from col-span-9 to col-span-4 */}
+              <div className="col-span-6">줄거리</div> {/* New column for description */}
+              <div className="col-span-1"></div> {/* For actions */}
             </div>
           </div>
 
@@ -600,11 +623,11 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
                   </div>
 
                   {/* Title & Thumbnail */}
-                  <div className="col-span-5">
+                  <div className="col-span-4"> {/* Adjusted from col-span-9 to col-span-4 */}
                     <div className="flex items-center space-x-4">
                       <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
                         <ImageWithFallback
-                          src={content.thumbnail}
+                          src={content.thumbnailUrl}
                           alt={content.title}
                           className="w-full h-full object-cover"
                         />
@@ -613,30 +636,15 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
                         <h4 className="font-medium truncate group-hover:text-[#4ecdc4] transition-colors">
                           {content.title}
                         </h4>
-                        <p className="text-sm text-white/60 truncate">
-                          {content.year} • {content.type === 'movie' ? '영화' : content.type === 'tv' ? '드라마' : '스포츠'}
-                        </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Genre */}
-                  <div className="col-span-2">
-                    <span className="text-sm text-white/60">
-                      {content.genre && Array.isArray(content.genre) ? content.genre.slice(0, 2).join(', ') : content.genre || '장르 없음'}
-                    </span>
-                  </div>
-
-                  {/* Added Date */}
-                  <div className="col-span-2">
-                    <span className="text-sm text-white/60">
-                      {new Date(content.addedDate).toLocaleDateString('ko-KR')}
-                    </span>
-                  </div>
-
-                  {/* Duration */}
-                  <div className="col-span-1">
-                    <span className="text-sm text-white/60">{content.duration}</span>
+                  {/* Description */}
+                  <div className="col-span-6 text-white/70 text-sm overflow-hidden">
+                    <p className="line-clamp-2-custom">
+                      {content.description}
+                    </p>
                   </div>
 
                   {/* Actions */}
@@ -726,7 +734,7 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
                   >
                     <div className="flex-shrink-0">
                       <img
-                        src={content.thumbnail || '/placeholder-content.jpg'}
+                        src={content.thumbnailUrl || '/placeholder-content.jpg'}
                         alt={content.title}
                         className="w-12 h-8 object-cover rounded"
                       />

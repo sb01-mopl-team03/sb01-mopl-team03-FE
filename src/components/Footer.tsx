@@ -1,4 +1,4 @@
-import { Heart, Github, Twitter, Instagram, Mail } from 'lucide-react'
+import { Github, Twitter, Instagram, Mail } from 'lucide-react'
 
 export function Footer() {
   const currentYear = new Date().getFullYear()
@@ -97,11 +97,6 @@ export function Footer() {
               © {currentYear} 모플(MOPL). All rights reserved.
             </div>
             
-            <div className="flex items-center space-x-2 text-white/40 text-sm">
-              <span>Made with</span>
-              <Heart className="w-4 h-4 text-red-500 fill-current" />
-              <span>in Korea</span>
-            </div>
           </div>
         </div>
       </div>
