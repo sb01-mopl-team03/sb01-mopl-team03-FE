@@ -330,7 +330,8 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
       const params = new URLSearchParams();
       if (nextCursor) params.append('cursor', nextCursor);
       params.append('size', '20');
-      const res = await authenticatedFetch(`/api/notifications?${params.toString()}`);
+      const res = await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/notifications?${params.toString()}`);
+
       if (!res.ok) throw new Error("알림 목록을 가져오지 못했습니다.");
       const { data, nextCursor: newCursor, hasNext: next } = await res.json();
       const pageNotifs = data.map(ApiConvertToUINotification);
