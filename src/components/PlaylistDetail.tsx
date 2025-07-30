@@ -216,7 +216,7 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
     }
   }
 
-  const handleRemoveContent = (contentId: string) => {
+  const handleRemoveContent = async (contentId: string) => {
     // Check if current user is the owner of the playlist
     if (currentUserId !== playlist.userId) {
       alert('플레이리스트 소유자만 콘텐츠를 삭제할 수 있습니다.')
@@ -226,7 +226,17 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
     // ========== API INTEGRATION POINT - START ==========
     // TODO: Replace with actual API call to remove content from playlist
     // Example: await removeContentFromPlaylist(playlistId, contentId)
-    console.log(`Removing content ${contentId} from playlist ${playlistId}`)
+    try{
+       console.log(`Removing content ${contentId} from playlist ${playlistId}`)
+
+       await deletePlaylistContents(playlistId, [contentId]);
+
+       await loadPlaylistDetails();
+    }catch(error){
+      console.error('❌ Failed to remove content:', error)
+      alert('콘텐츠 삭제에 실패했습니다.')
+    }
+   
     // ========== API INTEGRATION POINT - END ==========
 
     setContents(prev => prev.filter(content => content.id !== contentId))
