@@ -218,7 +218,7 @@ export function DMList({ isOpen, onClose, onOpenChat, authenticatedFetch, curren
           name: otherUser?.name || '알 수 없는 사용자',
           avatar: otherUser?.avatar || '',
           lastMessage: room.lastMessage || '아직 메시지가 없습니다',
-          timestamp: room.lastMessage ? formatTimestamp(room.createdAt) : formatTimestamp(room.createdAt),
+          timestamp: room.lastMessage ? formatTimestamp(room.lastMessageAt || room.createdAt) : formatTimestamp(room.createdAt),
           unreadCount: room.newMessageCount || 0,
           isOnline: otherUser?.isOnline || false,
           lastMessageAt: room.lastMessageAt || room.createdAt
