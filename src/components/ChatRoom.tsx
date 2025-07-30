@@ -76,7 +76,13 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
         type: 'text',
         isOwnMessage: dmMessage.senderId === currentUserId,
       };
+      setMessages((prev) => {
+        const exists = prev.some((msg) => msg.id === message.id);
+        if (exists) return prev;
+        return [...prev, message]; // ⬇ append
+      });
     },
+
     onError: (error: string) => {
       console.error('❌ DM WebSocket 에러:', error);
 
