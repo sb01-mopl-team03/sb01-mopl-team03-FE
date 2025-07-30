@@ -299,7 +299,7 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, currentUserId }: LiveRooms
                     {room.contentDto?.thumbnailUrl ? (
                       <img 
                         src={room.contentDto.thumbnailUrl} 
-                        alt={room.title}
+                        alt={room.contentDto.title}
                         className="w-full h-full object-cover"
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
@@ -353,7 +353,7 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, currentUserId }: LiveRooms
                   
                   {/* Content Info */}
                   <div className="p-4">
-                    <h3 className="font-medium mb-2 line-clamp-1">{room.contentDto?.title}</h3>
+                    <h3 className="font-medium mb-2 line-clamp-1">{room.title}</h3>
                     <p className="text-sm text-white/60 mb-3 line-clamp-1">{room.ownerName}의 방</p>
                     
                     {/* Room Stats */}
