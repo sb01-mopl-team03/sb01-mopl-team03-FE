@@ -2,7 +2,7 @@ import {
   WatchRoomDto, 
   WatchRoomCreateRequest, 
   WatchRoomInfoDto, 
-  WatchRoomSearchOptions 
+  CursorPageResponseDto 
 } from '../types/watchRoom'
 
 export class WatchRoomService {
@@ -37,56 +37,34 @@ export class WatchRoomService {
   /**
    * 시청방 목록 조회
    */
-  async getWatchRooms(options?: WatchRoomSearchOptions): Promise<WatchRoomDto[]> {
-    try {
-      const urlParams = new URLSearchParams()
-      
-      if (options?.query) {
-        urlParams.append('searchKeyword', options.query)
-      }
-      
-      if (options?.sortBy) {
-        urlParams.append('sortBy', options.sortBy)
-      }
-      
-      if (options?.limit) {
-        urlParams.append('size', options.limit.toString())
-      }
-      
-      if (options?.offset) {
-        urlParams.append('cursor', options.offset?.toString() || '')
-      }
-      
-      const url = `${this.baseUrl}${urlParams.toString() ? '?' + urlParams.toString() : ''}`
-      
-      const response = await this.authenticatedFetch(url)
-      
-      if (!response.ok) {
-        throw new Error(`시청방 목록 조회에 실패했습니다. Status: ${response.status}`)
-      }
-      
-      const responseData = await response.json()
-      
-      // CursorPageResponseDto 구조에서 data 배열 추출
-      const rooms = responseData.data || responseData
-      
-      // 배열인지 확인
-      if (!Array.isArray(rooms)) {
-        console.error('시청방 데이터가 배열이 아닙니다:', responseData)
-        return []
-      }
-      
-      // 클라이언트 사이드에서 정렬 처리
-      if (options?.sortBy) {
-        return this.sortWatchRooms(rooms, options.sortBy)
-      }
-      
-      return rooms
-    } catch (error) {
-      console.error('시청방 목록 조회 오류:', error)
-      throw error
+/**
+ * 시청방 목록 조회
+ */
+  async getWatchRooms(params: {
+    query?: string
+    sortBy?: string
+    direction?: 'asc' | 'desc'
+    cursor?: string | null
+    size?: number
+  }): Promise<CursorPageResponseDto<WatchRoomDto>> {
+    const url = new URL(this.baseUrl);
+    
+    // URL에 파라미터 추가
+    if (params.query) url.searchParams.append('query', params.query);
+    if (params.sortBy) url.searchParams.append('sortBy', params.sortBy);
+    if (params.direction) url.searchParams.append('direction', params.direction);
+    if (params.cursor) url.searchParams.append('cursor', params.cursor);
+    if (params.size) url.searchParams.append('size', params.size.toString());
+    
+    const response = await this.authenticatedFetch(url.toString());
+    
+    if (!response.ok) {
+      throw new Error(`시청방 목록 조회에 실패했습니다. Status: ${response.status}`);
     }
+    
+    return await response.json();
   }
+
 
   /**
    * 시청방 생성
@@ -159,7 +137,7 @@ export class WatchRoomService {
         },
         participantsInfoDto: {
           participantDtoList: [],
-          participantCount: 0
+          participantCount: room.headCount  // API의 headCount를 직접 사용
         }
       }
     } catch (error) {
@@ -171,9 +149,7 @@ export class WatchRoomService {
   /**
    * 시청방 검색
    */
-  async searchWatchRooms(query: string, sortBy: 'createdAt' | 'title' | 'participantCount' = 'participantCount'): Promise<WatchRoomDto[]> {
-    return this.getWatchRooms({ query, sortBy })
-  }
+
 
   /**
    * 시청방 목록 정렬

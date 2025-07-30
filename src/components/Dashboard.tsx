@@ -30,12 +30,12 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay, onJoinR
   // ========== API INTEGRATION POINT - START ==========
   const fetchLiveRooms = async () => {
     try {
-      const data = await watchRoomService.getWatchRooms({ limit: 9 })
-      // 배열인지 확인 후 설정
-      if (Array.isArray(data)) {
-        setLiveRooms(data)
+      const response = await watchRoomService.getWatchRooms({ size: 9 })
+      // CursorPageResponseDto에서 실제 데이터 배열 추출
+      if (Array.isArray(response.data)) {
+        setLiveRooms(response.data)
       } else {
-        console.error('Live rooms data is not an array:', data)
+        console.error('Live rooms data is not an array:', response.data)
         setLiveRooms([])
       }
     } catch (error) {

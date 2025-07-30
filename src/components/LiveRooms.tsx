@@ -6,6 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { WatchRoomDto } from '../types/watchRoom'
 import { watchRoomService } from '../services/watchRoomService'
 
+type SortOption = 
+  | 'participants_desc'    // 시청자 많은 순
+  | 'participants_asc'     // 시청자 적은 순  
+  | 'latest'              // 최신순 (createdAt desc)
+  | 'oldest'              // 오래된 순 (createdAt asc)
+  | 'title_asc'           // 제목 오름차순
+  | 'title_desc'          // 제목 내림차순
+
 interface LiveRoomsProps {
   onJoinRoom?: (room: WatchRoomDto) => void
   onCreateRoom?: () => void
@@ -14,43 +22,92 @@ interface LiveRoomsProps {
 
 export function LiveRooms({ onJoinRoom, onCreateRoom, currentUserId }: LiveRoomsProps) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [sortBy, setSortBy] = useState<'participants' | 'latest' | 'oldest'>('participants')
+  const [sortBy, setSortBy] = useState<SortOption>('participants_desc')
   const [rooms, setRooms] = useState<WatchRoomDto[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   // 추가: 참여 중인 방 id 상태
   const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null)
+  const [cursor, setCursor] = useState<string | null>(null)
+  const [hasNext, setHasNext] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [totalElements, setTotalElements] = useState(0)
 
-  // 시청방 목록 로드
-  const loadRooms = async (showLoading = true) => {
+  // 정렬 옵션에 따른 sortBy와 direction 반환
+  const getSortParams = (sortOption: SortOption) => {
+    switch (sortOption) {
+      case 'participants_desc': return { sortBy: 'participantCount', direction: 'desc' as const }
+      case 'participants_asc': return { sortBy: 'participantCount', direction: 'asc' as const }
+      case 'latest': return { sortBy: 'createdAt', direction: 'desc' as const }
+      case 'oldest': return { sortBy: 'createdAt', direction: 'asc' as const }
+      case 'title_asc': return { sortBy: 'title', direction: 'asc' as const }
+      case 'title_desc': return { sortBy: 'title', direction: 'desc' as const }
+      default: return { sortBy: 'participantCount', direction: 'desc' as const }
+    }
+  }
+
+  // 시청방 목록 로드 (초기 로드 또는 무한 스크롤)
+  const loadRooms = async (isInitialLoad = true, isLoadMore = false) => {
     try {
-      if (showLoading) {
+      if (isInitialLoad) {
         setLoading(true)
+        setCursor(null)
+      } else if (isLoadMore) {
+        setLoadingMore(true)
       } else {
         setRefreshing(true)
       }
       setError(null)
       
+      const { sortBy: apiSortBy, direction: apiDirection } = getSortParams(sortBy)
+      
       const roomsData = await watchRoomService.getWatchRooms({
         query: searchQuery,
-        sortBy: sortBy === 'participants' ? 'participantCount' : sortBy === 'latest' ? 'createdAt' : 'createdAt'
+        sortBy: apiSortBy,
+        direction: apiDirection,
+        cursor: isInitialLoad ? null : cursor,
+        size: 20,
       })
       
-      setRooms(roomsData)
+      // 초기 로드나 새로고침이면 데이터 교체, 무한 스크롤이면 데이터 추가
+      if (isInitialLoad || !isLoadMore) {
+        setRooms(roomsData.data)
+      } else {
+        setRooms(prevRooms => [...prevRooms, ...roomsData.data])
+      }
+      
+      // 커서와 페이지네이션 정보 업데이트
+      setCursor(roomsData.nextCursor)
+      setHasNext(roomsData.hasNext)
+      setTotalElements(roomsData.totalElements)
+      
     } catch (error) {
       console.error('시청방 목록 로드 오류:', error)
       setError(error instanceof Error ? error.message : '시청방 목록을 불러오는 중 오류가 발생했습니다.')
     } finally {
       setLoading(false)
       setRefreshing(false)
+      setLoadingMore(false)
     }
   }
 
-  // 검색 및 정렬 변경 시 목록 새로고침
+  // 무한 스크롤을 위한 더 많은 데이터 로드
+  const loadMoreRooms = async () => {
+    if (!hasNext || loadingMore || loading) {
+      return
+    }
+    
+    await loadRooms(false, true)
+  }
+
+  // 검색 및 정렬 변경 시 목록 새로고침 (페이지네이션 초기화)
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      loadRooms(false)
+      // 검색이나 정렬이 변경되면 첫 페이지부터 다시 시작
+      setCursor(null)
+      setHasNext(true)
+      loadRooms(true, false) // 초기 로드로 처리
     }, 300) // 300ms 디바운스
     
     return () => clearTimeout(timeoutId)
@@ -60,6 +117,27 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, currentUserId }: LiveRooms
   useEffect(() => {
     loadRooms(true)
   }, [])
+
+  // 무한 스크롤을 위한 스크롤 이벤트 리스너
+  useEffect(() => {
+    const handleScroll = () => {
+      if (loading || loadingMore || !hasNext) {
+        return
+      }
+
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop
+      const windowHeight = window.innerHeight
+      const documentHeight = document.documentElement.scrollHeight
+
+      // 페이지 하단에서 200px 지점에 도달하면 더 많은 데이터 로드
+      if (scrollTop + windowHeight >= documentHeight - 100) {
+        loadMoreRooms()
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [loading, loadingMore, hasNext, cursor]) // 의존성 배열에 필요한 상태들 추가
 
 
   // const formatTimeAgo = (dateString: string) => {
@@ -102,7 +180,11 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, currentUserId }: LiveRooms
             <h1 className="text-3xl">라이브 시청방</h1>
             <div className="flex gap-3">
               <Button
-                onClick={() => loadRooms(false)}
+                onClick={() => {
+                  setCursor(null)
+                  setHasNext(true)
+                  loadRooms(false, false)
+                }}
                 disabled={refreshing}
                 variant="outline"
                 className="border-white/20 hover:bg-white/5"
@@ -137,14 +219,17 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, currentUserId }: LiveRooms
             </div>
             
             <div className="flex gap-3">
-              <Select value={sortBy} onValueChange={(value) => setSortBy(value as 'participants' | 'latest' | 'oldest')}>
-                <SelectTrigger className="w-40 bg-white/5 border-white/20">
+              <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
+                <SelectTrigger className="w-48 bg-white/5 border-white/20">
                   <SelectValue placeholder="정렬" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="participants">시청자 많은 순</SelectItem>
+                  <SelectItem value="participants_desc">시청자 많은 순</SelectItem>
+                  <SelectItem value="participants_asc">시청자 적은 순</SelectItem>
                   <SelectItem value="latest">최신순</SelectItem>
                   <SelectItem value="oldest">오래된 순</SelectItem>
+                  <SelectItem value="title_asc">제목 오름차순</SelectItem>
+                  <SelectItem value="title_desc">제목 내림차순</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -152,7 +237,12 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, currentUserId }: LiveRooms
 
           {/* Stats */}
           <div className="flex items-center gap-4 text-white/60">
-            <span>현재 {displayRooms.length}개 시청방 활성화</span>
+            <span>
+              {totalElements > 0 
+                ? `${displayRooms.length}개 / 총 ${totalElements}개 시청방`
+                : `현재 ${displayRooms.length}개 시청방 활성화`
+              }
+            </span>
             <div className="px-2 py-1 rounded-full text-xs font-medium bg-[#4ecdc4]/20 text-[#4ecdc4] border border-[#4ecdc4]/30">
               <Users className="w-3 h-3 mr-1 inline" />
               실시간
@@ -165,7 +255,11 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, currentUserId }: LiveRooms
           <div className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
             <p className="text-red-400 mb-2">{error}</p>
             <Button
-              onClick={() => loadRooms(true)}
+              onClick={() => {
+                setCursor(null)
+                setHasNext(true)
+                loadRooms(true, false)
+              }}
               variant="outline"
               size="sm"
               className="border-red-400/30 text-red-400 hover:bg-red-500/10"
@@ -377,8 +471,34 @@ export function LiveRooms({ onJoinRoom, onCreateRoom, currentUserId }: LiveRooms
               </div>
             ))}
         </div>
-        </div>
         
+        {/* 무한 스크롤 로딩 및 더보기 버튼 */}
+        {displayRooms.length > 0 && (
+          <div className="text-center py-6">
+            {loadingMore && (
+              <div className="flex items-center justify-center mb-4">
+                <Loader2 className="w-6 h-6 animate-spin text-[#4ecdc4] mr-2" />
+                <span className="text-white/60">더 많은 시청방을 불러오는 중...</span>
+              </div>
+            )}
+            
+            {!loadingMore && hasNext && (
+              <Button
+                onClick={loadMoreRooms}
+                variant="outline"
+                className="border-[#4ecdc4]/30 text-[#4ecdc4] hover:bg-[#4ecdc4]/10"
+                disabled={loading}
+              >
+                더 많은 시청방 보기
+              </Button>
+            )}
+            
+            {!hasNext && displayRooms.length > 0 && (
+              <p className="text-white/40 text-sm">모든 시청방을 확인했습니다.</p>
+            )}
+          </div>
+        )}
+        </div>
 
         {/* Empty State */}
         {displayRooms.length === 0 && (

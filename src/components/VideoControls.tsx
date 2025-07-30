@@ -182,8 +182,8 @@ export function VideoControls({
           )}
         </div>
         <div className="flex items-center justify-between text-sm text-white/80">
-          <span>{formatTime(isDragging ? dragTime : currentTime)}</span>
-          <span>{formatTime(totalDuration)}</span>
+          <span>{formatTime(Math.floor(isDragging ? dragTime : currentTime))}</span>
+          <span>{formatTime(Math.floor(totalDuration))}</span>
         </div>
       </div>
 
