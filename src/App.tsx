@@ -1593,7 +1593,12 @@ export default function App() {
               <p>공유 링크로 접근하셨습니다. 플레이리스트만 조회 가능합니다.</p>
             </div>
           ) : (
-            <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} />
+            <Dashboard 
+            onPageChange={handlePageChange} 
+            onPlaylistOpen={handlePlaylistDetailOpen} 
+            onContentPlay={handleContentPlay} 
+            onJoinRoom={handleJoinRoom} 
+            userId={userId || undefined}/>
           )
         )
       case 'watch-party':
@@ -1612,7 +1617,7 @@ export default function App() {
               <p>공유 링크로 접근하셨습니다. 플레이리스트만 조회 가능합니다.</p>
             </div>
           ) : (
-            <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} />
+            <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} userId={userId || undefined}/>
           )
         )
       case 'user-profile':
@@ -1633,7 +1638,7 @@ export default function App() {
               <p>공유 링크로 접근하셨습니다. 플레이리스트만 조회 가능합니다.</p>
             </div>
           ) : (
-            <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} />
+            <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} userId={userId || undefined} />
           )
         )
       case 'live':
@@ -1645,7 +1650,7 @@ export default function App() {
             <p>공유 링크로 접근하셨습니다. 플레이리스트만 조회 가능합니다.</p>
           </div>
         ) : (
-          <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} />
+          <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} userId={userId || undefined} />
         )
     }
   }
