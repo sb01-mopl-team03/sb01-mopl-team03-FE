@@ -76,18 +76,6 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
         type: 'text',
         isOwnMessage: dmMessage.senderId === currentUserId,
       };
-
-      setMessages((prev) => {
-        const existingMessage = prev.find((msg) => msg.id === dmMessage.id);
-        if (existingMessage) {
-          return prev;
-        }
-
-        setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, 50);
-        return [...prev, message];
-      });
     },
     onError: (error: string) => {
       console.error('❌ DM WebSocket 에러:', error);
@@ -101,6 +89,11 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
       }
     },
   });
+
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]); // messages가 변경될 때마다 아래로 스크롤
 
   // 초기 로드 시에만 최하단으로 스크롤 (사용자 스크롤 허용 시점 제어)
   useEffect(() => {
