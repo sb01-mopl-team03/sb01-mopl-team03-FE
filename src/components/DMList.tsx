@@ -24,6 +24,7 @@ interface Conversation {
   unreadCount: number
   isOnline: boolean
   userId: string
+  lastMessageAt: string
 }
 
 interface ChatPartner {
@@ -219,8 +220,16 @@ export function DMList({ isOpen, onClose, onOpenChat, authenticatedFetch, curren
           lastMessage: room.lastMessage || '아직 메시지가 없습니다',
           timestamp: room.lastMessage ? formatTimestamp(room.createdAt) : formatTimestamp(room.createdAt),
           unreadCount: room.newMessageCount || 0,
-          isOnline: otherUser?.isOnline || false
+          isOnline: otherUser?.isOnline || false,
+          lastMessageAt: room.lastMessageAt || room.createdAt
         }
+      })
+      
+      // Sort by lastMessageAt in descending order (most recent first)
+      conversationList.sort((a, b) => {
+        const dateA = new Date(a.lastMessageAt).getTime()
+        const dateB = new Date(b.lastMessageAt).getTime()
+        return dateB - dateA
       })
       
       setConversations(conversationList)
