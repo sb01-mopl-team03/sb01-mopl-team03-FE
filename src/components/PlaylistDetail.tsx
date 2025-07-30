@@ -33,6 +33,7 @@ interface PlaylistDetailProps {
   deletePlaylist?: (playlistId: string) => Promise<void>
   currentUserId?: string // 현재 사용자 ID
   isSharedAccess?: boolean // 공유 링크 접근 여부
+  refreshTrigger?: number
 }
 
 // ========== API INTEGRATION POINT - START ==========
@@ -40,7 +41,7 @@ interface PlaylistDetailProps {
 // Example: const fetchPlaylistDetails = async (playlistId: string) => { ... }
 // ========== API INTEGRATION POINT - END ==========
 
-export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistById, addPlaylistContents, deletePlaylistContents, deletePlaylist, currentUserId, isSharedAccess }: PlaylistDetailProps) {
+export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistById, addPlaylistContents, deletePlaylistContents, deletePlaylist, currentUserId, isSharedAccess, refreshTrigger }: PlaylistDetailProps) {
   const [playlist, setPlaylist] = useState<any>(null)
   const [contents, setContents] = useState<PlaylistContent[]>([])
   const [isSubscribed, setIsSubscribed] = useState(false)
@@ -147,7 +148,7 @@ export function PlaylistDetail({ playlistId, onBack, onContentPlay, getPlaylistB
   // Load playlist details on component mount
   useEffect(() => {
     loadPlaylistDetails()
-  }, [loadPlaylistDetails])
+  }, [loadPlaylistDetails, refreshTrigger])
 
   // 검색어 변경 시 콘텐츠 다시 로드
   useEffect(() => {
