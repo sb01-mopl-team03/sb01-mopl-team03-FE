@@ -410,10 +410,6 @@ export function Playlist({
                     {/* Metadata */}
                     <div className="flex items-center justify-between text-xs text-white/60">
                       <div className="flex items-center space-x-1">
-                        <Clock className="w-3 h-3" />
-                        <span>{playlist.totalDuration || '0분'}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
                         <Calendar className="w-3 h-3" />
                         <span>{playlist.createdAt ? new Date(playlist.createdAt).toLocaleDateString('ko-KR') : '날짜 없음'}</span>
                       </div>
