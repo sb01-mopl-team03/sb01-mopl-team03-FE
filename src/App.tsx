@@ -743,6 +743,7 @@ export default function App() {
   const [showChatRoom, setShowChatRoom] = useState(false)
   const [currentChatUser, setCurrentChatUser] = useState<ChatUser | null>(null)
   const [dmRefreshTrigger, setDmRefreshTrigger] = useState(0)
+  const [playlistRefreshTrigger, setPlaylistRefreshTrigger] = useState(0)
   
   // Watch Party State
   const [showWatchPartyConfirmation, setShowWatchPartyConfirmation] = useState(false)
@@ -1504,6 +1505,21 @@ export default function App() {
     })
   }
 
+  const handlePlaylistRefresh = () => {
+    console.log('📋 플레이리스트 새로고침 요청 - 플레이리스트 관련 컴포넌트 갱신 트리거')
+    setPlaylistRefreshTrigger(prev => {
+      const newValue = prev + 1
+      console.log(`playlistRefreshTrigger 업데이트: ${prev} -> ${newValue}`)
+      return newValue
+    })
+    
+    // 현재 페이지가 플레이리스트 관련 페이지라면 데이터 새로고침
+    if (currentPage === 'playlist') {
+      console.log('🔄 현재 플레이리스트 페이지 - 즉시 데이터 갱신')
+      // 플레이리스트 페이지 데이터 갱신은 refreshTrigger prop을 통해 처리됨
+    }
+  }
+
   console.log('✅ isLoggedIn:', isLoggedIn)
   console.log('📍 pathname:', pathname)
   console.log('🔎 searchParams:', searchParams.toString())
@@ -1548,6 +1564,7 @@ export default function App() {
           deletePlaylist={deletePlaylist}
           currentUserId={userId || undefined}
           onUserProfileOpen={handleUserProfileOpen}
+          refreshTrigger={playlistRefreshTrigger}
         />
       case 'playlist-detail':
       console.log('🧭 renderCurrentPage - playlist-detail 진입, selectedPlaylistId:', selectedPlaylistId)
@@ -1566,12 +1583,14 @@ export default function App() {
             deletePlaylist={deletePlaylist}
             currentUserId={userId || undefined}
             isSharedAccess={isSharedAccess}
+            refreshTrigger={playlistRefreshTrigger}
           />
         ) : (
           <Playlist 
             onPlaylistOpen={handlePlaylistDetailOpen} 
             getPlaylists={getPlaylists}
             createPlaylist={createPlaylist}
+            refreshTrigger={playlistRefreshTrigger}
           />
         )
       case 'content-detail':
@@ -1617,7 +1636,7 @@ export default function App() {
               <p>공유 링크로 접근하셨습니다. 플레이리스트만 조회 가능합니다.</p>
             </div>
           ) : (
-            <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} userId={userId || undefined}/>
+            <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} userId={userId || undefined} refreshTrigger={playlistRefreshTrigger} />
           )
         )
       case 'user-profile':
@@ -1638,7 +1657,7 @@ export default function App() {
               <p>공유 링크로 접근하셨습니다. 플레이리스트만 조회 가능합니다.</p>
             </div>
           ) : (
-            <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} userId={userId || undefined} />
+            <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} userId={userId || undefined} refreshTrigger={playlistRefreshTrigger} />
           )
         )
       case 'live':
@@ -1650,7 +1669,7 @@ export default function App() {
             <p>공유 링크로 접근하셨습니다. 플레이리스트만 조회 가능합니다.</p>
           </div>
         ) : (
-          <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} userId={userId || undefined} />
+          <Dashboard onPageChange={handlePageChange} onPlaylistOpen={handlePlaylistDetailOpen} onContentPlay={handleContentPlay} onJoinRoom={handleJoinRoom} userId={userId || undefined} refreshTrigger={playlistRefreshTrigger} />
         )
     }
   }
@@ -1709,6 +1728,7 @@ export default function App() {
         refreshAccessToken={refreshAccessToken} // 토큰 갱신 함수 (SSE용)
         isSharedAccess={isSharedAccess} // 공유 링크 접근 여부 전달
         onDMReceived={handleDMReceived} // DM 수신 시 채팅방 목록 갱신 콜백
+        onPlaylistRefresh={handlePlaylistRefresh} // 플레이리스트 새로고침 콜백
       />
       
       {/* Main content with click handler to close DM */}
