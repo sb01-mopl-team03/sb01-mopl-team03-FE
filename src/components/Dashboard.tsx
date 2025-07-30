@@ -13,9 +13,10 @@ interface DashboardProps {
   onPlaylistOpen?: (playlistId: string) => void
   onContentPlay?: (content: { id: string; title: string; thumbnail: string; type: 'movie' | 'tv' | 'sports'; description: string; duration?: string }) => void
   onJoinRoom?: (room: WatchRoomDto) => void
+  userId?: string
 }
 
-export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay, onJoinRoom }: DashboardProps) {
+export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay, onJoinRoom, userId }: DashboardProps) {
   const [liveRooms, setLiveRooms] = useState<WatchRoomDto[]>([])
   const [featuredContent, setFeaturedContent] = useState<ContentDto[]>([])
   const [subscribedPlaylists, setSubscribedPlaylists] = useState<PlaylistDto[]>([])
@@ -66,8 +67,8 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay, onJoinR
   }
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    if(!token) return;
+    if(!userId) return;
+    setIsLoading(true)
     const loadData = async () => {
       setIsLoading(true)
       await Promise.all([
@@ -79,7 +80,7 @@ export function Dashboard({ onPageChange, onPlaylistOpen, onContentPlay, onJoinR
     }
     
     loadData()
-  }, [])
+  }, [userId])
   // ========== API INTEGRATION POINT - END ==========
 
   // Room join handler
