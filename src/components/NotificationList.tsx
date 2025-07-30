@@ -32,7 +32,7 @@ export class NotificationService {
     if (cursor) params.append('cursor', cursor);
     if (size) params.append('size', String(size));
 
-    const response = await this.authenticatedFetch(`/api/notifications?${params.toString()}`, {
+    const response = await this.authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || '<http://localhost:8080>'}/api/notifications?${params.toString()}`, {
       method: 'GET'
     });
 
