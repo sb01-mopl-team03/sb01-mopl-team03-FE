@@ -301,7 +301,7 @@ export function DMList({ isOpen, onClose, onOpenChat, authenticatedFetch, curren
               placeholder={showChatPartnerSelection ? "대화상대 검색..." : "대화상대 검색..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-12 px-4 text-base bg-white/5 border-white/20 focus:border-[#4ecdc4]"
+              className="pl-12 pr-4 h-12 text-base bg-white/5 border-white/20 focus:border-[#4ecdc4]"
             />
           </div>
         </div>
@@ -342,11 +342,6 @@ export function DMList({ isOpen, onClose, onOpenChat, authenticatedFetch, curren
                         <p className="text-sm text-white/60">
                           공통 팔로우 {partner.mutualFriends}명
                         </p>
-                      </div>
-                      
-                      {/* Online Status Text */}
-                      <div className="text-xs text-white/60 flex-shrink-0">
-                        {partner.isOnline ? '온라인' : '오프라인'}
                       </div>
                     </div>
                   ))}

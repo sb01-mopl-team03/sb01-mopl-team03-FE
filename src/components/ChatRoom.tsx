@@ -307,11 +307,11 @@ export function ChatRoom({ isOpen, onClose, onBack, user, currentUserId, getDmMe
               <div>
                 <p className="font-medium text-sm">{user.name}</p>
                 <p className="text-xs text-white/60">
-                  {user.isOnline ? '온라인' : '오프라인'}
+                  {/* {user.isOnline ? '온라인' : ''}
                   {' • '}
                   <span className={`${isConnected ? 'text-green-400' : 'text-red-400'}`}>
                     {isConnected ? '연결됨' : '연결 안됨'}
-                  </span>
+                  </span> */}
                 </p>
               </div>
             </div>
