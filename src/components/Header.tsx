@@ -434,8 +434,7 @@ export function Header({ currentPage, onPageChange, onProfileClick, onMyProfileC
   const handleNotificationClick = async (notificationId: string) => {
     try {
       // 1. 백엔드에 읽음 처리 요청 보내기
-      await authenticatedFetch(
-          `/api/notifications/${notificationId}`,  // 엔드포인트 맞게 확인!
+      await authenticatedFetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:8080'}/api/notifications/${notificationId}`,  // 엔드포인트 맞게 확인!
           { method: 'POST' }
       );
       // 2. 성공 시 프론트에서도 isRead 변경
